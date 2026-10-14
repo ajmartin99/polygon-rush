@@ -10,6 +10,8 @@ import { iap } from './services/iap';
 import { account } from './services/account';
 import { ui } from './ui/ui';
 import { nav } from './ui/nav';
+import { localCard, ProfileScreen } from './ui/profile';
+import { setLocalCard } from './services/net';
 import { AgeGateScreen, DifficultyScreen, NameScreen } from './ui/screens/onboarding';
 import { MenuScreen } from './ui/screens/menu';
 import { ShopScreen } from './ui/screens/shop';
@@ -29,6 +31,8 @@ function registerRoutes(): void {
   nav.register('agegate', () => new AgeGateScreen());
   nav.register('name', (p) => new NameScreen(p));
   nav.register('difficulty', (p) => new DifficultyScreen(p));
+  nav.register('profile', () => new ProfileScreen());
+  setLocalCard(localCard);
   nav.register('menu', () => new MenuScreen());
   nav.register('shop', (p) => new ShopScreen(p));
   nav.register('missions', () => new MissionsScreen());

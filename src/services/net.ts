@@ -4,6 +4,7 @@ import { Emitter } from '../core/emitter';
 import type { EditOp } from '../editor/doc';
 import { quickLine } from '../meta/quickchat';
 import { isGeneratedName } from '../meta/names';
+import { safeCard, type ProfileCard } from '../meta/profile';
 import { SKINS } from '../meta/catalog';
 
 /**
@@ -27,13 +28,21 @@ export interface NetPlayer {
   host: boolean;
   /** Cursor / name-tag colour (0..3). */
   color: number;
+  /** Game-only profile card (badges, title, numbers). */
+  card?: ProfileCard;
+}
+
+let localCard: () => ProfileCard | undefined = () => undefined;
+/** Where rooms get this player's profile card from. */
+export function setLocalCard(fn: () => ProfileCard | undefined): void {
+  localCard = fn;
 }
 
 /** Compact racer state: [id, x, y, rot, modeIndex, flags, speed]. */
 export type NetState = [string, number, number, number, number, number, number];
 
 export type NetMsg =
-  | { t: 'hello'; v: number; name: string; skin: string }
+  | { t: 'hello'; v: number; name: string; skin: string; card?: ProfileCard }
   | { t: 'welcome'; you: string; players: NetPlayer[]; kind: RoomKind; chat: string; lock: boolean; level?: string; rev?: number; authors?: string[] }
   | { t: 'lobby'; players: NetPlayer[]; racing: boolean }
   | { t: 'reject'; reason: 'full' | 'version' | 'started' | 'closed' }
@@ -105,7 +114,7 @@ export function safePlayers(list: unknown): NetPlayer[] {
   return list.slice(0, 8).flatMap((p): NetPlayer[] => {
     if (!p || typeof p !== 'object' || typeof (p as NetPlayer).id !== 'string') return [];
     const q = p as NetPlayer;
-    return [{ id: q.id.slice(0, 64), name: safeName(q.name), skin: safeSkin(q.skin), host: q.host === true, color: Number.isInteger(q.color) ? Math.abs(q.color) % 4 : 0 }];
+    return [{ id: q.id.slice(0, 64), name: safeName(q.name), skin: safeSkin(q.skin), host: q.host === true, color: Number.isInteger(q.color) ? Math.abs(q.color) % 4 : 0, card: safeCard(q.card) }];
   });
 }
 
@@ -244,7 +253,7 @@ export class NetRoom extends Emitter<RoomEvents> {
         room.peer = peer;
         room.code = code;
         room.localId = peer.id;
-        room.players = [{ id: peer.id, name, skin, host: true, color: 0 }];
+        room.players = [{ id: peer.id, name, skin, host: true, color: 0, card: localCard() }];
         room.wireHost();
         return room;
       } catch (e) {
@@ -278,7 +287,7 @@ export class NetRoom extends Emitter<RoomEvents> {
       const conn = peer.connect(CONFIG.net.roomPrefix + code, { reliable: true, serialization: 'json' });
       room.hostConn = conn;
       conn.on('open', () => {
-        conn.send({ t: 'hello', v: PROTOCOL_VERSION, name, skin } satisfies NetMsg);
+        conn.send({ t: 'hello', v: PROTOCOL_VERSION, name, skin, card: localCard() } satisfies NetMsg);
       });
       conn.on('data', (data) => {
         const msg = data as NetMsg;
@@ -355,7 +364,7 @@ export class NetRoom extends Emitter<RoomEvents> {
         this.conns.set(from, conn);
         const used = new Set(this.players.map((p) => p.color));
         const color = [0, 1, 2, 3].find((c) => !used.has(c)) ?? 0;
-        this.players.push({ id: from, name: safeName(msg.name), skin: safeSkin(msg.skin), host: false, color });
+        this.players.push({ id: from, name: safeName(msg.name), skin: safeSkin(msg.skin), host: false, color, card: safeCard(msg.card) });
         const welcome: NetMsg = { t: 'welcome', you: from, players: this.players, kind: this.kind, chat: this.chatKey, lock: this.locked };
         if (this.kind === 'build' && this.snapshot) {
           const snap = this.snapshot();

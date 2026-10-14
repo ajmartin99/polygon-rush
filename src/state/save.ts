@@ -65,6 +65,12 @@ export interface SaveData {
     name: string;
     birthYear: number | null;
     ageGroup: AgeGroup | null;
+    /** Badge id whose title is shown on the profile card ('' = Rookie Rusher). */
+    title: string;
+    /** Banner colour index. */
+    banner: number;
+    /** Badge ids pinned to the card (max 3). */
+    showcase: string[];
   };
   gems: number;
   xp: number;
@@ -145,7 +151,7 @@ export function createSave(now = Date.now()): SaveData {
   return {
     v: SAVE_VERSION,
     createdAt: now,
-    profile: { name: '', birthYear: null, ageGroup: null },
+    profile: { name: '', birthYear: null, ageGroup: null, title: '', banner: 0, showcase: [] },
     gems: 100,
     xp: 0,
     level: 1,
@@ -205,6 +211,8 @@ export function migrate(raw: unknown): SaveData {
   save.level = Math.max(1, Math.floor(save.level));
   if (save.account.consent !== 'self' && save.account.consent !== 'parent') save.account = { ...emptyAccount(), rules: save.account.rules };
   save.account.blocked = save.account.blocked.filter((b) => typeof b === 'string').slice(-200);
+  save.profile.showcase = save.profile.showcase.filter((b) => typeof b === 'string').slice(0, 3);
+  save.profile.banner = Number.isInteger(save.profile.banner) ? Math.max(0, save.profile.banner) : 0;
   save.settings.music = clamp01(save.settings.music);
   save.settings.sfx = clamp01(save.settings.sfx);
   if (!DIFFICULTIES.includes(save.settings.difficulty)) save.settings.difficulty = 'medium';

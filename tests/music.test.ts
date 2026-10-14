@@ -53,6 +53,13 @@ describe('music director', () => {
     expect(played).toHaveLength(2);
   });
 
+  it('reports the queued song straight after a skip', () => {
+    music.menu();
+    (audio as unknown as { pending: number }).pending = -1;
+    music.skip();
+    expect(music.current).toBe(played.at(-1));
+  });
+
   it('loops a custom level song', () => {
     music.level(15, 0);
     audio.onSongEnd?.();

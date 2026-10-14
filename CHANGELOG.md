@@ -5,6 +5,11 @@ All notable changes to Polygon Rush are documented here.
 ## [1.0.0] - 2026-10-14
 
 ### Added
+- **Soundtrack playlists:** the main menu has its own theme, each world keeps its signature song, and runs, races and building rotate through a shuffled mix, so no song loops forever. Skip is in the pause menu and Settings, and **Settings → Soundtrack** lets you play any song or take it out of rotation. Builders can pick a song for their level (saved in the level code).
+- **9 new songs in new genres:** chiptune, drum & bass, house, rock, tropical, lo-fi, future bass, electro swing and epic (17 songs in total). New drum kits, lead voices, basses and pads.
+- **Difficulty:** Easy, Medium or Hard, chosen on first launch (Medium by default) and changeable in Settings. Each has its own speed curve, pattern ramp and best score, and CPU races follow it. Medium now gets harder sooner.
+- **Harder combos** that appear as runs heat up: pad over a wide pit, pit–island–pit, two-ring chains, spiked steps, Roller gauntlets, Glider saw gates and a Hopper low roof. All are bot-verified on every difficulty.
+- **Player profiles:** a shareable card with title, banner, 3 showcased badges and stats; 16 badges to earn. Tap a player in a lobby or build room to see their card. Game facts only, no free text.
 - **Create mode:** a touch level editor with 16 tools (blocks, ledges, spikes, saws, gems, pads, orbs, power-ups, four shape portals, pits, finish line, eraser, move), undo/redo, minimap, test from start or from here, and level settings (name, world, speed, hearts, length).
 - Beat-it-to-share verification and compact `PR1-…` level codes; My Levels (play, edit, remix, copy, delete), Enter Code, and four Featured levels from the Polygon Rush team.
 - **Build Together:** up to 4 players edit one level live (host-ordered edits, instant local preview, coloured cursors, lock and remove), then race it together.
@@ -24,7 +29,7 @@ All notable changes to Polygon Rush are documented here.
 - Endless (hearts, shields, magnets, one revive), Race vs 3 CPU rivals with mystery boxes and leagues, 2-player split-screen Duel, and online Friends races.
 - CPU rival AI that plans with the real physics and makes human-like mistakes by skill level.
 - Rewards: gems, XP & level-ups, missions, trophies; tutorial hints and slow-mo for first-time mechanics.
-- Original synthesised soundtrack: 8 composed themes (one per world, plus menu and race) with verse/chorus sections, fills, side-chain pump, echo/reverb and intensity layers that build with speed; ~30 sound effects; haptics; pause/resume and app-background handling.
+- Original synthesised soundtrack: composed themes (one per world, plus menu and race) with verse/chorus sections, fills, side-chain pump, echo/reverb and intensity layers that build with speed; ~30 sound effects; haptics; pause/resume and app-background handling.
 - Complete menu flow: neutral age screen, generated kid-safe racer names, main menu, shop, missions, daily gift, settings, parental controls, privacy policy.
 - Shop with 23 skins, 11 trails, gem packs, No Ads, Starter Pack and Legend Pack (Google Play Billing), plus optional rewarded "free gems".
 - Kid-safe AdMob integration: G-rated ads only, child-directed for under-13s, interstitials capped and only between runs.

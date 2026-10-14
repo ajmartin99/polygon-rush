@@ -213,6 +213,11 @@ class AudioEngine {
     return this.songIndex;
   }
 
+  /** The song playing, or the one queued for the next bar line. */
+  get targetSong(): number {
+    return this.pending >= 0 ? this.pending : this.songIndex;
+  }
+
   /** Start a song, or switch at the next bar line if one is playing. */
   playSong(index: number): void {
     this.unlock();

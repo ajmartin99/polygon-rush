@@ -27,7 +27,7 @@ class MusicDirector extends Emitter<{ song: number }> {
   }
 
   get current(): number {
-    return audio.currentSong;
+    return audio.targetSong;
   }
 
   get contextName(): MusicContext | null {
@@ -48,7 +48,7 @@ class MusicDirector extends Emitter<{ song: number }> {
   world(world: number): void {
     if (this.context !== 'run') return this.run(world);
     const song = world % WORLD_SONGS;
-    if (this.allowed(song) && audio.currentSong !== song) this.play(song);
+    if (this.allowed(song) && audio.targetSong !== song) this.play(song);
   }
 
   race(first = RACE_SONG): void {
@@ -105,7 +105,7 @@ class MusicDirector extends Emitter<{ song: number }> {
     if (changed) this.bag = [];
     const song = force || this.allowed(first) ? first : this.draw();
     // Keep the current song if it already fits (e.g. back to menu from Settings).
-    if (!changed && !force && this.pool().includes(audio.currentSong)) return;
+    if (!changed && !force && this.pool().includes(audio.targetSong)) return;
     this.play(song);
   }
 
@@ -118,21 +118,21 @@ class MusicDirector extends Emitter<{ song: number }> {
     const pool = this.pool();
     this.bag = this.bag.filter((i) => pool.includes(i));
     if (!this.bag.length) {
-      const fresh = pool.filter((i) => i !== audio.currentSong);
+      const fresh = pool.filter((i) => i !== audio.targetSong);
       this.bag = fresh.length ? fresh : pool.slice();
       for (let i = this.bag.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [this.bag[i], this.bag[j]] = [this.bag[j], this.bag[i]];
       }
     }
-    let k = this.bag.findIndex((i) => i !== audio.currentSong && i !== this.last);
-    if (k < 0) k = this.bag.findIndex((i) => i !== audio.currentSong);
+    let k = this.bag.findIndex((i) => i !== audio.targetSong && i !== this.last);
+    if (k < 0) k = this.bag.findIndex((i) => i !== audio.targetSong);
     if (k < 0) k = 0;
     return this.bag.splice(k, 1)[0];
   }
 
   private play(song: number): void {
-    this.last = audio.currentSong;
+    this.last = audio.targetSong;
     this.bag = this.bag.filter((i) => i !== song);
     audio.playSong(song);
     this.emit('song', song);

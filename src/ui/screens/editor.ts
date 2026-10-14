@@ -18,6 +18,7 @@ import { RoomFreeChat } from '../free-chat';
 import { ensureRules } from '../community';
 import { canUsePublicRooms } from '../../meta/community';
 import { lobby, PublicListing } from '../../services/lobby';
+import { openPlayerCard } from '../profile';
 import { ServerError } from '../../services/server';
 
 /** Sessions whose room races are already hooked up to the game. */
@@ -441,6 +442,7 @@ export class EditorScreen extends BaseScreen {
         h(
           'div.col',
           { style: 'gap:0.5rem' },
+          button({ label: 'View profile', icon: 'star', cls: 'yellow lg', onClick: () => (m.close(), openPlayerCard(p)) }),
           button({
             label: 'Mute',
             icon: 'mute',

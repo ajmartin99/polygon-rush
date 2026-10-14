@@ -23,6 +23,7 @@ needs a person, and what to do when something serious happens.
 * Ages come from the neutral age screen (birth year, conservatively rounded down)
   and the server re-checks the birth year sent at sign-up.
 * Names are always generated ("Speedy Panda 7"): no one can type a name.
+* Profile cards (shown when you tap a player in a room) hold only game facts: level, league, badges, a title chosen from earned badges, a banner colour and a few stats. There is no bio, photo or free text, and incoming cards are cleaned (unknown ids dropped, numbers clamped).
 * Free Chat is only delivered to players who are verified themselves, so a
   verified adult can never send typed text to an unverified child in the same room.
 * Online rooms are peer-to-peer; only generated names, skins, positions, level

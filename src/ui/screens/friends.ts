@@ -11,6 +11,7 @@ import { BaseScreen, button, titleBar } from '../components';
 import { h, clear } from '../dom';
 import { nav } from '../nav';
 import { previewCanvas } from '../preview';
+import { openPlayerCard } from '../profile';
 import { ui } from '../ui';
 
 type View = 'choose' | 'join' | 'busy' | 'lobby';
@@ -105,8 +106,8 @@ export class FriendsScreen extends BaseScreen {
       slots.push(
         p
           ? h(
-              'div.player-slot.filled',
-              p.id === room.localId ? { style: 'border-color:var(--yellow)' } : null,
+              'button.player-slot.filled',
+              { style: p.id === room.localId ? 'border-color:var(--yellow)' : '', 'aria-label': `${p.name} profile`, onclick: () => openPlayerCard(p) },
               previewCanvas({ skin: p.skin, animate: p.id === room.localId, scale: 0.6 }),
               h('div.nm', null, p.name),
               p.host ? h('span.tag', null, 'HOST') : p.id === room.localId ? h('span.tag.cpu', null, 'YOU') : null,

@@ -23,8 +23,10 @@ FEATURES
 • CREATE: build your own levels with spikes, saws, pads, portals and gems, test them, then share a level code
 • Build Together: up to 4 friends edit the same level live, then race it
 • Quick Chat: friendly preset phrases and emotes for every age
-• Six worlds: Bubblegum Bay, Mint Meadow, Sunset Circuit, Ocean Prism, Candy Cosmos and Lemon Lab, each with its own catchy original soundtrack
+• Six worlds: Bubblegum Bay, Mint Meadow, Sunset Circuit, Ocean Prism, Candy Cosmos and Lemon Lab, each with its own catchy theme, plus 17 original songs from chiptune to drum & bass
 • 23 skins with silly faces (sunglasses, kitty, dino, robot…) and 11 sparkly trails
+• Easy, Medium or Hard: pick your challenge
+• Player profiles with badges and titles to show your friends
 • Daily gifts, missions, levels and rewards
 • Kid Mode: slower speed and extra hearts for younger players
 • Parental controls for online play, chat and purchases, generated names only, and kid-safe ads

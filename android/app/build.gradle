@@ -1,0 +1,108 @@
+apply plugin: 'com.android.application'
+
+// ---------------------------------------------------------------------------
+// Polygon Rush build configuration
+//
+// Everything that differs between a local/debug build and a store release is
+// read from environment variables (set by the GitHub release workflow from
+// repository secrets/variables) so no credentials ever live in the repo.
+//
+//   VERSION_NAME / VERSION_CODE   app version (defaults: 1.0.0 / 10000)
+//   ADMOB_APP_ID                  AdMob app id (defaults to Google's test id)
+//   ANDROID_KEYSTORE_FILE         path to the upload/release keystore (.jks)
+//   ANDROID_KEYSTORE_PASSWORD     keystore password
+//   ANDROID_KEY_ALIAS             key alias
+//   ANDROID_KEY_PASSWORD          key password
+// ---------------------------------------------------------------------------
+
+def env = { String name, String fallback = null ->
+    def value = System.getenv(name)
+    return (value != null && !value.trim().isEmpty()) ? value.trim() : fallback
+}
+
+def appVersionName = env('VERSION_NAME', '1.0.0')
+def appVersionCode = env('VERSION_CODE', '10000').toInteger()
+// Google's public AdMob *test* app id. Replace via ADMOB_APP_ID for production.
+def admobAppId = env('ADMOB_APP_ID', 'ca-app-pub-3940256099942544~3347511713')
+def releaseKeystore = env('ANDROID_KEYSTORE_FILE')
+def hasReleaseKeystore = releaseKeystore != null && file(releaseKeystore).exists()
+
+android {
+    namespace = "io.github.ajmartin99.polygonrush"
+    compileSdk = rootProject.ext.compileSdkVersion
+    defaultConfig {
+        applicationId "io.github.ajmartin99.polygonrush"
+        minSdkVersion rootProject.ext.minSdkVersion
+        targetSdkVersion rootProject.ext.targetSdkVersion
+        versionCode appVersionCode
+        versionName appVersionName
+        manifestPlaceholders = [admobAppId: admobAppId]
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        aaptOptions {
+             // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
+             // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
+            ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+        }
+    }
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            release {
+                storeFile file(releaseKeystore)
+                storePassword env('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias env('ANDROID_KEY_ALIAS')
+                keyPassword env('ANDROID_KEY_PASSWORD', env('ANDROID_KEYSTORE_PASSWORD'))
+            }
+        }
+    }
+    buildTypes {
+        debug {
+            applicationIdSuffix ".debug"
+            versionNameSuffix "-debug"
+        }
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            if (hasReleaseKeystore) {
+                signingConfig signingConfigs.release
+            } else {
+                // No release key configured: sign with the debug key so the APK
+                // is still installable for testing. NOT suitable for Google Play.
+                logger.warn("Polygon Rush: ANDROID_KEYSTORE_FILE not set - release build is signed with the DEBUG key.")
+                signingConfig signingConfigs.debug
+            }
+        }
+    }
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}
+
+repositories {
+    flatDir{
+        dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
+    implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
+    implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
+    implementation project(':capacitor-android')
+    testImplementation "junit:junit:$junitVersion"
+    androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
+    androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation project(':capacitor-cordova-android-plugins')
+}
+
+apply from: 'capacitor.build.gradle'
+
+try {
+    def servicesJSON = file('google-services.json')
+    if (servicesJSON.text) {
+        apply plugin: 'com.google.gms.google-services'
+    }
+} catch(Exception e) {
+    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+}

@@ -2047,6 +2047,20 @@ input[type='range']::-moz-range-thumb {
   pointer-events: auto;
 }
 
+.chat-panel.has-free {
+  width: min(25rem, 52vw);
+}
+
+.chat-panel.has-free .quick-btn {
+  padding: 0;
+  width: 2.2rem;
+  min-width: 2.2rem;
+}
+
+.chat-panel.has-free .quick-btn .qlabel {
+  display: none;
+}
+
 .chat-panel.lobby-chat {
   bottom: calc(0.8rem + var(--safe-b));
 }
@@ -2199,6 +2213,132 @@ input[type='range']::-moz-range-thumb {
 .quick-emotes button:active {
   transform: translateY(0.1rem);
   background: rgba(255, 210, 63, 0.3);
+}
+
+/* ------------------------------------------------------------------ community */
+.rules {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.rule {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+}
+
+.rule svg {
+  width: 1.7rem;
+  height: 1.7rem;
+  flex: none;
+  color: var(--yellow);
+}
+
+.rule b {
+  color: #fff;
+  font-size: 0.95rem;
+}
+
+.rule p {
+  margin: 0.1rem 0 0;
+}
+
+.signup {
+  gap: 0.55rem;
+  align-items: stretch;
+  text-align: left;
+}
+
+.signup .btn {
+  align-self: center;
+}
+
+.text-input {
+  width: 100%;
+  padding: 0.65rem 0.8rem;
+  border-radius: 0.8rem;
+  border: 0.14rem solid var(--stroke);
+  background: rgba(0, 0, 0, 0.3);
+  color: #fff;
+  font: inherit;
+  font-size: 1.05rem;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.text-input:focus {
+  outline: none;
+  border-color: var(--cyan);
+}
+
+.code-input {
+  text-align: center;
+  font-size: 1.8rem;
+  letter-spacing: 0.5em;
+  font-weight: 700;
+}
+
+.error-text {
+  color: #ff8a95;
+  min-height: 1.2em;
+  margin: 0;
+}
+
+.pub-panel {
+  gap: 0.5rem;
+}
+
+.pub-panel h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+}
+
+.pub-panel h3 svg {
+  width: 1.3rem;
+  height: 1.3rem;
+}
+
+.pub-panel .tag,
+.tag-13 {
+  font-size: 0.65rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 0.5rem;
+  background: var(--cyan);
+  color: #04314a;
+  font-weight: 700;
+}
+
+.pub-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pub-room {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 0.8rem;
+  background: var(--glass);
+  border: 0.1rem solid var(--stroke);
+}
+
+.pub-room .swatch {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.5rem;
+  flex: none;
+}
+
+.pub-room .lbl {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {

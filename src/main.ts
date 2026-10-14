@@ -7,6 +7,7 @@ import { levels } from './state/levels';
 import { ensureMissions } from './meta/missions';
 import { ads } from './services/ads';
 import { iap } from './services/iap';
+import { account } from './services/account';
 import { ui } from './ui/ui';
 import { nav } from './ui/nav';
 import { AgeGateScreen, NameScreen } from './ui/screens/onboarding';
@@ -91,6 +92,8 @@ async function boot(): Promise<void> {
   setTimeout(() => {
     if (store.data.profile.ageGroup) void ads.init();
     void iap.init();
+    // A deleted or banned Free Chat account signs itself out.
+    void account.refresh();
   }, 300);
 }
 

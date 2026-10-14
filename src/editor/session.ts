@@ -53,8 +53,13 @@ export class EditorSession extends Emitter<SessionEvents> {
   readonly chat = new ChatLog();
   /** Co-op clients only save when they ask for a copy. */
   readonly autosave: boolean;
+  /** Listed in public rooms (host) or joined from the public list. */
+  publicRoom = false;
+  /** Why the room closed (shown when you come back from a test run). */
+  closedReason = 'The room closed.';
   private saveTimer = 0;
   private offs: (() => void)[] = [];
+  private cleanups: (() => void)[] = [];
   private cursorAt = 0;
   private lastCursor = '';
   ended = false;
@@ -203,6 +208,7 @@ export class EditorSession extends Emitter<SessionEvents> {
         this.emit('players', players);
       }),
       room.on('closed', ({ reason }) => {
+        this.closedReason = reason;
         this.chat.system(reason);
         this.emit('closed', reason);
       }),
@@ -278,11 +284,17 @@ export class EditorSession extends Emitter<SessionEvents> {
     }
   }
 
+  /** Run when the session ends (e.g. close the Free Chat connection). */
+  onEnd(fn: () => void): void {
+    this.cleanups.push(fn);
+  }
+
   /** Leave the editor for good: save and leave the room. */
   end(): void {
     if (this.ended) return;
     if (this.autosave) this.save();
     this.ended = true;
+    for (const fn of this.cleanups.splice(0)) fn();
     clearTimeout(this.saveTimer);
     for (const off of this.offs.splice(0)) off();
     this.room?.leave();

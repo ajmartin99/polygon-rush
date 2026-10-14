@@ -12,10 +12,30 @@ import { append, clear, h, ic } from '../dom';
 import { nav } from '../nav';
 import { ui } from '../ui';
 import { ChatPanel } from '../chat-panel';
-import { attachFreeChat } from '../free-chat';
+import { RoomFreeChat } from '../free-chat';
+import { ensureRules } from '../community';
+import { canUsePublicRooms } from '../../meta/community';
+import { lobby, PublicListing } from '../../services/lobby';
+import { ServerError } from '../../services/server';
 
 /** Sessions whose room races are already hooked up to the game. */
 const raceWired = new WeakSet<EditorSession>();
+/** One Free Chat connection per build room session (survives test runs). */
+const freeChats = new WeakMap<EditorSession, RoomFreeChat>();
+/** Public listing of a hosted build room. */
+const listings = new WeakMap<EditorSession, PublicListing>();
+
+function freeChatFor(session: EditorSession): RoomFreeChat | null {
+  if (!session.room) return null;
+  let fc = freeChats.get(session);
+  if (!fc) {
+    const created = new RoomFreeChat(session.room, session.chat);
+    freeChats.set(session, created);
+    session.onEnd(() => created.close());
+    fc = created;
+  }
+  return fc;
+}
 
 /** "Race!" in a build room: everyone plays the current level, then comes back here. */
 function wireRaces(session: EditorSession): void {
@@ -115,6 +135,7 @@ export class EditorScreen extends BaseScreen {
   private chat: ChatPanel | null = null;
   private resizeObs: ResizeObserver | null = null;
   private lockBtn: HTMLButtonElement | null = null;
+  private publicBtn: HTMLButtonElement | null = null;
   private detachFree: (() => void) | null = null;
 
   constructor(params?: Record<string, unknown>) {
@@ -145,6 +166,10 @@ export class EditorScreen extends BaseScreen {
       room?.isHost
         ? (this.lockBtn = button({ icon: 'lock', cls: 'icon ghost', aria: 'Pause building for others', onClick: () => this.toggleLock() }))
         : null,
+      room?.isHost && canUsePublicRooms(store.data)
+        ? (this.publicBtn = button({ icon: 'public', cls: 'icon ghost', aria: 'Make room public', onClick: () => void this.togglePublic() }))
+        : null,
+      room && !room.isHost && session.publicRoom ? button({ icon: 'report', cls: 'icon red', aria: 'Report this room', onClick: () => this.reportRoom() }) : null,
       button({ icon: 'flag', cls: 'icon cyan', aria: 'Test from here', onClick: () => this.test(true) }),
       button({ label: 'Test', icon: 'play', cls: 'mint', onClick: () => this.test(false) }),
       room?.isHost ? button({ label: 'Race!', icon: 'users', cls: 'yellow', onClick: () => this.race() }) : null,
@@ -163,7 +188,7 @@ export class EditorScreen extends BaseScreen {
       this.renderPeople();
       this.own(session.on('players', () => this.renderPeople()));
       this.own(session.on('lock', () => this.refresh()));
-      this.own(session.on('closed', () => this.roomClosed()));
+      this.own(session.on('closed', (reason) => this.roomClosed(reason)));
     }
     this.own(session.on('change', () => this.refresh()));
     this.refresh();
@@ -179,8 +204,9 @@ export class EditorScreen extends BaseScreen {
     window.addEventListener('resize', this.measure);
     audio.intensity = 0.25;
     audio.playSong(this.session.doc.settings.theme % 6);
-    if (this.session.room && this.chat) this.detachFree = attachFreeChat(this.session.room, this.session.chat, this.chat);
-    if (this.session.room && !this.session.room.open) this.roomClosed();
+    const fc = freeChatFor(this.session);
+    if (fc && this.chat) this.detachFree = fc.bind(this.chat);
+    if (this.session.room && !this.session.room.open) this.roomClosed(this.session.closedReason);
     else if (!store.data.tutorial.editor_intro) {
       store.data.tutorial.editor_intro = true;
       store.commit();
@@ -253,7 +279,13 @@ export class EditorScreen extends BaseScreen {
       s.meta.verified ? h('span.ed-verified', { title: 'Beaten from the start — ready to share' }, ic('verified')) : null,
       h('span', null, `${d.count} pcs · ${d.settings.length}m`),
     ]);
-    if (this.lockBtn) this.lockBtn.classList.toggle('red', Boolean(s.room?.locked));
+    const flag = (b: HTMLButtonElement | null, on: boolean, cls: string) => {
+      if (!b) return;
+      b.classList.toggle(cls, on);
+      b.classList.toggle('ghost', !on);
+    };
+    flag(this.lockBtn, Boolean(s.room?.locked), 'red');
+    flag(this.publicBtn, listings.has(s), 'cyan');
     this.el.classList.toggle('locked', !s.canEdit);
   }
 
@@ -306,6 +338,71 @@ export class EditorScreen extends BaseScreen {
     room.setLock(!room.locked);
     this.hint(room.locked ? 'Only you can build right now.' : 'Everyone can build again.', 2200);
     this.refresh();
+  }
+
+  private async togglePublic(): Promise<void> {
+    const s = this.session;
+    const room = s.room;
+    if (!room?.isHost) return;
+    const existing = listings.get(s);
+    if (existing) {
+      existing.stop();
+      listings.delete(s);
+      s.publicRoom = false;
+      this.hint('Your room is private again (friends with the code can still join).', 2600);
+      this.refresh();
+      return;
+    }
+    if (!(await ensureRules())) return;
+    const listing = new PublicListing(room, () => ({ name: s.doc.settings.name, theme: s.doc.settings.theme }));
+    try {
+      await listing.start();
+    } catch (e) {
+      ui.toast(e instanceof ServerError ? e.message : 'Couldn’t make the room public.', 'wifi', 3200);
+      return;
+    }
+    listings.set(s, listing);
+    s.publicRoom = true;
+    s.onEnd(() => listing.stop());
+    this.hint('Your room is public: players 13+ can find and join it. You can remove anyone or pause building.', 4200);
+    this.refresh();
+  }
+
+  private reportRoom(): void {
+    const s = this.session;
+    const room = s.room;
+    if (!room) return;
+    const m = ui.modal(
+      [
+        h('h2', null, 'Report this room'),
+        h('p.muted', null, 'Tell our safety team what’s wrong. We’ll see the level as it looks right now.'),
+        h(
+          'div.col',
+          { style: 'gap:0.4rem' },
+          ['Rude drawing or words', 'Wrecking other people’s building', 'Someone made me feel unsafe', 'Something else'].map((reason) =>
+            button({
+              label: reason,
+              cls: 'red',
+              onClick: async () => {
+                m.close();
+                try {
+                  await lobby.report(room.code, reason, encodeLevel(s.doc.toContent()));
+                  ui.toast('Thanks for telling us. A grown-up on our team will check it.', 'report', 3500);
+                } catch {
+                  ui.toast('Report failed. Please try again later.', 'info');
+                }
+                if (await confirm('Leave this room?', 'You can leave any time with the back button.', 'Leave', 'Stay')) {
+                  setActiveEditor(null);
+                  nav.scene(null);
+                  nav.go('create', { tab: 'together' });
+                }
+              },
+            }),
+          ),
+        ),
+      ],
+      { showClose: true },
+    );
   }
 
   // ------------------------------------------------------------ co-op chrome
@@ -367,10 +464,10 @@ export class EditorScreen extends BaseScreen {
     );
   }
 
-  private roomClosed(): void {
+  private roomClosed(reason: string): void {
     const s = this.session;
     if (!s.room || s.room.isHost) return;
-    void confirm('The build room closed', 'Keep a copy of this level in My Levels?', 'Save copy', 'No thanks').then((yes) => {
+    void confirm('The build room closed', `${reason} Keep a copy of this level in My Levels?`, 'Save copy', 'No thanks').then((yes) => {
       if (yes) this.saveCopy();
       setActiveEditor(null);
       nav.scene(null);

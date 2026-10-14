@@ -26,6 +26,7 @@ jobs:
       VITE_ADMOB_BANNER_ID: ${{ vars.ADMOB_BANNER_ID }}
       VITE_ADMOB_INTERSTITIAL_ID: ${{ vars.ADMOB_INTERSTITIAL_ID }}
       VITE_ADMOB_REWARDED_ID: ${{ vars.ADMOB_REWARDED_ID }}
+      VITE_SERVER_URL: ${{ vars.SERVER_URL }}
       VITE_PEER_HOST: ${{ vars.PEER_HOST }}
       VITE_PEER_PORT: ${{ vars.PEER_PORT }}
       VITE_PEER_PATH: ${{ vars.PEER_PATH }}
@@ -86,3 +87,31 @@ jobs:
           path: out/*.apk
           if-no-files-found: error
           retention-days: 14
+
+  server:
+    name: Community server tests & image
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install
+        working-directory: server
+        run: npm ci
+
+      - name: Typecheck
+        working-directory: server
+        run: npm run typecheck
+
+      - name: Integration tests
+        working-directory: server
+        run: npm test
+
+      - name: Build Docker image
+        run: docker build -f server/Dockerfile -t polygon-rush-server:ci .

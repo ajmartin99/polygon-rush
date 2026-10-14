@@ -43,7 +43,7 @@ export class ChatPanel {
 
   constructor(private readonly opts: ChatPanelOptions) {
     this.free = opts.free ?? null;
-    const quickBtn = button({ icon: 'chat', label: 'Quick Chat', cls: 'cyan sm', onClick: () => this.toggleQuick() });
+    const quickBtn = button({ icon: 'chat', label: h('span.qlabel', null, 'Quick Chat'), cls: 'cyan sm quick-btn', aria: 'Quick Chat', onClick: () => this.toggleQuick() });
     const enabled = store.settings.quickChat;
     if (!enabled) quickBtn.disabled = true;
     this.el = h(
@@ -68,9 +68,21 @@ export class ChatPanel {
     this.offs.push(() => clearInterval(timer));
   }
 
+  /** Free Chat connected / disconnected / audience changed. */
   setFree(free: FreeChatPort | null): void {
+    const wasReady = Boolean(this.free?.ready && this.input);
     this.free = free;
+    if (wasReady && free?.ready && this.input) {
+      this.input.placeholder = this.placeholder(free);
+      return;
+    }
     this.renderInput();
+  }
+
+  private input: HTMLInputElement | null = null;
+
+  private placeholder(free: FreeChatPort): string {
+    return free.audience > 1 ? `Type… (${free.audience - 1} can see)` : 'Type… (no one else has Free Chat)';
   }
 
   destroy(): void {
@@ -82,12 +94,14 @@ export class ChatPanel {
   /** Re-render the free-chat box (after connecting/disconnecting). */
   renderInput(): void {
     clear(this.inputRow);
+    this.input = null;
     const free = this.free;
+    this.el.classList.toggle('has-free', Boolean(free?.ready));
     if (!free?.ready) return;
     const input = h<HTMLInputElement>('input', {
       type: 'text',
       maxlength: '120',
-      placeholder: free.audience > 1 ? `Free Chat (${free.audience - 1} can see)` : 'Free Chat (nobody else has it on)',
+      placeholder: this.placeholder(free),
       autocomplete: 'off',
       autocorrect: 'off',
       spellcheck: 'false',
@@ -105,6 +119,7 @@ export class ChatPanel {
       e.stopPropagation();
       if (e.key === 'Enter') void send();
     });
+    this.input = input;
     this.inputRow.append(input, button({ icon: 'next', cls: 'icon mint', aria: 'Send', onClick: () => void send() }));
   }
 

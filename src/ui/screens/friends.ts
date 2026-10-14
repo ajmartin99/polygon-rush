@@ -4,7 +4,7 @@ import { EditorSession, setActiveEditor } from '../../editor/session';
 import { ChatLog } from '../../services/chatlog';
 import { quickLine } from '../../meta/quickchat';
 import { ChatPanel } from '../chat-panel';
-import { attachFreeChat } from '../free-chat';
+import { RoomFreeChat } from '../free-chat';
 import { codeEntry } from '../code-entry';
 import { CONFIG } from '../../config';
 import { BaseScreen, button, titleBar } from '../components';
@@ -23,7 +23,7 @@ export class FriendsScreen extends BaseScreen {
   private handedOff = false;
   private chatLog = new ChatLog();
   private chat: ChatPanel | null = null;
-  private detachFree: (() => void) | null = null;
+  private free: RoomFreeChat | null = null;
 
   constructor(params?: Record<string, unknown>) {
     super('.solid');
@@ -36,7 +36,7 @@ export class FriendsScreen extends BaseScreen {
   override leave(): void {
     super.leave();
     this.chat?.destroy();
-    this.detachFree?.();
+    this.free?.close();
     if (this.room && !this.handedOff) this.room.leave();
   }
 
@@ -157,13 +157,18 @@ export class FriendsScreen extends BaseScreen {
       });
       this.chat.el.classList.add('lobby-chat');
       this.el.append(this.chat.el);
-      this.detachFree = attachFreeChat(room, this.chatLog, this.chat);
+      this.free = new RoomFreeChat(room, this.chatLog);
+      this.free.bind(this.chat);
     }
     room.on('lobby', () => this.view === 'lobby' && this.render());
     room.on('closed', ({ reason }) => {
       if (this.handedOff) return;
       ui.toast(reason, 'info', 3000);
       this.room = null;
+      this.chat?.destroy();
+      this.chat = null;
+      this.free?.close();
+      this.free = null;
       this.view = 'choose';
       this.render();
     });

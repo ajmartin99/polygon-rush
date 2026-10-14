@@ -79,6 +79,25 @@ export interface SaveData {
   };
   tutorial: Record<string, boolean>;
   settings: Settings;
+  /** Free Chat account on the community server (empty when not verified). */
+  account: ChatAccount;
+}
+
+export interface ChatAccount {
+  token: string;
+  id: string;
+  /** 'self' = verified 16+, 'parent' = a parent approved (13-15). */
+  consent: '' | 'self' | 'parent';
+  emailHint: string;
+  mutedUntil: number;
+  /** Version of the Community Rules accepted (0 = not yet). */
+  rules: number;
+  /** Free Chat accounts this player blocked. */
+  blocked: string[];
+}
+
+export function emptyAccount(): ChatAccount {
+  return { token: '', id: '', consent: '', emailHint: '', mutedUntil: 0, rules: 0, blocked: [] };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -133,6 +152,7 @@ export function createSave(now = Date.now()): SaveData {
     ads: { runsSinceInterstitial: 0, lastInterstitialAt: 0, freeGemsDay: '', freeGemsCount: 0 },
     tutorial: {},
     settings: { ...DEFAULT_SETTINGS },
+    account: emptyAccount(),
   };
 }
 
@@ -175,6 +195,8 @@ export function migrate(raw: unknown): SaveData {
   if (!save.trails.owned.includes(save.trails.equipped)) save.trails.equipped = 'none';
   save.gems = Math.max(0, Math.floor(save.gems));
   save.level = Math.max(1, Math.floor(save.level));
+  if (save.account.consent !== 'self' && save.account.consent !== 'parent') save.account = { ...emptyAccount(), rules: save.account.rules };
+  save.account.blocked = save.account.blocked.filter((b) => typeof b === 'string').slice(-200);
   save.settings.music = clamp01(save.settings.music);
   save.settings.sfx = clamp01(save.settings.sfx);
   return save;

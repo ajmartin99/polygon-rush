@@ -12,7 +12,7 @@ import { nav } from '../nav';
 import { ui } from '../ui';
 import { codeEntry } from '../code-entry';
 import { openShareModal } from './editor';
-import { publicBuildsSection } from '../public-builds';
+import { publicBuildsSection, setPublicJoinHandler } from '../public-builds';
 
 type Tab = 'mine' | 'featured' | 'together';
 
@@ -104,12 +104,14 @@ export async function hostBuildRoom(level: LevelData): Promise<boolean> {
 }
 
 /** Join any room by code: build rooms open the editor, race rooms the friends lobby. */
-export async function joinRoomByCode(code: string): Promise<boolean> {
+export async function joinRoomByCode(code: string, fromPublic = false): Promise<boolean> {
   if (onlineBlocked()) return false;
   try {
     const room = await NetRoom.join(code, store.data.profile.name || 'Rusher', store.data.skins.equipped);
     if (room.kind === 'build') {
-      setActiveEditor(EditorSession.join(room));
+      const session = EditorSession.join(room);
+      session.publicRoom = fromPublic;
+      setActiveEditor(session);
       nav.go('editor');
     } else {
       nav.go('friends', { room });
@@ -120,6 +122,8 @@ export async function joinRoomByCode(code: string): Promise<boolean> {
     return false;
   }
 }
+
+setPublicJoinHandler((code) => joinRoomByCode(code, true));
 
 /** Create hub: your levels, featured levels and building together. */
 export class CreateScreen extends BaseScreen {
@@ -395,12 +399,32 @@ export class CreateScreen extends BaseScreen {
           )
         : null,
     );
-    const joinCol = h('div.panel.col', { style: 'gap:0.5rem;align-items:center' }, codeEntry((code) => void joinRoomByCode(code), 'Join with a room code'));
+    // With public rooms available the keypad moves into a pop-up to make room for the list.
+    const pub = publicBuildsSection();
+    const joinCol = pub
+      ? h(
+          'div.col',
+          { style: 'gap:0.6rem;align-items:stretch' },
+          button({
+            label: 'Join with a room code',
+            icon: 'users',
+            cls: 'cyan lg',
+            onClick: () => {
+              const m = ui.modal(
+                codeEntry((code) => {
+                  m.close();
+                  void joinRoomByCode(code);
+                }, 'Join with a room code'),
+                { showClose: true, wide: true },
+              );
+            },
+          }),
+          pub,
+        )
+      : h('div.panel.col', { style: 'gap:0.5rem;align-items:center' }, codeEntry((code) => void joinRoomByCode(code), 'Join with a room code'));
     const wrap = h('div.together');
     append(wrap, [hostCol, joinCol]);
     this.body.append(wrap);
-    const pub = publicBuildsSection();
-    if (pub) this.body.append(pub);
   }
 }
 

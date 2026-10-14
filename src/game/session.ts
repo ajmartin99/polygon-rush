@@ -2,12 +2,13 @@ import { Emitter } from '../core/emitter';
 import { Rng } from '../core/rng';
 import { DT, MODE_INDEX, PLAYER_HALF, RACE_SPEED, endlessSpeedAt } from './constants';
 import { LevelGen } from './generator';
+import { buildWorld, levelSpeed, modeAt, type LevelContent } from './level';
 import { newEvents, stepBody } from './physics';
 import { Racer, type RacerSpec } from './racer';
 import type { ShapeMode } from './shapes';
 import { World, type PickupType, type WorldObj } from './world';
 
-export type SessionKind = 'endless' | 'race' | 'duel' | 'online' | 'attract';
+export type SessionKind = 'endless' | 'race' | 'duel' | 'online' | 'attract' | 'custom';
 export type BoxItem = 'boost' | 'shield' | 'snow' | 'magnet';
 
 export interface SessionOptions {
@@ -20,6 +21,10 @@ export interface SessionOptions {
   length?: number;
   /** Race difficulty 0..1. */
   difficulty?: number;
+  /** Play a player-made level instead of a generated track (custom, online). */
+  level?: LevelContent;
+  /** Custom levels: start here instead of the beginning ("play from here"). */
+  startX?: number;
 }
 
 export interface GameEvents extends Record<string, unknown> {
@@ -49,7 +54,8 @@ const SEARCH: WorldObj[] = [];
 export class GameSession extends Emitter<GameEvents> {
   readonly opts: SessionOptions;
   readonly world = new World();
-  readonly gen: LevelGen;
+  /** Null for player-made levels (the whole world is built up front). */
+  readonly gen: LevelGen | null;
   readonly racers: Racer[] = [];
   /** Seconds since GO. */
   time = 0;
@@ -57,30 +63,50 @@ export class GameSession extends Emitter<GameEvents> {
   private finishCount = 0;
   private readonly ev = newEvents();
   private readonly rng: Rng;
+  /** Track speed for race-likes and player levels; null = endless curve. */
+  private readonly fixedSpeed: number | null;
 
   constructor(opts: SessionOptions) {
     super();
     this.opts = opts;
     this.rng = new Rng(opts.seed ^ 0x9e3779b9);
     const raceLike = opts.kind === 'race' || opts.kind === 'duel' || opts.kind === 'online';
-    this.gen = new LevelGen(this.world, {
-      seed: opts.seed,
-      kind: raceLike ? 'race' : 'endless',
-      length: raceLike ? opts.length ?? 900 : undefined,
-      kid: opts.kid,
-      tutorial: opts.tutorial,
-      difficulty: raceLike ? opts.difficulty ?? 0.35 : undefined,
-      startX: START_X,
-    });
+    let startX = START_X;
+    if (opts.level) {
+      buildWorld(opts.level, this.world);
+      this.gen = null;
+      this.fixedSpeed = levelSpeed(opts.level);
+      if (opts.kind === 'custom' && opts.startX !== undefined) startX = Math.max(START_X, Math.min(opts.level.length - 2, opts.startX));
+    } else {
+      this.gen = new LevelGen(this.world, {
+        seed: opts.seed,
+        kind: raceLike ? 'race' : 'endless',
+        length: raceLike ? opts.length ?? 900 : undefined,
+        kid: opts.kid,
+        tutorial: opts.tutorial,
+        difficulty: raceLike ? opts.difficulty ?? 0.35 : undefined,
+        startX: START_X,
+      });
+      this.fixedSpeed = raceLike ? RACE_SPEED : null;
+    }
     opts.racers.forEach((spec, i) => {
-      const r = new Racer(spec, START_X, opts.seed + i * 101);
+      const r = new Racer(spec, startX, opts.seed + i * 101);
       if (opts.kind === 'endless') {
         r.maxHearts = r.hearts = opts.kid ? 5 : 3;
+      } else if (opts.kind === 'custom' && opts.level) {
+        r.maxHearts = r.hearts = opts.level.hearts;
+      }
+      if (opts.level) {
+        r.body.mode = modeAt(opts.level, startX);
+        // Measure progress from the level start even when testing from the middle.
+        r.startX = START_X;
+        if (startX > START_X) r.invuln = 1;
       }
       this.racers.push(r);
     });
-    this.gen.ensure(START_X + 80);
+    this.gen?.ensure(START_X + 80);
   }
+
 
   get raceLike(): boolean {
     return this.opts.kind === 'race' || this.opts.kind === 'duel' || this.opts.kind === 'online';
@@ -96,7 +122,7 @@ export class GameSession extends Emitter<GameEvents> {
 
   /** Base track speed at x for this mode. */
   baseSpeed(x: number): number {
-    if (this.raceLike) return RACE_SPEED;
+    if (this.fixedSpeed !== null) return this.fixedSpeed;
     return endlessSpeedAt(x - START_X, !!this.opts.kid);
   }
 
@@ -124,7 +150,7 @@ export class GameSession extends Emitter<GameEvents> {
     this.time += DT;
     let lead = -Infinity;
     for (const r of this.racers) if (!r.dead) lead = Math.max(lead, r.x);
-    if (Number.isFinite(lead)) this.gen.ensure(lead + 70);
+    if (Number.isFinite(lead)) this.gen?.ensure(lead + 70);
     for (const r of this.racers) this.stepRacer(r);
     if (this.opts.kind === 'endless' || this.opts.kind === 'attract') {
       let tail = Infinity;
@@ -232,7 +258,7 @@ export class GameSession extends Emitter<GameEvents> {
   private takeDamage(r: Racer, fell: boolean): void {
     r.hits++;
     r.cleanFrom = r.x;
-    if (this.opts.kind === 'endless') {
+    if (this.opts.kind === 'endless' || this.opts.kind === 'custom') {
       r.hearts -= 1;
       if (r.hearts <= 0) {
         r.hearts = 0;
@@ -291,11 +317,19 @@ export class GameSession extends Emitter<GameEvents> {
           break;
         }
         case 'pickup': {
-          if (r.collected.has(o.id) || this.raceLike) break;
+          if (r.collected.has(o.id)) break;
+          if (this.raceLike && !this.opts.level) break;
           if (Math.abs(o.x - b.x) < 0.95 && Math.abs(o.y - b.y) < 1.0) {
             r.collected.add(o.id);
-            this.applyPickup(r, o.type);
-            this.emit('pickup', { racer: r, type: o.type, x: o.x, y: o.y });
+            if (this.raceLike) {
+              // Races on player-made levels: power-ups become mystery boxes.
+              const item = this.rollBox(r);
+              this.applyBox(r, item);
+              this.emit('box', { racer: r, item, x: o.x, y: o.y });
+            } else {
+              this.applyPickup(r, o.type);
+              this.emit('pickup', { racer: r, type: o.type, x: o.x, y: o.y });
+            }
           }
           break;
         }

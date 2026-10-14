@@ -15,7 +15,9 @@ export type MissionEvent =
   | 'duel_play' // sum
   | 'online_play' // sum
   | 'clean_distance' // max: metres without a hit in one run
-  | 'mode_time'; // sum: seconds in Glider/Roller/Hopper
+  | 'mode_time' // sum: seconds in Glider/Roller/Hopper
+  | 'custom_clear' // sum: player-made levels beaten (not your own test runs)
+  | 'level_verify'; // sum: own levels beaten from the start (makes them shareable)
 
 interface Template {
   id: string;
@@ -39,6 +41,8 @@ export const MISSION_TEMPLATES: Template[] = [
   { id: 'duel', event: 'duel_play', kind: 'sum', targets: [1, 2], text: (n) => (n === 1 ? 'Play a 2-Player Duel' : `Play ${n} Duels`), icon: 'duel' },
   { id: 'clean', event: 'clean_distance', kind: 'max', targets: [200, 400, 700], text: (n) => `Rush ${n}m without a bump`, icon: 'shield' },
   { id: 'mode_time', event: 'mode_time', kind: 'sum', targets: [30, 60, 120], text: (n) => `Spend ${n}s as Glider, Roller or Hopper`, icon: 'shapes' },
+  { id: 'custom_clear', event: 'custom_clear', kind: 'sum', targets: [1, 2, 3], text: (n) => (n === 1 ? 'Beat a level someone built' : `Beat ${n} levels other players built`), icon: 'build' },
+  { id: 'level_verify', event: 'level_verify', kind: 'sum', targets: [1], text: () => 'Build a level and beat it', icon: 'build' },
 ];
 
 export const ACTIVE_MISSIONS = 3;

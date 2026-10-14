@@ -93,6 +93,7 @@ export class MenuScreen extends BaseScreen {
                 nav.go('friends');
               },
             }),
+            button({ label: 'Create', icon: 'build', cls: 'orange stack', sub: 'Level maker', onClick: () => nav.go('create') }),
           ),
         ),
       ),

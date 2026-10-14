@@ -1,21 +1,30 @@
 import Peer, { type DataConnection, type PeerOptions } from 'peerjs';
 import { CONFIG } from '../config';
 import { Emitter } from '../core/emitter';
+import type { EditOp } from '../editor/doc';
+import { quickLine } from '../meta/quickchat';
 
 /**
- * "Play with Friends": private peer-to-peer rooms joined with a 4-character
- * code. The host relays everything (star topology). There is no chat and no
- * public matchmaking — only generated names, skins and race positions travel.
+ * Online rooms joined with a 4-character code. Two kinds:
+ *  - race:  "Play with Friends" — race a generated course together.
+ *  - build: co-op level building — everyone edits one level, then races it.
+ * The host relays everything (star topology) and orders every level edit.
+ * Only generated names, skins, positions, level edits and Quick Chat indexes
+ * travel peer-to-peer; free-text chat never does (see services/chat.ts).
  */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 export const CODE_ALPHABET = 'BCDFGHJKLMNPQRSTVWXZ23456789';
 export const CODE_LENGTH = 4;
+
+export type RoomKind = 'race' | 'build';
 
 export interface NetPlayer {
   id: string;
   name: string;
   skin: string;
   host: boolean;
+  /** Cursor / name-tag colour (0..3). */
+  color: number;
 }
 
 /** Compact racer state: [id, x, y, rot, modeIndex, flags, speed]. */
@@ -23,25 +32,54 @@ export type NetState = [string, number, number, number, number, number, number];
 
 export type NetMsg =
   | { t: 'hello'; v: number; name: string; skin: string }
-  | { t: 'welcome'; you: string; players: NetPlayer[] }
-  | { t: 'lobby'; players: NetPlayer[] }
+  | { t: 'welcome'; you: string; players: NetPlayer[]; kind: RoomKind; chat: string; lock: boolean; level?: string; rev?: number; authors?: string[] }
+  | { t: 'lobby'; players: NetPlayer[]; racing: boolean }
   | { t: 'reject'; reason: 'full' | 'version' | 'started' }
-  | { t: 'start'; seed: number; players: NetPlayer[]; delay: number }
+  | { t: 'start'; seed: number; players: NetPlayer[]; delay: number; level?: string }
   | { t: 'st'; s: NetState }
   | { t: 'snap'; p: NetState[] }
   | { t: 'fx'; from: string; kind: 'snow'; x: number }
   | { t: 'fin'; id: string; time: number }
+  | { t: 'quit' }
   | { t: 'results'; order: { id: string; time: number | null }[] }
+  | { t: 'ops'; seq: number; ops: EditOp[]; by?: string; rev?: number }
+  | { t: 'sync' }
+  | { t: 'level'; code: string; rev: number; authors: string[] }
+  | { t: 'cur'; x: number; y: number; tool: number; id?: string }
+  | { t: 'lock'; on: boolean }
+  | { t: 'authors'; list: string[] }
+  | { t: 'kick' }
+  | { t: 'qc'; n: number; id?: string }
   | { t: 'bye' };
 
-interface RoomEvents extends Record<string, unknown> {
+export interface RoomEvents extends Record<string, unknown> {
   lobby: NetPlayer[];
-  start: { seed: number; players: NetPlayer[]; delay: number };
+  start: { seed: number; players: NetPlayer[]; delay: number; level?: string };
   snap: NetState[];
   fx: { from: string; kind: 'snow'; x: number };
   finish: { id: string; time: number };
   results: { id: string; time: number | null }[];
   closed: { reason: string };
+  /** Build rooms: the race ended, back to building. */
+  raceOver: void;
+  /** Ordered level edits (clients; the host gets `clientOps`). */
+  ops: { by: string; seq: number; ops: EditOp[]; rev: number };
+  /** Host only: a builder sent edits to be ordered. */
+  clientOps: { from: string; seq: number; ops: EditOp[] };
+  /** Host only: a builder needs the whole level again. */
+  syncRequest: { from: string };
+  /** Clients: the whole level (resync). */
+  level: { code: string; rev: number; authors: string[] };
+  cursor: { id: string; x: number; y: number; tool: number };
+  lock: boolean;
+  authors: string[];
+  quick: { id: string; n: number };
+}
+
+export interface HostOptions {
+  kind: RoomKind;
+  /** Build rooms: current level code + revision for new builders. */
+  snapshot?: () => { code: string; rev: number; authors: string[] };
 }
 
 export function randomCode(rand: () => number = Math.random): string {
@@ -54,6 +92,13 @@ export function isValidCode(code: string): boolean {
   return code.length === CODE_LENGTH && [...code].every((c) => CODE_ALPHABET.includes(c));
 }
 
+function randomKey(): string {
+  const bytes = new Uint8Array(18);
+  crypto.getRandomValues(bytes);
+  return [...bytes].map((b) => 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_'[b & 63]).join('');
+}
+
+/** The signalling server: our own community server when configured, else the PeerJS cloud. */
 function peerOptions(): PeerOptions {
   const n = CONFIG.net;
   const iceServers: RTCIceServer[] = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
@@ -85,12 +130,42 @@ export function friendlyNetError(e: unknown): string {
   }
 }
 
+/** Simple per-sender token bucket so one peer can't flood the room. */
+class Bucket {
+  private tokens: number;
+  private last = performance.now();
+  constructor(
+    private readonly rate: number,
+    private readonly burst: number,
+  ) {
+    this.tokens = burst;
+  }
+  take(n = 1): boolean {
+    const now = performance.now();
+    this.tokens = Math.min(this.burst, this.tokens + ((now - this.last) / 1000) * this.rate);
+    this.last = now;
+    if (this.tokens < n) return false;
+    this.tokens -= n;
+    return true;
+  }
+}
+
+const MAX_OPS_PER_MSG = 300;
+
 export class NetRoom extends Emitter<RoomEvents> {
   readonly isHost: boolean;
+  kind: RoomKind = 'race';
   code = '';
   localId = '';
   players: NetPlayer[] = [];
-  started = false;
+  /** A race is running (race rooms never go back to the lobby). */
+  racing = false;
+  /** Build rooms: only the host may edit. */
+  locked = false;
+  /** Shared secret naming this room's free-chat channel on the community server. */
+  chatKey = '';
+  /** Level handed over on join (build rooms). */
+  joinLevel: { code: string; rev: number; authors: string[] } | null = null;
   private peer: Peer | null = null;
   private conns = new Map<string, DataConnection>();
   private hostConn: DataConnection | null = null;
@@ -99,15 +174,31 @@ export class NetRoom extends Emitter<RoomEvents> {
   private finishes = new Map<string, number>();
   private resultsTimer = 0;
   private closed = false;
+  private rev = 0;
+  private snapshot: HostOptions['snapshot'];
+  private buckets = new Map<string, { ops: Bucket; cur: Bucket; qc: Bucket }>();
+  private kicked = new Set<string>();
 
   private constructor(isHost: boolean) {
     super();
     this.isHost = isHost;
   }
 
+  /** Back-compat: race rooms reject joiners once started. */
+  get started(): boolean {
+    return this.racing;
+  }
+
+  get open(): boolean {
+    return !this.closed;
+  }
+
   // -------------------------------------------------------------- creation
-  static async host(name: string, skin: string): Promise<NetRoom> {
+  static async host(name: string, skin: string, opts: HostOptions = { kind: 'race' }): Promise<NetRoom> {
     const room = new NetRoom(true);
+    room.kind = opts.kind;
+    room.snapshot = opts.snapshot;
+    room.chatKey = randomKey();
     let lastErr: unknown = null;
     for (let attempt = 0; attempt < 4; attempt++) {
       const code = randomCode();
@@ -116,7 +207,7 @@ export class NetRoom extends Emitter<RoomEvents> {
         room.peer = peer;
         room.code = code;
         room.localId = peer.id;
-        room.players = [{ id: peer.id, name, skin, host: true }];
+        room.players = [{ id: peer.id, name, skin, host: true, color: 0 }];
         room.wireHost();
         return room;
       } catch (e) {
@@ -159,6 +250,10 @@ export class NetRoom extends Emitter<RoomEvents> {
           peer.off('error', onError);
           room.localId = msg.you;
           room.players = msg.players;
+          room.kind = msg.kind === 'build' ? 'build' : 'race';
+          room.chatKey = typeof msg.chat === 'string' ? msg.chat.slice(0, 64) : '';
+          room.locked = Boolean(msg.lock);
+          if (room.kind === 'build' && typeof msg.level === 'string') room.joinLevel = { code: msg.level, rev: msg.rev ?? 0, authors: msg.authors ?? [] };
           room.wireClient();
           resolve();
         } else if (msg.t === 'reject') {
@@ -168,7 +263,7 @@ export class NetRoom extends Emitter<RoomEvents> {
               msg.reason === 'full'
                 ? 'That room is full (4 players max).'
                 : msg.reason === 'started'
-                  ? 'That race already started. Ask for a new room!'
+                  ? 'That room is racing right now. Try again in a minute!'
                   : 'Your friend has a different game version. Update both apps!',
             ),
           );
@@ -193,36 +288,90 @@ export class NetRoom extends Emitter<RoomEvents> {
     });
     peer.on('disconnected', () => {
       // Lost the signalling server; existing data channels keep working.
-      if (!this.closed && !this.started) peer.reconnect();
+      if (!this.closed && (this.kind === 'build' || !this.racing)) peer.reconnect();
     });
   }
 
+  private bucket(id: string) {
+    let b = this.buckets.get(id);
+    if (!b) {
+      b = { ops: new Bucket(80, 400), cur: new Bucket(25, 30), qc: new Bucket(1, 3) };
+      this.buckets.set(id, b);
+    }
+    return b;
+  }
+
   private handleHost(conn: DataConnection, msg: NetMsg): void {
+    if (!msg || typeof msg !== 'object') return;
+    const from = conn.peer;
+    const member = this.conns.has(from);
     switch (msg.t) {
       case 'hello': {
+        if (this.kicked.has(from)) return void conn.close();
         if (msg.v !== PROTOCOL_VERSION) return void conn.send({ t: 'reject', reason: 'version' } satisfies NetMsg);
-        if (this.started) return void conn.send({ t: 'reject', reason: 'started' } satisfies NetMsg);
+        if (this.racing) return void conn.send({ t: 'reject', reason: 'started' } satisfies NetMsg);
         if (this.players.length >= CONFIG.net.maxPlayers) return void conn.send({ t: 'reject', reason: 'full' } satisfies NetMsg);
-        this.conns.set(conn.peer, conn);
-        this.players.push({ id: conn.peer, name: String(msg.name).slice(0, 32), skin: String(msg.skin).slice(0, 24), host: false });
-        conn.send({ t: 'welcome', you: conn.peer, players: this.players } satisfies NetMsg);
-        this.broadcast({ t: 'lobby', players: this.players });
-        this.emit('lobby', this.players);
+        this.conns.set(from, conn);
+        const used = new Set(this.players.map((p) => p.color));
+        const color = [0, 1, 2, 3].find((c) => !used.has(c)) ?? 0;
+        this.players.push({ id: from, name: String(msg.name).slice(0, 32), skin: String(msg.skin).slice(0, 24), host: false, color });
+        const welcome: NetMsg = { t: 'welcome', you: from, players: this.players, kind: this.kind, chat: this.chatKey, lock: this.locked };
+        if (this.kind === 'build' && this.snapshot) {
+          const snap = this.snapshot();
+          welcome.level = snap.code;
+          welcome.rev = this.rev;
+          welcome.authors = snap.authors;
+        }
+        conn.send(welcome);
+        this.broadcastLobby();
         break;
       }
       case 'st':
-        msg.s[0] = conn.peer; // never trust the sender's id
-        this.states.set(conn.peer, msg.s);
+        if (!member || !Array.isArray(msg.s)) return;
+        msg.s[0] = from; // never trust the sender's id
+        this.states.set(from, msg.s);
         break;
       case 'fx':
-        this.broadcast({ ...msg, from: conn.peer });
-        this.emit('fx', { from: conn.peer, kind: msg.kind, x: msg.x });
+        if (!member) return;
+        this.broadcast({ t: 'fx', from, kind: 'snow', x: Number(msg.x) || 0 });
+        this.emit('fx', { from, kind: 'snow', x: Number(msg.x) || 0 });
         break;
       case 'fin':
-        this.recordFinish(conn.peer, msg.time);
+        if (member) this.recordFinish(from, Number(msg.time));
         break;
+      case 'quit':
+        if (member && this.racing) this.recordFinish(from, Infinity);
+        break;
+      case 'ops': {
+        if (!member || this.kind !== 'build' || this.racing || !Array.isArray(msg.ops)) return;
+        const seq = Number(msg.seq) || 0;
+        if (this.locked || msg.ops.length > MAX_OPS_PER_MSG || !this.bucket(from).ops.take(msg.ops.length)) {
+          // Echo with no ops so the builder's preview rolls back.
+          this.sendTo(from, { t: 'ops', seq, ops: [], by: from, rev: this.rev });
+          return;
+        }
+        this.emit('clientOps', { from, seq, ops: msg.ops });
+        break;
+      }
+      case 'sync':
+        if (member && this.kind === 'build') this.emit('syncRequest', { from });
+        break;
+      case 'cur': {
+        if (!member || !this.bucket(from).cur.take()) return;
+        const cur = { t: 'cur' as const, id: from, x: Number(msg.x) || 0, y: Number(msg.y) || 0, tool: Number(msg.tool) || 0 };
+        this.broadcast(cur, from);
+        this.emit('cursor', { id: from, x: cur.x, y: cur.y, tool: cur.tool });
+        break;
+      }
+      case 'qc': {
+        if (!member || !quickLine(msg.n) || !this.bucket(from).qc.take()) return;
+        // The sender already shows their own line.
+        this.broadcast({ t: 'qc', n: msg.n, id: from }, from);
+        this.emit('quick', { id: from, n: msg.n });
+        break;
+      }
       case 'bye':
-        this.dropPeer(conn.peer);
+        this.dropPeer(from);
         break;
       default:
         break;
@@ -231,33 +380,46 @@ export class NetRoom extends Emitter<RoomEvents> {
 
   private dropPeer(id: string): void {
     const conn = this.conns.get(id);
-    if (!conn && !this.players.some((p) => p.id === id)) return;
+    if (!conn && !this.players.some((p) => p.id === id && !p.host)) return;
     this.conns.delete(id);
+    this.buckets.delete(id);
     conn?.close();
-    if (!this.started) {
+    if (!this.racing || this.kind === 'build') {
       this.players = this.players.filter((p) => p.id !== id);
-      this.broadcast({ t: 'lobby', players: this.players });
-      this.emit('lobby', this.players);
-    } else {
+      this.broadcastLobby();
+    }
+    if (this.racing) {
       this.states.delete(id);
       this.maybeFinishRace();
     }
   }
 
-  private broadcast(msg: NetMsg): void {
-    for (const c of this.conns.values()) {
-      if (c.open) c.send(msg);
+  private broadcastLobby(): void {
+    this.broadcast({ t: 'lobby', players: this.players, racing: this.racing });
+    this.emit('lobby', this.players);
+  }
+
+  private broadcast(msg: NetMsg, except?: string): void {
+    for (const [id, c] of this.conns) {
+      if (id !== except && c.open) c.send(msg);
     }
   }
 
-  /** Host: start the race for everyone. */
-  startRace(): void {
-    if (!this.isHost || this.started) return;
-    this.started = true;
+  private sendTo(id: string, msg: NetMsg): void {
+    const c = this.conns.get(id);
+    if (c?.open) c.send(msg);
+  }
+
+  /** Host: start a race for everyone (build rooms pass the level code). */
+  startRace(level?: string): void {
+    if (!this.isHost || this.racing) return;
+    this.racing = true;
+    this.finishes.clear();
+    this.states.clear();
     const seed = (Math.random() * 2 ** 31) >>> 0;
-    const msg: NetMsg = { t: 'start', seed, players: this.players, delay: 600 };
+    const msg: NetMsg = { t: 'start', seed, players: this.players, delay: 600, level };
     this.broadcast(msg);
-    this.emit('start', { seed, players: this.players, delay: 600 });
+    this.emit('start', { seed, players: this.players, delay: 600, level });
     this.snapTimer = window.setInterval(() => {
       const p = [...this.states.values()];
       if (p.length) this.broadcast({ t: 'snap', p });
@@ -266,10 +428,12 @@ export class NetRoom extends Emitter<RoomEvents> {
   }
 
   private recordFinish(id: string, time: number): void {
-    if (this.finishes.has(id)) return;
-    this.finishes.set(id, time);
-    this.broadcast({ t: 'fin', id, time });
-    this.emit('finish', { id, time });
+    if (!this.racing || this.finishes.has(id)) return;
+    this.finishes.set(id, Number.isFinite(time) ? time : Infinity);
+    if (Number.isFinite(time)) {
+      this.broadcast({ t: 'fin', id, time });
+      this.emit('finish', { id, time });
+    }
     if (!this.resultsTimer) this.resultsTimer = window.setTimeout(() => this.sendResults(), 25000);
     this.maybeFinishRace();
   }
@@ -280,14 +444,61 @@ export class NetRoom extends Emitter<RoomEvents> {
   }
 
   private sendResults(): void {
-    if (!this.isHost) return;
+    if (!this.isHost || !this.racing) return;
     clearTimeout(this.resultsTimer);
+    this.resultsTimer = 0;
     clearInterval(this.snapTimer);
-    const order = this.players
-      .map((p) => ({ id: p.id, time: this.finishes.get(p.id) ?? null }))
-      .sort((a, b) => (a.time ?? Infinity) - (b.time ?? Infinity));
+    const time = (id: string) => {
+      const t = this.finishes.get(id);
+      return t === undefined || !Number.isFinite(t) ? null : t;
+    };
+    const order = this.players.map((p) => ({ id: p.id, time: time(p.id) })).sort((a, b) => (a.time ?? Infinity) - (b.time ?? Infinity));
     this.broadcast({ t: 'results', order });
     this.emit('results', order);
+    if (this.kind === 'build') {
+      // Back to building: the room stays open for more edits and races.
+      this.racing = false;
+      this.states.clear();
+      this.players = this.players.filter((p) => p.host || this.conns.has(p.id));
+      this.broadcastLobby();
+      this.emit('raceOver', undefined);
+    }
+  }
+
+  // -------------------------------------------------------------- build API (host)
+  /** Host: how new builders get the current level. */
+  setSnapshot(fn: NonNullable<HostOptions['snapshot']>): void {
+    this.snapshot = fn;
+  }
+
+  /** Host: publish ordered edits (`by` = who made them, `seq` = their edit number). */
+  publishOps(by: string, seq: number, ops: EditOp[]): void {
+    if (!this.isHost) return;
+    this.rev++;
+    this.broadcast({ t: 'ops', seq, ops, by, rev: this.rev });
+  }
+
+  sendLevel(to: string, code: string, authors: string[]): void {
+    this.sendTo(to, { t: 'level', code, rev: this.rev, authors });
+  }
+
+  setLock(on: boolean): void {
+    if (!this.isHost) return;
+    this.locked = on;
+    this.broadcast({ t: 'lock', on });
+    this.emit('lock', on);
+  }
+
+  setAuthors(list: string[]): void {
+    if (this.isHost) this.broadcast({ t: 'authors', list });
+  }
+
+  /** Host: remove a player (they can't rejoin this room). */
+  kick(id: string): void {
+    if (!this.isHost || id === this.localId) return;
+    this.sendTo(id, { t: 'kick' });
+    this.kicked.add(id);
+    setTimeout(() => this.dropPeer(id), 120);
   }
 
   // -------------------------------------------------------------- client side
@@ -301,15 +512,20 @@ export class NetRoom extends Emitter<RoomEvents> {
   }
 
   private handleClient(msg: NetMsg): void {
+    if (!msg || typeof msg !== 'object') return;
     switch (msg.t) {
-      case 'lobby':
+      case 'lobby': {
+        const wasRacing = this.racing;
         this.players = msg.players;
+        this.racing = Boolean(msg.racing);
         this.emit('lobby', msg.players);
+        if (wasRacing && !this.racing && this.kind === 'build') this.emit('raceOver', undefined);
         break;
+      }
       case 'start':
-        this.started = true;
+        this.racing = true;
         this.players = msg.players;
-        this.emit('start', { seed: msg.seed, players: msg.players, delay: msg.delay });
+        this.emit('start', { seed: msg.seed, players: msg.players, delay: msg.delay, level: msg.level });
         break;
       case 'snap':
         this.emit('snap', msg.p);
@@ -323,12 +539,34 @@ export class NetRoom extends Emitter<RoomEvents> {
       case 'results':
         this.emit('results', msg.order);
         break;
+      case 'ops':
+        if (Array.isArray(msg.ops)) this.emit('ops', { by: String(msg.by ?? ''), seq: Number(msg.seq) || 0, ops: msg.ops, rev: Number(msg.rev) || 0 });
+        break;
+      case 'level':
+        this.emit('level', { code: msg.code, rev: msg.rev, authors: Array.isArray(msg.authors) ? msg.authors : [] });
+        break;
+      case 'cur':
+        if (msg.id) this.emit('cursor', { id: msg.id, x: msg.x, y: msg.y, tool: msg.tool });
+        break;
+      case 'lock':
+        this.locked = Boolean(msg.on);
+        this.emit('lock', this.locked);
+        break;
+      case 'authors':
+        if (Array.isArray(msg.list)) this.emit('authors', msg.list);
+        break;
+      case 'qc':
+        if (msg.id && quickLine(msg.n)) this.emit('quick', { id: msg.id, n: msg.n });
+        break;
+      case 'kick':
+        this.close('The host removed you from the room.');
+        break;
       default:
         break;
     }
   }
 
-  // -------------------------------------------------------------- race API (both)
+  // -------------------------------------------------------------- shared API
   sendState(s: NetState): void {
     if (this.isHost) {
       this.states.set(this.localId, s);
@@ -348,6 +586,40 @@ export class NetRoom extends Emitter<RoomEvents> {
   sendFinish(time: number): void {
     if (this.isHost) this.recordFinish(this.localId, time);
     else if (this.hostConn?.open) this.hostConn.send({ t: 'fin', id: this.localId, time } satisfies NetMsg);
+  }
+
+  /** Left a build-room race early: don't make everyone wait. */
+  sendQuit(): void {
+    if (this.isHost) this.recordFinish(this.localId, Infinity);
+    else if (this.hostConn?.open) this.hostConn.send({ t: 'quit' } satisfies NetMsg);
+  }
+
+  /** Client: send edits to the host to be ordered. */
+  sendOps(seq: number, ops: EditOp[]): void {
+    if (!this.isHost && this.hostConn?.open) this.hostConn.send({ t: 'ops', seq, ops } satisfies NetMsg);
+  }
+
+  requestSync(): void {
+    if (!this.isHost && this.hostConn?.open) this.hostConn.send({ t: 'sync' } satisfies NetMsg);
+  }
+
+  sendCursor(x: number, y: number, tool: number): void {
+    if (this.isHost) this.broadcast({ t: 'cur', id: this.localId, x, y, tool });
+    else if (this.hostConn?.open) this.hostConn.send({ t: 'cur', x, y, tool } satisfies NetMsg);
+  }
+
+  sendQuick(n: number): void {
+    if (!quickLine(n)) return;
+    if (this.isHost) {
+      this.broadcast({ t: 'qc', n, id: this.localId });
+      this.emit('quick', { id: this.localId, n });
+    } else if (this.hostConn?.open) {
+      this.hostConn.send({ t: 'qc', n } satisfies NetMsg);
+    }
+  }
+
+  player(id: string): NetPlayer | undefined {
+    return this.players.find((p) => p.id === id);
   }
 
   private close(reason: string): void {

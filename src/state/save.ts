@@ -15,8 +15,14 @@ export interface Settings {
   /** Kid Mode: slower speed and extra hearts in Endless. */
   kidMode: boolean;
   graphics: GraphicsQuality;
-  /** Parental control: allow "Play with Friends" online rooms. */
+  /** Parental control: allow online rooms (Play with Friends, Build Together). */
   onlineAllowed: boolean;
+  /** Parental control: Quick Chat (preset phrases) in online rooms. */
+  quickChat: boolean;
+  /** Free Chat (typed messages) — only for verified 16+, or 13-15 with a parent's OK. */
+  freeChat: boolean;
+  /** Parental control (13+ only): join and host public build rooms. */
+  publicRooms: boolean;
   /** Parental control: allow in-app purchases. */
   purchasesAllowed: boolean;
   showFps: boolean;
@@ -83,6 +89,9 @@ export const DEFAULT_SETTINGS: Settings = {
   kidMode: false,
   graphics: 'auto',
   onlineAllowed: true,
+  quickChat: true,
+  freeChat: false,
+  publicRooms: true,
   purchasesAllowed: true,
   showFps: false,
 };

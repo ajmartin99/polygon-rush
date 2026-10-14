@@ -3,6 +3,7 @@ import { App as CapApp } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { isNative } from './core/platform';
 import { store } from './state/store';
+import { levels } from './state/levels';
 import { ensureMissions } from './meta/missions';
 import { ads } from './services/ads';
 import { iap } from './services/iap';
@@ -16,6 +17,8 @@ import { SettingsScreen } from './ui/screens/settings';
 import { RaceLobbyScreen } from './ui/screens/race';
 import { DuelScreen } from './ui/screens/duel';
 import { FriendsScreen } from './ui/screens/friends';
+import { CreateScreen } from './ui/screens/create';
+import { EditorScreen } from './ui/screens/editor';
 import { GameController } from './game/controller';
 import { audio, MENU_SONG } from './core/audio';
 
@@ -28,13 +31,15 @@ function registerRoutes(): void {
   nav.register('settings', () => new SettingsScreen());
   nav.register('race', () => new RaceLobbyScreen());
   nav.register('duel', () => new DuelScreen());
-  nav.register('friends', () => new FriendsScreen());
+  nav.register('friends', (p) => new FriendsScreen(p));
+  nav.register('create', (p) => new CreateScreen(p));
+  nav.register('editor', (p) => new EditorScreen(p));
 }
 
 async function boot(): Promise<void> {
   ui.init();
   registerRoutes();
-  await store.load();
+  await Promise.all([store.load(), levels.load()]);
   ensureMissions(store.data);
   store.commit();
 
@@ -43,6 +48,7 @@ async function boot(): Promise<void> {
 
   const game = new GameController(document.getElementById('game') as HTMLCanvasElement);
   nav.setPlayHandler((req) => game.play(req));
+  nav.setSceneHandler((scene) => game.setScene(scene));
   ui.sfx = (name) => audio.play(name);
   // Browsers only allow audio after a gesture: start the menu music on the first tap.
   const unlock = () => {
@@ -62,9 +68,15 @@ async function boot(): Promise<void> {
     void CapApp.addListener('backButton', () => {
       if (!ui.back()) void CapApp.exitApp();
     });
-    void CapApp.addListener('pause', () => void store.flush());
+    void CapApp.addListener('pause', () => {
+      void store.flush();
+      void levels.flush();
+    });
   }
-  window.addEventListener('pagehide', () => void store.flush());
+  window.addEventListener('pagehide', () => {
+    void store.flush();
+    void levels.flush();
+  });
 
   const p = store.data.profile;
   if (!p.ageGroup) nav.go('agegate');

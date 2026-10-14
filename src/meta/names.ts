@@ -24,6 +24,29 @@ export function randomName(rand: () => number = Math.random): string {
   return `${a} ${n} ${num}`;
 }
 
+/** Racer names pack into 3 bytes (adjective, noun, number) for level codes. */
+export function encodeName(name: string): [number, number, number] | null {
+  const m = /^([A-Za-z]+) ([A-Za-z]+) (\d{1,2})$/.exec(name);
+  if (!m) return null;
+  const a = ADJECTIVES.indexOf(m[1]);
+  const n = m[2] === 'Polygon' ? 255 : NOUNS.indexOf(m[2]);
+  const num = Number(m[3]);
+  if (a < 0 || n < 0 || num < 1 || num > 99) return null;
+  return [a, n, num];
+}
+
+export function decodeName(b: [number, number, number]): string | null {
+  const a = ADJECTIVES[b[0]];
+  const n = b[1] === 255 ? 'Polygon' : NOUNS[b[1]];
+  if (!a || !n || b[2] < 1 || b[2] > 99) return null;
+  return `${a} ${n} ${b[2]}`;
+}
+
+/** True for names this game generates (the only names allowed online). */
+export function isGeneratedName(name: string): boolean {
+  return typeof name === 'string' && encodeName(name) !== null;
+}
+
 /** Friendly CPU rival names (clearly labelled "CPU" in the UI). */
 export const CPU_NAMES = [
   'Bolt Bot', 'Zigzag Bot', 'Hexy Bot', 'Pointy Bot', 'Roly Bot', 'Glidey Bot', 'Sparky Bot', 'Blocky Bot',

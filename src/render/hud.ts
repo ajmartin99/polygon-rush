@@ -148,3 +148,43 @@ export function drawRaceHud(ctx: CanvasRenderingContext2D, rect: ViewRect, sessi
   if (me.magnet > 0) px += powerPill(ctx, px, py, u * 1.05, 'MAGNET', '#ff5f5f', me.magnet / 6) + u * 0.4;
   if (me.snow > 0) powerPill(ctx, px, py, u * 1.05, 'BRRR!', '#bfefff', me.snow / 1.4);
 }
+
+/** Player-made levels: hearts, gems and a progress bar with the percentage. */
+export function drawLevelHud(ctx: CanvasRenderingContext2D, rect: ViewRect, session: GameSession, r: Racer, dpr: number, title: string, best: number): void {
+  const u = Math.min(rect.h, rect.w / 1.45) / 22;
+  const pad = u * 1.1 + 6 * dpr;
+  const x = rect.x + pad;
+  const y = rect.y + pad;
+  for (let i = 0; i < Math.max(r.maxHearts, r.hearts); i++) heart(ctx, x + i * u * 1.25, y, u * 1.15, i < r.hearts);
+  const gy = y + u * 1.5;
+  gemIcon(ctx, x, gy + u * 0.55, u * 0.95);
+  outlinedText(ctx, String(r.gems), x + u * 1.2, gy, u * 1.05, '#ffffff');
+
+  const total = Math.max(1, session.finishX - r.startX);
+  const prog = Math.max(0, Math.min(1, (r.x - r.startX) / total));
+  const bw = rect.w * 0.4;
+  const bx = rect.x + (rect.w - bw) / 2;
+  const by = y + u * 0.35;
+  const bh = u * 0.6;
+  ctx.fillStyle = 'rgba(16,8,48,0.6)';
+  ctx.beginPath();
+  ctx.roundRect(bx - u * 0.3, by - u * 0.3, bw + u * 0.6, bh + u * 0.6, u);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.18)';
+  ctx.beginPath();
+  ctx.roundRect(bx, by, bw, bh, bh / 2);
+  ctx.fill();
+  ctx.fillStyle = '#3ee6b0';
+  ctx.beginPath();
+  ctx.roundRect(bx, by, Math.max(bh, bw * prog), bh, bh / 2);
+  ctx.fill();
+  if (best > 0 && best < 1) {
+    ctx.fillStyle = '#ffd23f';
+    ctx.fillRect(bx + bw * best - u * 0.06, by - u * 0.25, u * 0.12, bh + u * 0.5);
+  }
+  outlinedText(ctx, `${Math.floor(prog * 100)}%`, bx + bw + u * 0.7, by - u * 0.35, u * 1.05, '#ffffff');
+  outlinedText(ctx, title, rect.x + rect.w / 2, by + bh + u * 0.5, u * 0.75, 'rgba(255,255,255,0.8)', 'center');
+  let px = rect.x + rect.w * 0.72;
+  if (r.shield) px += powerPill(ctx, px, gy, u * 1.05, 'SHIELD', '#3ad7ff', r.shieldTime / 18) + u * 0.4;
+  if (r.magnet > 0) powerPill(ctx, px, gy, u * 1.05, 'MAGNET', '#ff5f5f', r.magnet / 9);
+}

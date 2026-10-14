@@ -117,6 +117,45 @@ export const ICONS = {
   shapes: svg(
     `<rect x="2.5" y="12" width="8" height="8" rx="1.5" fill="#ffd23f"/><path d="M17.5 2.5l5 8.5h-10z" fill="#ff5fa2"/><path d="M17.5 13l4.3 2.5v5L17.5 23l-4.3-2.5v-5z" fill="#3ee6b0"/><path d="M6.5 2.5l4 4.5-4 4.5-4-4.5z" fill="#3ad7ff"/>`,
   ),
+  build: svg(
+    `<rect x="2.5" y="13" width="8" height="8" rx="1.4" fill="currentColor"/><rect x="11.5" y="13" width="8" height="8" rx="1.4" fill="currentColor" opacity=".75"/><rect x="7" y="4" width="8" height="8" rx="1.4" fill="currentColor" opacity=".9"/><path d="M18.5 2.5l3 3-6 6-3.6.6.6-3.6z" fill="#ffd23f" stroke="#7a4b00" stroke-width="1"/>`,
+  ),
+  edit: svg(
+    `<path d="M4 20l1-5L15.5 4.5a2.1 2.1 0 0 1 3 0l1 1a2.1 2.1 0 0 1 0 3L9 19z" fill="currentColor"/><path d="M13.5 6.5l4 4" stroke="#21125a" stroke-width="1.6"/><path d="M4 20l5-1-4-4z" fill="#ffd23f"/>`,
+  ),
+  undo: svg(
+    `<path d="M9 5L4 10l5 5" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4.5 10H14a6 6 0 0 1 0 12h-3" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>`,
+  ),
+  redo: svg(
+    `<path d="M15 5l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M19.5 10H10a6 6 0 0 0 0 12h3" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>`,
+  ),
+  eraser: svg(
+    `<path d="M14.5 3.5l6 6-9 9.5H6.5l-3.5-3.5z" fill="currentColor"/><path d="M8.5 9.5l6 6" stroke="#21125a" stroke-width="1.8"/><path d="M11 19h10" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>`,
+  ),
+  hand: svg(
+    `<path d="M7 13V6.5a1.5 1.5 0 0 1 3 0V12V4.5a1.5 1.5 0 0 1 3 0V12V5.5a1.5 1.5 0 0 1 3 0V12.5V8.5a1.5 1.5 0 0 1 3 0v6.5a7 7 0 0 1-7 7h-1a7 7 0 0 1-5.8-3.1L3.6 14.6a1.6 1.6 0 0 1 2.6-1.8z" fill="currentColor"/>`,
+  ),
+  share: svg(
+    `<circle cx="18" cy="5.5" r="3" fill="currentColor"/><circle cx="6" cy="12" r="3" fill="currentColor"/><circle cx="18" cy="18.5" r="3" fill="currentColor"/><path d="M8.6 10.6l6.8-3.7M8.6 13.4l6.8 3.7" stroke="currentColor" stroke-width="2.2"/>`,
+  ),
+  chat: svg(
+    `<path d="M4 4.5h16a2 2 0 0 1 2 2V15a2 2 0 0 1-2 2h-8l-5 4v-4H4a2 2 0 0 1-2-2V6.5a2 2 0 0 1 2-2z" fill="currentColor"/><circle cx="8" cy="10.8" r="1.4" fill="#21125a"/><circle cx="12" cy="10.8" r="1.4" fill="#21125a"/><circle cx="16" cy="10.8" r="1.4" fill="#21125a"/>`,
+  ),
+  mail: svg(
+    `<rect x="2.5" y="5" width="19" height="14" rx="2.5" fill="currentColor"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5" fill="none" stroke="#21125a" stroke-width="1.8" stroke-linejoin="round"/>`,
+  ),
+  report: svg(
+    `<path d="M5 21V3.5" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M5.5 4h12l-2.5 4.5 2.5 4.5h-12z" fill="currentColor"/>`,
+  ),
+  mute: svg(
+    `<path d="M4 9h3.5L13 4.5v15L7.5 15H4z" fill="currentColor"/><path d="M16 9l5 6M21 9l-5 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>`,
+  ),
+  verified: svg(
+    `<path d="M12 2l2.6 2.1 3.3-.3.9 3.2 2.8 1.8-1.2 3.2 1.2 3.2-2.8 1.8-.9 3.2-3.3-.3L12 22l-2.6-2.1-3.3.3-.9-3.2-2.8-1.8 1.2-3.2-1.2-3.2 2.8-1.8.9-3.2 3.3.3z" fill="#3ee6b0"/><path d="M7.5 12.3l3 3 6-6.3" fill="none" stroke="#0b4a3a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`,
+  ),
+  public: svg(
+    `<circle cx="12" cy="12" r="9.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M2.5 12h19M12 2.5c3 3 3 16 0 19M12 2.5c-3 3-3 16 0 19" fill="none" stroke="currentColor" stroke-width="1.8"/>`,
+  ),
 } as const;
 
 export type IconName = keyof typeof ICONS;

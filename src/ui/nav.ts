@@ -4,7 +4,7 @@ import type { NetPlayer, NetRoom } from '../services/net';
 import type { LevelContent, LevelData } from '../game/level';
 import type { Scene } from '../game/scene';
 
-export type Route = 'agegate' | 'name' | 'menu' | 'shop' | 'missions' | 'settings' | 'race' | 'duel' | 'friends' | 'create' | 'editor';
+export type Route = 'agegate' | 'name' | 'difficulty' | 'menu' | 'shop' | 'missions' | 'settings' | 'race' | 'duel' | 'friends' | 'create' | 'editor';
 
 /** How a player-made level run ended (reported back to whoever started it). */
 export interface LevelRunResult {

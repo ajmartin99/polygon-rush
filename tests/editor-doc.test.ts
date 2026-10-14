@@ -3,7 +3,7 @@ import { History, LevelDoc, SyncedDoc, type EditOp } from '../src/editor/doc';
 import { slotOf, START_ZONE, type LevelContent, type Piece } from '../src/game/level';
 import { mulberry32 } from '../src/core/rng';
 
-const base = (): LevelContent => ({ name: [1, 2], authors: [], theme: 0, speed: 1, hearts: 3, length: 100, pieces: [] });
+const base = (): LevelContent => ({ name: [1, 2], authors: [], theme: 0, music: -1, speed: 1, hearts: 3, length: 100, pieces: [] });
 const put = (p: Piece): EditOp => ({ s: slotOf(p), p });
 const clear = (p: Piece): EditOp => ({ s: slotOf(p), p: null });
 

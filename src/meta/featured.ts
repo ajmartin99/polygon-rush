@@ -192,8 +192,8 @@ const express = new Build()
   .big(218, 2);
 
 export const FEATURED: FeaturedLevel[] = [
-  level('sunny01', { name: [3, 30], theme: 1, speed: 0, hearts: 5, length: 165, blurb: 'A gentle warm-up: spikes, blocks, a pit and your first bounce pad.', difficulty: 'Easy' }, sunny),
-  level('rocket02', { name: [29, 3], theme: 2, speed: 1, hearts: 3, length: 230, blurb: 'Jump rings, ledges over spikes and a Glider gauntlet.', difficulty: 'Medium' }, highway),
-  level('jelly03', { name: [8, 1], theme: 0, speed: 1, hearts: 3, length: 195, blurb: 'Flip between floor and ceiling as the Roller.', difficulty: 'Medium' }, castle),
-  level('neon04', { name: [2, 21], theme: 3, speed: 2, hearts: 3, length: 228, blurb: 'Turbo speed with Hopper, Glider and a sneaky ring. Good luck!', difficulty: 'Hard' }, express),
+  level('sunny01', { name: [3, 30], theme: 1, music: 12, speed: 0, hearts: 5, length: 165, blurb: 'A gentle warm-up: spikes, blocks, a pit and your first bounce pad.', difficulty: 'Easy' }, sunny),
+  level('rocket02', { name: [29, 3], theme: 2, music: 8, speed: 1, hearts: 3, length: 230, blurb: 'Jump rings, ledges over spikes and a Glider gauntlet.', difficulty: 'Medium' }, highway),
+  level('jelly03', { name: [8, 1], theme: 0, music: 10, speed: 1, hearts: 3, length: 195, blurb: 'Flip between floor and ceiling as the Roller.', difficulty: 'Medium' }, castle),
+  level('neon04', { name: [2, 21], theme: 3, music: 9, speed: 2, hearts: 3, length: 228, blurb: 'Turbo speed with Hopper, Glider and a sneaky ring. Good luck!', difficulty: 'Hard' }, express),
 ];

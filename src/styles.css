@@ -1055,6 +1055,59 @@ p {
   opacity: 0.85;
 }
 
+/* soundtrack */
+.now-playing {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: min(20rem, 100%);
+  padding: 0.35rem 0.5rem 0.35rem 0.8rem;
+  border-radius: 0.9rem;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.now-playing > svg {
+  width: 1.3rem;
+  height: 1.3rem;
+  flex: none;
+}
+
+.now-playing .lbl {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  text-align: left;
+}
+
+.now-playing .lbl span:first-child {
+  font-size: 0.65rem;
+  color: var(--ink-dim);
+}
+
+.now-playing .np-title {
+  font-weight: 600;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.song-list {
+  gap: 0.35rem;
+  text-align: left;
+  margin-top: 0.6rem;
+}
+
+.song-row {
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.8rem;
+}
+
+.song-row.on {
+  background: rgba(62, 230, 176, 0.16);
+}
+
 .switch {
   position: relative;
   width: 3.2rem;
@@ -2382,4 +2435,60 @@ input[type='range']::-moz-range-thumb {
   .mode-grid {
     grid-template-columns: repeat(2, 1fr);
   }
+}
+
+/* ------------------------------------------------------------------ difficulty */
+.diff-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.diff-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: center;
+  padding: 0.8rem 0.6rem;
+  border-radius: 1rem;
+  border: 3px solid transparent;
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: transform 0.12s, border-color 0.12s, background 0.12s;
+}
+
+.diff-card b {
+  font-size: 1.3rem;
+}
+
+.diff-card .diff-blurb {
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.diff-card .diff-detail {
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+}
+
+.diff-card.mint.on {
+  border-color: var(--mint, #3ee6b0);
+  background: rgba(62, 230, 176, 0.18);
+}
+
+.diff-card.yellow.on {
+  border-color: var(--yellow, #ffd23f);
+  background: rgba(255, 210, 63, 0.18);
+}
+
+.diff-card.red.on {
+  border-color: var(--red, #ff4f5e);
+  background: rgba(255, 79, 94, 0.18);
+}
+
+.diff-card.on {
+  transform: scale(1.04);
 }

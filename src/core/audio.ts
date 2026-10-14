@@ -1,5 +1,5 @@
 import { store } from '../state/store';
-import { lane, parseMelody, SCALES, SONGS, type NoteEvent, type SongDef } from './songs';
+import { lane, parseMelody, SCALES, SONGS, type Kit, type NoteEvent, type SongDef } from './songs';
 
 export { MENU_SONG, RACE_SONG, SONGS, WORLD_SONGS } from './songs';
 
@@ -97,6 +97,14 @@ class AudioEngine {
   beatLength = 60 / 128;
   /** Context time of the last beat (for visual pulse). */
   lastBeatTime = 0;
+  /**
+   * Called on a phrase boundary once the current song has played for a
+   * while; the music director answers by choosing the next song (or not).
+   */
+  onSongEnd: (() => void) | null = null;
+  /** Seconds a song plays before `onSongEnd` (it ends on a full A-B-A-B cycle). */
+  songSeconds = 105;
+  private songStarted = 0;
 
   /** Create the context on the first user gesture (browser autoplay rules). */
   unlock(): void {
@@ -222,6 +230,7 @@ class AudioEngine {
   private startSong(index: number, at: number, withIntro: boolean): void {
     this.songIndex = index;
     this.pending = -1;
+    this.songStarted = at;
     this.song = PARSED[index % PARSED.length];
     this.beatLength = 60 / this.song.def.bpm;
     this.step = withIntro ? 0 : 32; // skip the 2-bar intro when switching mid-run
@@ -249,11 +258,16 @@ class AudioEngine {
     while (this.nextStepTime < until) {
       const s = this.song;
       const stepDur = 60 / s.def.bpm / 4;
-      // Switch songs on a bar line.
-      if (this.pending >= 0 && this.step % 16 === 0) {
-        this.startSong(this.pending, this.nextStepTime, false);
-        this.crash(this.nextStepTime, 0.5);
-        continue;
+      if (this.step % 16 === 0) {
+        // A full A-B-A-B cycle just finished and the song has had its time: ask for the next one.
+        const formBar = this.step / 16 - 2;
+        if (this.pending < 0 && formBar > 0 && formBar % 16 === 0 && this.nextStepTime - this.songStarted >= this.songSeconds) this.onSongEnd?.();
+        // Switch songs on a bar line.
+        if (this.pending >= 0) {
+          this.startSong(this.pending, this.nextStepTime, false);
+          this.crash(this.nextStepTime, 0.5);
+          continue;
+        }
       }
       const swing = this.step % 2 === 1 ? s.def.swing * stepDur : 0;
       this.playStep(this.step, this.nextStepTime + swing, stepDur);
@@ -306,16 +320,24 @@ class AudioEngine {
     if (i % 4 === 0) this.lastBeatTime = t;
 
     // ---- drums
-    if (groove.kick[i] === 'x') this.kick(t);
+    const kit: Kit = s.def.kit ?? 'punchy';
+    if (groove.kick[i] === 'x') this.kick(t, kit);
+    const sn = groove.snare[i];
     if (fillBar && i >= 8) {
-      if (i % 2 === 0 || i >= 12) this.snare(t, 0.18 + (i - 8) * 0.04);
-    } else if (groove.snare[i] === 'x' && !(intro && bar === 0)) {
-      this.snare(t, 0.4);
+      if (i % 2 === 0 || i >= 12) this.snare(t, 0.18 + (i - 8) * 0.04, kit);
+    } else if (sn === 'x' && !(intro && bar === 0)) {
+      this.snare(t, 0.4, kit);
+    } else if (sn === 'g' && !intro) {
+      this.snare(t, 0.12, kit);
     }
     const h = groove.hat[i];
     if (h !== '.') {
-      if (h === 'o' && hi > 0.35) this.hat(t, 0.55, true);
-      else if (hi > 0.62 || i % 2 === 0) this.hat(t, i % 4 === 2 ? 0.5 : 0.3, false);
+      if (h === 'o' && hi > 0.35) this.hat(t, 0.55, true, kit);
+      else if (h === 'r' && hi > 0.5) {
+        // Trap-style roll: two 32nds.
+        this.hat(t, 0.32, false, kit);
+        this.hat(t + stepDur / 2, 0.26, false, kit);
+      } else if (hi > 0.62 || i % 2 === 0) this.hat(t, i % 4 === 2 ? 0.5 : 0.3, false, kit);
     }
     if (!intro && i === 0 && barInSection === 0 && formBar > 0) this.crash(t, 0.4);
 
@@ -329,7 +351,7 @@ class AudioEngine {
     }
 
     // ---- pad chord each bar
-    if (i === 0) this.pad(tones.slice(0, 3).map((x) => root + 12 + x), t, stepDur * 16);
+    if (i === 0 && s.def.padTone !== 'none') this.pad(tones.slice(0, 3).map((x) => root + 12 + x), t, stepDur * 16);
 
     if (intro) return;
 
@@ -344,8 +366,10 @@ class AudioEngine {
     for (const n of mel) {
       if (n.step !== local) continue;
       const midi = root + oct + n.semis;
-      this.lead(mtof(midi), t, stepDur * n.len, s.def.lead, 1);
-      if (hi > 0.8) this.lead(mtof(midi - 12), t, stepDur * n.len, 'triangle', 0.45);
+      const voice = s.def.voice ?? 'synth';
+      if (voice === 'synth') this.lead(mtof(midi), t, stepDur * n.len, s.def.lead, 1);
+      else this.voiceNote(voice, mtof(midi), t, stepDur * n.len);
+      if (hi > 0.8 && voice !== 'mallet' && voice !== 'keys') this.lead(mtof(midi - 12), t, stepDur * n.len, 'triangle', voice === 'chip' ? 0.3 : 0.45);
     }
   }
 
@@ -362,67 +386,89 @@ class AudioEngine {
     g.linearRampToValueAtTime(1, t + 0.17);
   }
 
-  private kick(t: number): void {
+  private noiseHit(t: number, type: BiquadFilterType, freq: number, q: number, vol: number, decay: number, toVerb = false): void {
     const c = this.ctx!;
-    const o = c.createOscillator();
-    const g = c.createGain();
-    o.frequency.setValueAtTime(165, t);
-    o.frequency.exponentialRampToValueAtTime(45, t + 0.11);
-    this.env(g, t, 0.95, 0.002, 0.24);
-    o.connect(g).connect(this.musicBus);
-    o.start(t);
-    o.stop(t + 0.28);
-    // Click for definition on small phone speakers.
     const n = c.createBufferSource();
     n.buffer = this.noise;
     const f = c.createBiquadFilter();
-    f.type = 'highpass';
-    f.frequency.value = 2500;
-    const ng = c.createGain();
-    this.env(ng, t, 0.12, 0.001, 0.012);
-    n.connect(f).connect(ng).connect(this.musicBus);
+    f.type = type;
+    f.frequency.value = freq;
+    f.Q.value = q;
+    const g = c.createGain();
+    this.env(g, t, vol, 0.001, decay);
+    n.connect(f).connect(g).connect(this.musicBus);
+    if (toVerb) g.connect(this.reverbSend);
     n.start(t, Math.random() * 0.5);
-    n.stop(t + 0.02);
+    n.stop(t + decay + 0.05);
+  }
+
+  private tonePing(t: number, type: OscillatorType, f0: number, f1: number, vol: number, decay: number): void {
+    const c = this.ctx!;
+    const o = c.createOscillator();
+    o.type = type;
+    const g = c.createGain();
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(f1, t + decay * 0.6);
+    this.env(g, t, vol, 0.002, decay);
+    o.connect(g).connect(this.musicBus);
+    o.start(t);
+    o.stop(t + decay + 0.05);
+  }
+
+  private kick(t: number, kit: Kit = 'punchy'): void {
+    switch (kit) {
+      case 'chip':
+        this.tonePing(t, 'square', 130, 48, 0.6, 0.11);
+        break;
+      case '808':
+        this.tonePing(t, 'sine', 75, 40, 1, 0.7);
+        this.noiseHit(t, 'highpass', 2500, 0.7, 0.08, 0.01);
+        break;
+      case 'lofi':
+        this.tonePing(t, 'sine', 120, 45, 0.75, 0.2);
+        this.noiseHit(t, 'lowpass', 1200, 0.7, 0.08, 0.02);
+        break;
+      default: {
+        const decay = kit === 'rock' ? 0.3 : kit === 'breaks' ? 0.18 : 0.24;
+        this.tonePing(t, 'sine', 165, 45, 0.95, decay);
+        // Click for definition on small phone speakers.
+        this.noiseHit(t, 'highpass', 2500, 0.7, kit === 'punchy' ? 0.12 : 0.17, 0.012);
+      }
+    }
     this.pump(t);
   }
 
-  private snare(t: number, vol: number): void {
-    const c = this.ctx!;
-    const n = c.createBufferSource();
-    n.buffer = this.noise;
-    const f = c.createBiquadFilter();
-    f.type = 'bandpass';
-    f.frequency.value = 2000;
-    f.Q.value = 0.7;
-    const g = c.createGain();
-    this.env(g, t, vol, 0.002, 0.16);
-    n.connect(f).connect(g);
-    g.connect(this.musicBus);
-    g.connect(this.reverbSend);
-    n.start(t, Math.random() * 0.5);
-    n.stop(t + 0.2);
-    const o = c.createOscillator();
-    const og = c.createGain();
-    o.frequency.setValueAtTime(230, t);
-    o.frequency.exponentialRampToValueAtTime(160, t + 0.08);
-    this.env(og, t, vol * 0.55, 0.002, 0.08);
-    o.connect(og).connect(this.musicBus);
-    o.start(t);
-    o.stop(t + 0.1);
+  private snare(t: number, vol: number, kit: Kit = 'punchy'): void {
+    switch (kit) {
+      case 'chip':
+        this.noiseHit(t, 'bandpass', 4200, 0.8, vol * 0.8, 0.08);
+        this.tonePing(t, 'square', 320, 190, vol * 0.25, 0.05);
+        break;
+      case '808':
+        // Clap: three quick bursts.
+        for (const dt of [0, 0.011, 0.023]) this.noiseHit(t + dt, 'bandpass', 1500, 1.2, vol * 0.75, 0.11, true);
+        break;
+      case 'lofi':
+        this.noiseHit(t, 'bandpass', 1500, 0.6, vol * 0.65, 0.14, true);
+        break;
+      case 'rock':
+        this.noiseHit(t, 'bandpass', 1800, 0.6, vol * 1.05, 0.22, true);
+        this.tonePing(t, 'triangle', 210, 150, vol * 0.65, 0.12);
+        break;
+      case 'breaks':
+        this.noiseHit(t, 'bandpass', 2600, 0.8, vol, 0.12, true);
+        this.tonePing(t, 'triangle', 250, 180, vol * 0.5, 0.07);
+        break;
+      default:
+        this.noiseHit(t, 'bandpass', 2000, 0.7, vol, 0.16, true);
+        this.tonePing(t, 'sine', 230, 160, vol * 0.55, 0.08);
+    }
   }
 
-  private hat(t: number, vol: number, open: boolean): void {
-    const c = this.ctx!;
-    const n = c.createBufferSource();
-    n.buffer = this.noise;
-    const f = c.createBiquadFilter();
-    f.type = 'highpass';
-    f.frequency.value = 8000;
-    const g = c.createGain();
-    this.env(g, t, vol * 0.42, 0.001, open ? 0.22 : 0.035);
-    n.connect(f).connect(g).connect(this.musicBus);
-    n.start(t, Math.random() * 0.5);
-    n.stop(t + (open ? 0.26 : 0.06));
+  private hat(t: number, vol: number, open: boolean, kit: Kit = 'punchy'): void {
+    if (kit === 'chip') return this.noiseHit(t, 'highpass', 9000, 0.7, vol * 0.36, open ? 0.12 : 0.02);
+    if (kit === 'lofi') return this.noiseHit(t, 'bandpass', 7000, 0.9, vol * 0.3, open ? 0.18 : 0.03);
+    this.noiseHit(t, 'highpass', 8000, 0.7, vol * 0.42, open ? 0.22 : 0.035);
   }
 
   private crash(t: number, vol: number): void {
@@ -443,27 +489,62 @@ class AudioEngine {
 
   private bass(freq: number, t: number, dur: number): void {
     const c = this.ctx!;
+    const tone = this.song?.def.bassTone ?? 'saw';
+    const g = c.createGain();
+    const out = (node: AudioNode) => node.connect(g).connect(this.sidechain);
+    if (tone === 'sub') {
+      // 808-style sine with a little pitch dive.
+      const o = c.createOscillator();
+      o.type = 'sine';
+      o.frequency.setValueAtTime(freq * 1.06, t);
+      o.frequency.exponentialRampToValueAtTime(freq, t + 0.05);
+      this.env(g, t, 0.34, 0.006, dur);
+      out(o);
+      o.start(t);
+      o.stop(t + dur + 0.05);
+      return;
+    }
     const o = c.createOscillator();
-    o.type = 'sawtooth';
+    o.type = tone === 'square' ? 'square' : 'sawtooth';
     o.frequency.value = freq;
-    const sub = c.createOscillator();
-    sub.type = 'sine';
-    sub.frequency.value = freq / 2;
     const f = c.createBiquadFilter();
     f.type = 'lowpass';
-    f.Q.value = 4;
-    f.frequency.setValueAtTime(950, t);
-    f.frequency.exponentialRampToValueAtTime(220, t + Math.min(dur, 0.22));
-    const g = c.createGain();
-    this.env(g, t, 0.2, 0.006, dur);
-    const sg = c.createGain();
-    this.env(sg, t, 0.2, 0.006, dur);
-    o.connect(f).connect(g).connect(this.sidechain);
-    sub.connect(sg).connect(this.sidechain);
+    f.Q.value = tone === 'wobble' ? 8 : 4;
+    if (tone === 'wobble') {
+      // Filter opens and closes on 8th notes.
+      f.frequency.value = 500;
+      const lfo = c.createOscillator();
+      lfo.frequency.value = (this.song ? this.song.def.bpm / 60 : 2) * 2;
+      const depth = c.createGain();
+      depth.gain.value = 650;
+      lfo.connect(depth).connect(f.frequency);
+      lfo.start(t);
+      lfo.stop(t + dur + 0.05);
+    } else if (tone === 'slap') {
+      f.frequency.setValueAtTime(2600, t);
+      f.frequency.exponentialRampToValueAtTime(380, t + 0.08);
+      dur = Math.min(dur, 0.2);
+    } else if (tone === 'square') {
+      f.frequency.value = 1700;
+    } else {
+      f.frequency.setValueAtTime(950, t);
+      f.frequency.exponentialRampToValueAtTime(220, t + Math.min(dur, 0.22));
+    }
+    this.env(g, t, tone === 'square' ? 0.13 : 0.2, 0.006, dur);
+    o.connect(f);
+    out(f);
     o.start(t);
-    sub.start(t);
     o.stop(t + dur + 0.05);
-    sub.stop(t + dur + 0.05);
+    if (tone !== 'square') {
+      const sub = c.createOscillator();
+      sub.type = 'sine';
+      sub.frequency.value = freq / 2;
+      const sg = c.createGain();
+      this.env(sg, t, 0.2, 0.006, dur);
+      sub.connect(sg).connect(this.sidechain);
+      sub.start(t);
+      sub.stop(t + dur + 0.05);
+    }
   }
 
   private pluck(freq: number, t: number, dur: number, hi: number): void {
@@ -523,29 +604,180 @@ class AudioEngine {
     }
   }
 
+  private driveCurve: Float32Array<ArrayBuffer> | null = null;
+
+  /** Lead instruments other than the default synth. */
+  private voiceNote(voice: NonNullable<SongDef['voice']>, freq: number, t: number, dur: number): void {
+    const c = this.ctx!;
+    const g = c.createGain();
+    g.connect(this.musicBus);
+    g.connect(this.delaySend);
+    switch (voice) {
+      case 'chip': {
+        // Pure square, no detune: classic handheld console.
+        const o = c.createOscillator();
+        o.type = 'square';
+        o.frequency.value = freq;
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.12, t + 0.004);
+        g.gain.setValueAtTime(0.1, t + Math.max(0.01, dur - 0.02));
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 0.03);
+        o.connect(g);
+        o.start(t);
+        o.stop(t + dur + 0.06);
+        break;
+      }
+      case 'guitar': {
+        // Detuned saws into soft clipping: an overdriven power-chord lead.
+        // One shaper per note (a shared one would keep every earlier note's output path connected).
+        if (!this.driveCurve) {
+          this.driveCurve = new Float32Array(1024);
+          for (let k = 0; k < this.driveCurve.length; k++) {
+            const x = (k / (this.driveCurve.length - 1)) * 2 - 1;
+            this.driveCurve[k] = Math.tanh(x * 4) * 0.8;
+          }
+        }
+        const ws = c.createWaveShaper();
+        ws.curve = this.driveCurve;
+        const f = c.createBiquadFilter();
+        f.type = 'lowpass';
+        f.frequency.value = 3000;
+        const pre = c.createGain();
+        pre.gain.value = 0.35;
+        this.env(g, t, 0.14, 0.006, dur + 0.08);
+        pre.connect(ws).connect(f).connect(g);
+        for (const [mult, det] of [[1, -9], [1, 9], [1.5, 0]] as const) {
+          const o = c.createOscillator();
+          o.type = 'sawtooth';
+          o.frequency.value = freq * mult;
+          o.detune.value = det;
+          const og = c.createGain();
+          og.gain.setValueAtTime(1, t);
+          og.gain.setValueAtTime(1, t + dur);
+          og.gain.linearRampToValueAtTime(0, t + dur + 0.08);
+          o.connect(og).connect(pre);
+          o.start(t);
+          o.stop(t + dur + 0.1);
+        }
+        break;
+      }
+      case 'brass': {
+        const f = c.createBiquadFilter();
+        f.type = 'lowpass';
+        f.Q.value = 1.5;
+        f.frequency.setValueAtTime(700, t);
+        f.frequency.exponentialRampToValueAtTime(3200, t + 0.07);
+        f.frequency.exponentialRampToValueAtTime(1900, t + 0.25);
+        const release = Math.min(0.1, dur * 0.4);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.13, t + 0.04);
+        g.gain.setValueAtTime(0.11, t + Math.max(0.05, dur - release));
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur + release);
+        f.connect(g);
+        g.connect(this.reverbSend);
+        for (const det of [-5, 5]) {
+          const o = c.createOscillator();
+          o.type = 'sawtooth';
+          o.frequency.value = freq;
+          o.detune.value = det;
+          o.connect(f);
+          o.start(t);
+          o.stop(t + dur + release + 0.05);
+        }
+        break;
+      }
+      case 'mallet': {
+        // Marimba-ish: sine plus a bright overtone, short ring whatever the note length.
+        const ring = Math.min(0.5, Math.max(0.18, dur));
+        this.env(g, t, 0.3, 0.003, ring);
+        const o = c.createOscillator();
+        o.type = 'sine';
+        o.frequency.value = freq;
+        const o2 = c.createOscillator();
+        o2.type = 'sine';
+        o2.frequency.value = freq * 4;
+        const g2 = c.createGain();
+        this.env(g2, t, 0.06, 0.002, ring * 0.3);
+        o.connect(g);
+        o2.connect(g2).connect(g);
+        o.start(t);
+        o2.start(t);
+        o.stop(t + ring + 0.05);
+        o2.stop(t + ring + 0.05);
+        break;
+      }
+      case 'keys': {
+        // Soft electric-piano: triangle + octave sine with a natural decay.
+        const ring = Math.max(0.35, Math.min(1.1, dur * 1.4));
+        this.env(g, t, 0.2, 0.004, ring);
+        g.connect(this.reverbSend);
+        const o = c.createOscillator();
+        o.type = 'triangle';
+        o.frequency.value = freq;
+        const o2 = c.createOscillator();
+        o2.type = 'sine';
+        o2.frequency.value = freq * 2;
+        const g2 = c.createGain();
+        g2.gain.value = 0.3;
+        o.connect(g);
+        o2.connect(g2).connect(g);
+        o.start(t);
+        o2.start(t);
+        o.stop(t + ring + 0.05);
+        o2.stop(t + ring + 0.05);
+        break;
+      }
+      default:
+        this.lead(freq, t, dur, 'square', 1);
+    }
+  }
+
   private pad(midis: number[], t: number, dur: number): void {
     const c = this.ctx!;
+    const tone = this.song?.def.padTone ?? 'saw';
     const f = c.createBiquadFilter();
     f.type = 'lowpass';
-    f.frequency.value = 2600;
+    f.frequency.value = tone === 'strings' ? 3200 : 2600;
     const hp = c.createBiquadFilter();
     hp.type = 'highpass';
     hp.frequency.value = 280;
     const g = c.createGain();
+    const level = tone === 'strings' ? 0.034 : tone === 'organ' ? 0.024 : 0.03;
+    const attack = tone === 'strings' ? 0.6 : tone === 'organ' ? 0.02 : 0.25;
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.linearRampToValueAtTime(0.03, t + 0.25);
-    g.gain.setValueAtTime(0.03, t + dur * 0.8);
+    g.gain.linearRampToValueAtTime(level, t + attack);
+    g.gain.setValueAtTime(level, t + dur * 0.8);
     g.gain.linearRampToValueAtTime(0.0001, t + dur);
     f.connect(hp).connect(g);
     g.connect(this.sidechain);
     g.connect(this.reverbSend);
     for (const m of midis) {
-      for (const cents of [-6, 6]) {
+      const layers: [OscillatorType, number, number][] =
+        tone === 'organ'
+          ? [
+              ['sine', 0, 1],
+              ['square', 1200, 0.25],
+            ]
+          : tone === 'strings'
+            ? [
+                ['sawtooth', -12, 1],
+                ['sawtooth', 0, 1],
+                ['sawtooth', 12, 1],
+              ]
+            : [
+                ['sawtooth', -6, 1],
+                ['sawtooth', 6, 1],
+              ];
+      for (const [type, cents, amp] of layers) {
         const o = c.createOscillator();
-        o.type = 'sawtooth';
+        o.type = type;
         o.frequency.value = mtof(m);
         o.detune.value = cents;
-        o.connect(f);
+        if (amp !== 1) {
+          const ag = c.createGain();
+          ag.gain.value = amp;
+          o.connect(ag).connect(f);
+        } else o.connect(f);
         o.start(t);
         o.stop(t + dur + 0.05);
       }

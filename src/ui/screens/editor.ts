@@ -1,4 +1,6 @@
 import { audio } from '../../core/audio';
+import { music } from '../../core/music';
+import { SONGS } from '../../core/songs';
 import { BIOMES } from '../../render/biomes';
 import { Renderer } from '../../render/renderer';
 import { buildWorld, encodeLevel, HEART_OPTIONS, levelName, MAX_LENGTH, MIN_LENGTH, randomLevelName, slotOf, SPEED_NAMES, START_ZONE, THEME_COUNT, type LevelContent, type Piece } from '../../game/level';
@@ -100,7 +102,7 @@ function toolIcon(tool: Tool, theme: number): HTMLElement {
         pieces.push({ t: tool.piece!, x, y: 0, v: 0 } as Piece);
         span = tool.id === 'platform' ? 1.6 : tool.id === 'gem' ? 1.05 : tool.id === 'pickup' ? 1.25 : tool.id === 'orb' ? 1.5 : 1.8;
     }
-    const level: LevelContent = { name: [0, 0], authors: [], theme, speed: 1, hearts: 3, length: tool.id === 'finish' ? x : 60, pieces };
+    const level: LevelContent = { name: [0, 0], authors: [], theme, music: -1, speed: 1, hearts: 3, length: tool.id === 'finish' ? x : 60, pieces };
     const full = buildWorld(level);
     const world = new World();
     world.appendSorted(full.objs.filter((o) => (tool.id === 'pit' ? o.kind === 'solid' && o.role === 'ground' && o.x1 > x - 3 && o.x0 < x + 4 : tool.id === 'finish' ? o.kind === 'finish' : o.kind !== 'finish' && !(o.kind === 'solid' && o.role === 'ground'))));
@@ -203,7 +205,9 @@ export class EditorScreen extends BaseScreen {
     this.resizeObs.observe(this.palette);
     window.addEventListener('resize', this.measure);
     audio.intensity = 0.25;
-    audio.playSong(this.session.doc.settings.theme % 6);
+    const st = this.session.doc.settings;
+    if (st.music >= 0) music.level(st.music, st.theme);
+    else music.build(st.theme);
     const fc = freeChatFor(this.session);
     if (fc && this.chat) this.detachFree = fc.bind(this.chat);
     if (this.session.room && !this.session.room.open) this.roomClosed(this.session.closedReason);
@@ -498,6 +502,16 @@ export class EditorScreen extends BaseScreen {
       if (lost) ui.toast(`Removed ${lost} piece${lost > 1 ? 's' : ''} past the finish (Undo brings them back).`, 'info', 3000);
       lenEl.textContent = `${d.settings.length}m`;
     };
+    const songLabel = () => (d.settings.music < 0 ? 'World theme' : `${SONGS[d.settings.music].title} · ${SONGS[d.settings.music].genre}`);
+    const songEl = h('b', null, songLabel());
+    const cycleSong = (dir: number) => {
+      if (!canEdit) return;
+      const n = SONGS.length + 1;
+      const next = ((d.settings.music + 1 + dir + n) % n) - 1;
+      set({ set: { music: next } });
+      songEl.textContent = songLabel();
+      music.level(next, d.settings.theme);
+    };
     const themes = h(
       'div.ed-themes',
       null,
@@ -508,7 +522,7 @@ export class EditorScreen extends BaseScreen {
           set({ set: { theme: i } });
           themes.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
           this.buildPalette();
-          audio.playSong(i % 6);
+          if (d.settings.music < 0) music.build(i);
         });
         return b;
       }),
@@ -534,7 +548,14 @@ export class EditorScreen extends BaseScreen {
               },
             }),
           ),
-          h('div.setting', null, h('div.lbl', null, h('span', null, 'World'), h('b', null, 'Colours & music')), themes),
+          h('div.setting', null, h('div.lbl', null, h('span', null, 'World'), h('b', null, 'Colours & scenery')), themes),
+          h(
+            'div.setting',
+            null,
+            h('div.lbl', null, h('span', null, 'Music'), songEl),
+            button({ label: '‹', cls: 'icon ghost', aria: 'Previous song', disabled: !canEdit, onClick: () => cycleSong(-1) }),
+            button({ label: '›', cls: 'icon ghost', aria: 'Next song', disabled: !canEdit, onClick: () => cycleSong(1) }),
+          ),
           h(
             'div.setting',
             null,

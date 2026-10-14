@@ -1,6 +1,6 @@
 import { Emitter } from '../core/emitter';
 import { Rng } from '../core/rng';
-import { DT, MODE_INDEX, PLAYER_HALF, RACE_SPEED, endlessSpeedAt } from './constants';
+import { DT, ENDLESS_TUNING, MODE_INDEX, PLAYER_HALF, RACE_SPEED, endlessSpeedAt, type Difficulty } from './constants';
 import { LevelGen } from './generator';
 import { buildWorld, levelSpeed, modeAt, type LevelContent } from './level';
 import { newEvents, stepBody } from './physics';
@@ -16,6 +16,8 @@ export interface SessionOptions {
   seed: number;
   racers: RacerSpec[];
   kid?: boolean;
+  /** Endless difficulty mode. */
+  diff?: Difficulty;
   tutorial?: boolean;
   /** Race length (race/duel/online). */
   length?: number;
@@ -83,6 +85,7 @@ export class GameSession extends Emitter<GameEvents> {
         kind: raceLike ? 'race' : 'endless',
         length: raceLike ? opts.length ?? 900 : undefined,
         kid: opts.kid,
+        diff: opts.diff,
         tutorial: opts.tutorial,
         difficulty: raceLike ? opts.difficulty ?? 0.35 : undefined,
         startX: START_X,
@@ -92,7 +95,7 @@ export class GameSession extends Emitter<GameEvents> {
     opts.racers.forEach((spec, i) => {
       const r = new Racer(spec, startX, opts.seed + i * 101);
       if (opts.kind === 'endless') {
-        r.maxHearts = r.hearts = opts.kid ? 5 : 3;
+        r.maxHearts = r.hearts = opts.kid ? 5 : ENDLESS_TUNING[opts.diff ?? 'medium'].hearts;
       } else if (opts.kind === 'custom' && opts.level) {
         r.maxHearts = r.hearts = opts.level.hearts;
       }
@@ -123,7 +126,7 @@ export class GameSession extends Emitter<GameEvents> {
   /** Base track speed at x for this mode. */
   baseSpeed(x: number): number {
     if (this.fixedSpeed !== null) return this.fixedSpeed;
-    return endlessSpeedAt(x - START_X, !!this.opts.kid);
+    return endlessSpeedAt(x - START_X, !!this.opts.kid, this.opts.diff);
   }
 
   /** Current multiplier from boosts, stuns, snow and rubber-banding. */

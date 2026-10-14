@@ -1,0 +1,142 @@
+import { store } from '../state/store';
+import { audio } from './audio';
+import { MENU_SONG, RACE_SONG, SONGS, songsFor, WORLD_SONGS } from './songs';
+import { Emitter } from './emitter';
+
+/**
+ * What plays where:
+ *  - menu:  the main theme first, then the calmer menu songs;
+ *  - run:   each world's signature song when you reach it, the mix in between;
+ *  - race:  the fast songs;
+ *  - build: the level's world song, then menu songs (calm while building);
+ *  - level: one song on loop (custom levels are short and pick their song).
+ * Songs switched off in Settings → Soundtrack are skipped (unless every one is).
+ */
+export type MusicContext = 'menu' | 'run' | 'race' | 'build' | 'level';
+
+class MusicDirector extends Emitter<{ song: number }> {
+  private context: MusicContext | null = null;
+  private bag: number[] = [];
+  private last = -1;
+
+  constructor() {
+    super();
+    audio.onSongEnd = () => {
+      if (this.context && this.context !== 'level') this.next();
+    };
+  }
+
+  get current(): number {
+    return audio.currentSong;
+  }
+
+  get contextName(): MusicContext | null {
+    return this.context;
+  }
+
+  /** Main menu: always opens with the theme (if it is in rotation). */
+  menu(): void {
+    this.start('menu', MENU_SONG);
+  }
+
+  /** Endless run starting in a world. */
+  run(world: number): void {
+    this.start('run', world % WORLD_SONGS);
+  }
+
+  /** The run reached a new world: play its signature song. */
+  world(world: number): void {
+    if (this.context !== 'run') return this.run(world);
+    const song = world % WORLD_SONGS;
+    if (this.allowed(song) && audio.currentSong !== song) this.play(song);
+  }
+
+  race(first = RACE_SONG): void {
+    this.start('race', first);
+  }
+
+  build(theme: number): void {
+    this.start('build', theme % WORLD_SONGS);
+  }
+
+  /** A custom level's song (looped). `song < 0` means its world's theme. */
+  level(song: number, theme: number): void {
+    this.start('level', song >= 0 && song < SONGS.length ? song : theme % WORLD_SONGS, true);
+  }
+
+  /** Play a specific song now (Soundtrack picker), keeping the context's rotation afterwards. */
+  pick(song: number): void {
+    if (!this.context) this.context = 'menu';
+    this.play(song);
+  }
+
+  /** Skip to the next song in the rotation. */
+  skip(): void {
+    if (!this.context) this.context = 'menu';
+    this.next();
+  }
+
+  stop(): void {
+    this.context = null;
+    audio.stopMusic();
+  }
+
+  /** Songs this context rotates through, honouring Settings → Soundtrack. */
+  pool(context: MusicContext = this.context ?? 'menu'): number[] {
+    const base =
+      context === 'menu'
+        ? songsFor('menu')
+        : context === 'race'
+          ? songsFor('race')
+          : context === 'build'
+            ? [...songsFor('menu'), ...songsFor('run').filter((i) => SONGS[i].role === 'world')]
+            : songsFor('run');
+    const on = base.filter((i) => this.allowed(i));
+    return on.length ? on : base;
+  }
+
+  private allowed(song: number): boolean {
+    return !store.settings.musicOff.includes(song);
+  }
+
+  private start(context: MusicContext, first: number, force = false): void {
+    const changed = this.context !== context;
+    this.context = context;
+    if (changed) this.bag = [];
+    const song = force || this.allowed(first) ? first : this.draw();
+    // Keep the current song if it already fits (e.g. back to menu from Settings).
+    if (!changed && !force && this.pool().includes(audio.currentSong)) return;
+    this.play(song);
+  }
+
+  private next(): void {
+    this.play(this.draw());
+  }
+
+  /** Shuffle-bag draw: every song plays once before any repeats, never twice in a row. */
+  private draw(): number {
+    const pool = this.pool();
+    this.bag = this.bag.filter((i) => pool.includes(i));
+    if (!this.bag.length) {
+      const fresh = pool.filter((i) => i !== audio.currentSong);
+      this.bag = fresh.length ? fresh : pool.slice();
+      for (let i = this.bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [this.bag[i], this.bag[j]] = [this.bag[j], this.bag[i]];
+      }
+    }
+    let k = this.bag.findIndex((i) => i !== audio.currentSong && i !== this.last);
+    if (k < 0) k = this.bag.findIndex((i) => i !== audio.currentSong);
+    if (k < 0) k = 0;
+    return this.bag.splice(k, 1)[0];
+  }
+
+  private play(song: number): void {
+    this.last = audio.currentSong;
+    this.bag = this.bag.filter((i) => i !== song);
+    audio.playSong(song);
+    this.emit('song', song);
+  }
+}
+
+export const music = new MusicDirector();

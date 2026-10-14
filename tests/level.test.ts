@@ -21,7 +21,7 @@ import { GameSession } from '../src/game/session';
 import { decodeName, encodeName, isGeneratedName, randomName } from '../src/meta/names';
 
 function level(pieces: Piece[], extra: Partial<LevelContent> = {}): LevelContent {
-  return { name: [3, 5], authors: ['Speedy Panda 7'], theme: 2, speed: 1, hearts: 3, length: 120, pieces, ...extra };
+  return { name: [3, 5], authors: ['Speedy Panda 7'], theme: 2, music: -1, speed: 1, hearts: 3, length: 120, pieces, ...extra };
 }
 
 describe('racer names', () => {
@@ -55,13 +55,15 @@ describe('level codes', () => {
       { t: 'pit', x: 40, y: 0, v: 0 },
       { t: 'gem', x: 1100, y: 6, v: 0 },
     ];
-    const l = level(pieces, { length: 1150, speed: 2, hearts: 5, theme: 5 });
+    const l = level(pieces, { length: 1150, speed: 2, hearts: 5, theme: 5, music: 16 });
     const code = encodeLevel(l);
     expect(code.startsWith(CODE_PREFIX)).toBe(true);
     expect(code).toMatch(/^PR1-[A-Za-z0-9_-]+$/);
     const back = decodeLevel(`  ${code}\n`);
     expect(back).toEqual(sanitizeContent(l));
     expect(back.authors).toEqual(['Speedy Panda 7']);
+    expect(back.music).toBe(16);
+    expect(decodeLevel(encodeLevel(level(pieces, { music: -1 }))).music).toBe(-1);
   });
 
   it('stays compact (about two bytes per piece)', () => {

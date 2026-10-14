@@ -3,13 +3,17 @@ import { ads } from '../../services/ads';
 import { iap } from '../../services/iap';
 import { CONFIG } from '../../config';
 import { PRIVACY_SECTIONS } from '../../meta/legal';
-import type { GraphicsQuality } from '../../state/save';
+import { DIFFICULTY_NAMES, type GraphicsQuality } from '../../state/save';
+import { DIFFICULTIES, type Difficulty } from '../../game/constants';
 import { BaseScreen, button, confirm, parentalGate, segmented, slider, titleBar, toggle } from '../components';
 import { h, ic, type Child } from '../dom';
 import type { IconName } from '../icons';
 import { nav } from '../nav';
 import { ui } from '../ui';
 import { openChatSettings, startFreeChatSignup } from '../community';
+import { music } from '../../core/music';
+import { SONGS } from '../../core/songs';
+import { openSoundtrack } from '../soundtrack';
 import { canOfferFreeChat, freeChatPath, serverAvailable } from '../../meta/community';
 
 function row(iconName: IconName, title: string, sub: string, control: Child): HTMLElement {
@@ -167,9 +171,25 @@ export class SettingsScreen extends BaseScreen {
             'div.settings-grid',
             null,
             row('music', 'Music', 'Background beats', slider(s.music, (v) => store.setSetting('music', v), 'Music volume')),
+            row(
+              'skip',
+              'Soundtrack',
+              `${SONGS.length} songs · pick, skip or switch off`,
+              h('div.row', { style: 'gap:0.4rem' }, button({ icon: 'skip', cls: 'icon ghost', aria: 'Skip song', onClick: () => music.skip() }), button({ label: 'Songs', cls: 'yellow sm', onClick: () => openSoundtrack() })),
+            ),
             row('sound', 'Sound effects', 'Jumps, gems & more', slider(s.sfx, (v) => store.setSetting('sfx', v), 'Sound volume')),
             row('vibrate', 'Vibration', 'Buzz on bumps and pickups', toggle(s.haptics, (v) => store.setSetting('haptics', v), 'Vibration')),
             row('motion', 'Reduce motion', 'Less shaking and flashing', toggle(s.reducedMotion, (v) => store.setSetting('reducedMotion', v), 'Reduce motion')),
+            row(
+              'target',
+              'Difficulty',
+              'Endless & CPU races',
+              segmented<Difficulty>(
+                DIFFICULTIES.map((v) => ({ value: v, label: DIFFICULTY_NAMES[v] })),
+                s.difficulty,
+                (v) => store.setSetting('difficulty', v),
+              ),
+            ),
             row('child', 'Kid Mode', 'Slower Endless with 5 hearts', toggle(s.kidMode, (v) => store.setSetting('kidMode', v), 'Kid Mode')),
             row('graphics', 'Graphics', 'Lower = smoother on older phones', gfx),
           ),

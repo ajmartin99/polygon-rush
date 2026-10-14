@@ -62,6 +62,8 @@ export interface LevelContent {
   /** Generated racer names of the builders (max 4). */
   authors: string[];
   theme: number;
+  /** Song index, or -1 for the world's own theme. */
+  music: number;
   speed: number;
   hearts: number;
   length: number;
@@ -112,6 +114,7 @@ export function createLevel(author: string, now = Date.now(), rand: () => number
     name: randomLevelName(rand),
     authors: author ? [author] : [],
     theme: Math.floor(rand() * THEME_COUNT),
+    music: -1,
     speed: 1,
     hearts: 3,
     length: DEFAULT_LENGTH,
@@ -180,6 +183,7 @@ export function sanitizeContent(raw: unknown): LevelContent | null {
     name,
     authors,
     theme: num(r.theme, 0, THEME_COUNT - 1, 0),
+    music: num(r.music, -1, MAX_LEVEL_SONG, -1),
     speed: num(r.speed, 0, LEVEL_SPEEDS.length - 1, 1),
     hearts,
     length,
@@ -379,6 +383,8 @@ export function pieceCount(l: Pick<LevelContent, 'pieces'>): number {
 // ------------------------------------------------------------------ share codes
 const TYPE_CODES: PieceType[] = ['block', 'platform', 'spike', 'saw', 'gem', 'pad', 'orb', 'portal'];
 const CODE_VERSION = 1;
+/** Highest song index a level can pick (5 bits in the code). */
+export const MAX_LEVEL_SONG = 30;
 export const CODE_PREFIX = 'PR1-';
 
 function pieceByte(p: Piece): number {
@@ -433,7 +439,8 @@ function fromBase64Url(s: string): Uint8Array {
 
 /** Compact, copy-pasteable level code. Only level content travels — never personal data. */
 export function encodeLevel(l: LevelContent): string {
-  const out: number[] = [CODE_VERSION, l.theme, (l.speed << 4) | Math.max(0, (HEART_OPTIONS as readonly number[]).indexOf(l.hearts)), l.length & 0xff, l.length >> 8, l.name[0], l.name[1]];
+  // The theme byte carries the song in its top 5 bits (0 = the world's theme), so older codes still read.
+  const out: number[] = [CODE_VERSION, (l.theme & 7) | ((Math.min(MAX_LEVEL_SONG, Math.max(-1, l.music)) + 1) << 3), (l.speed << 4) | Math.max(0, (HEART_OPTIONS as readonly number[]).indexOf(l.hearts)), l.length & 0xff, l.length >> 8, l.name[0], l.name[1]];
   const authors = l.authors.map(encodeName).filter((a): a is [number, number, number] => a !== null).slice(0, 4);
   out.push(authors.length);
   for (const a of authors) out.push(...a);
@@ -482,7 +489,9 @@ export function decodeLevel(code: string): LevelContent {
       if (shift > 21) throw new LevelCodeError('That level code is damaged.');
     }
   };
-  const theme = byte();
+  const tm = byte();
+  const theme = tm & 7;
+  const music = (tm >> 3) - 1;
   const sh = byte();
   const length = byte() | (byte() << 8);
   const name: [number, number] = [byte(), byte()];
@@ -501,7 +510,7 @@ export function decodeLevel(code: string): LevelContent {
     const p = pieceFromByte(byte(), x);
     if (p) pieces.push(p);
   }
-  const content = sanitizeContent({ name, authors, theme, speed: sh >> 4, hearts: HEART_OPTIONS[sh & 15] ?? 3, length, pieces });
+  const content = sanitizeContent({ name, authors, theme, music, speed: sh >> 4, hearts: HEART_OPTIONS[sh & 15] ?? 3, length, pieces });
   if (!content) throw new LevelCodeError('That level code is damaged.');
   return content;
 }
@@ -512,6 +521,7 @@ export function contentOf(l: LevelContent): LevelContent {
     name: [l.name[0], l.name[1]],
     authors: [...l.authors],
     theme: l.theme,
+    music: l.music,
     speed: l.speed,
     hearts: l.hearts,
     length: l.length,

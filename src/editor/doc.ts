@@ -12,6 +12,7 @@ import {
   sortPieces,
   THEME_COUNT,
   type LevelContent,
+  MAX_LEVEL_SONG,
   type Piece,
 } from '../game/level';
 
@@ -19,6 +20,8 @@ import {
 export interface LevelSettings {
   name: [number, number];
   theme: number;
+  /** Song index, or -1 for the world's theme. */
+  music: number;
   speed: number;
   hearts: number;
   length: number;
@@ -49,6 +52,7 @@ const isSlotOp = (op: EditOp): op is SlotOp => 's' in op;
 function validSettings(set: Partial<LevelSettings>): boolean {
   const int = (v: unknown) => typeof v === 'number' && Number.isInteger(v);
   if (set.theme !== undefined && (!int(set.theme) || set.theme < 0 || set.theme >= THEME_COUNT)) return false;
+  if (set.music !== undefined && (!int(set.music) || set.music < -1 || set.music > MAX_LEVEL_SONG)) return false;
   if (set.speed !== undefined && (!int(set.speed) || set.speed < 0 || set.speed >= LEVEL_SPEEDS.length)) return false;
   if (set.hearts !== undefined && !(HEART_OPTIONS as readonly number[]).includes(set.hearts)) return false;
   if (set.length !== undefined && (!int(set.length) || set.length < MIN_LENGTH || set.length > MAX_LENGTH)) return false;
@@ -69,7 +73,7 @@ export class LevelDoc extends Emitter<DocEvents> {
 
   constructor(level: LevelContent) {
     super();
-    this.settings = { name: [level.name[0], level.name[1]], theme: level.theme, speed: level.speed, hearts: level.hearts, length: level.length };
+    this.settings = { name: [level.name[0], level.name[1]], theme: level.theme, music: level.music, speed: level.speed, hearts: level.hearts, length: level.length };
     this.authors = [...level.authors];
     for (const p of level.pieces) if (canPlace(p, level.length)) this.slots.set(slotOf(p), { ...p });
   }

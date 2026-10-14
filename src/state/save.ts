@@ -2,6 +2,8 @@
  * Persistent save-game schema. Bump SAVE_VERSION and extend `migrate` when the
  * shape changes so existing players never lose progress.
  */
+import { DIFFICULTIES, type Difficulty } from '../game/constants';
+
 export const SAVE_VERSION = 1;
 
 export type AgeGroup = 'child' | 'teen' | 'adult';
@@ -26,6 +28,10 @@ export interface Settings {
   /** Parental control: allow in-app purchases. */
   purchasesAllowed: boolean;
   showFps: boolean;
+  /** Endless & CPU race difficulty (picked on first launch). */
+  difficulty: Difficulty;
+  /** Songs taken out of rotation in Settings → Soundtrack (indexes into SONGS). */
+  musicOff: number[];
 }
 
 export interface MissionState {
@@ -113,6 +119,8 @@ export const DEFAULT_SETTINGS: Settings = {
   publicRooms: true,
   purchasesAllowed: true,
   showFps: false,
+  musicOff: [],
+  difficulty: 'medium',
 };
 
 export function emptyStats(): Stats {
@@ -199,11 +207,21 @@ export function migrate(raw: unknown): SaveData {
   save.account.blocked = save.account.blocked.filter((b) => typeof b === 'string').slice(-200);
   save.settings.music = clamp01(save.settings.music);
   save.settings.sfx = clamp01(save.settings.sfx);
+  if (!DIFFICULTIES.includes(save.settings.difficulty)) save.settings.difficulty = 'medium';
+  save.settings.musicOff = save.settings.musicOff.filter((n) => Number.isInteger(n) && n >= 0 && n < 64).slice(0, 64);
   return save;
 }
 
 function clamp01(n: number): number {
   return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 1;
+}
+
+export const DIFFICULTY_NAMES: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+
+/** Endless records are kept per difficulty (medium keeps the original key). */
+export function endlessBestKey(s: Pick<Settings, 'kidMode' | 'difficulty'>): string {
+  const base = s.difficulty === 'medium' ? 'endless' : `endless_${s.difficulty}`;
+  return s.kidMode ? `${base}_kid` : base;
 }
 
 export function ageGroupFor(birthYear: number, now = new Date()): AgeGroup {

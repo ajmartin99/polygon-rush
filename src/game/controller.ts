@@ -1,5 +1,6 @@
 import { App as CapApp } from '@capacitor/app';
-import { audio, MENU_SONG, RACE_SONG, WORLD_SONGS } from '../core/audio';
+import { audio, WORLD_SONGS } from '../core/audio';
+import { music } from '../core/music';
 import { haptics } from '../core/haptics';
 import { isNative } from '../core/platform';
 import { store } from '../state/store';
@@ -16,7 +17,8 @@ import { ui } from '../ui/ui';
 import { EndlessResultsScreen, GameHud, LevelResultsScreen, RaceResultsScreen, openPause, openRevive, type RacePlacement } from '../ui/screens/game-ui';
 import { levelName, type LevelContent } from './level';
 import type { Scene } from './scene';
-import { DT, MODE_INDEX, RACE_SPEED } from './constants';
+import { DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED } from './constants';
+import { endlessBestKey } from '../state/save';
 import { InputManager } from './input';
 import type { Racer, RacerSpec } from './racer';
 import { GameSession, type BoxItem, type SessionKind } from './session';
@@ -127,7 +129,7 @@ export class GameController {
     this.wireSession();
     this.renderer.resetCameras();
     audio.intensity = 0.2;
-    if (audio.ctx) audio.playSong(MENU_SONG);
+    if (audio.ctx) music.menu();
   }
 
   /**
@@ -194,6 +196,7 @@ export class GameController {
           kind: 'endless',
           seed: (Math.random() * 2 ** 31) >>> 0,
           kid: d.settings.kidMode,
+          diff: d.settings.difficulty,
           tutorial: d.stats.runs < 2,
           racers: [me],
         });
@@ -206,7 +209,7 @@ export class GameController {
           kind: 'race',
           seed: req.seed,
           length: RACE_LENGTH,
-          difficulty: 0.22 + li * 0.09,
+          difficulty: Math.min(0.9, Math.max(0.1, 0.22 + li * 0.09 + RACE_DIFFICULTY_OFFSET[d.settings.difficulty])),
           racers: [me, ...req.rivals.map((r: Rival, i: number) => ({ id: `cpu${i}`, name: r.name, skin: r.skin, kind: 'bot' as const, skill: r.skill, tag: 'CPU' }))],
         });
         break;
@@ -264,17 +267,18 @@ export class GameController {
     audio.intensity = 0.4;
     const level = this.level();
     if (this.kind === 'endless') {
-      audio.playSong(0);
+      music.run(0);
       this.songBiome = 0;
       this.go();
       if (d.stats.runs === 0) hud.showHint('Tap or hold anywhere to play!', 'Avoid spikes, grab gems', 3200, '22%');
     } else if (this.kind === 'custom' && req.mode === 'custom') {
-      audio.playSong(req.level.theme % WORLD_SONGS);
+      music.level(req.level.music, req.level.theme);
       audio.intensity = 0.7;
       this.go();
       hud.showHint(levelName(req.level), req.level.authors.length ? `by ${req.level.authors.join(', ')}` : 'Tap or hold to play!', 1800, '40%');
     } else {
-      audio.playSong(level ? level.theme % WORLD_SONGS : this.kind === 'duel' ? 4 : RACE_SONG);
+      if (level) music.level(level.music, level.theme);
+      else music.race(this.kind === 'duel' ? 4 : undefined);
       this.phase = 'countdown';
       const delay = req.mode === 'online' ? req.delay : 0;
       setTimeout(() => {
@@ -581,7 +585,7 @@ export class GameController {
       const biome = Math.floor(me.distance / BIOME_LENGTH) % WORLD_SONGS;
       if (biome !== this.songBiome && this.phase === 'running') {
         this.songBiome = biome;
-        audio.playSong(biome);
+        music.world(biome);
       }
       audio.intensity = Math.min(1, 0.35 + me.distance / 3000);
     } else if (this.kind === 'custom') {
@@ -631,7 +635,7 @@ export class GameController {
 
   // ================================================================== endless death / results
   private bestKey(): string {
-    return store.settings.kidMode ? 'endless_kid' : 'endless';
+    return endlessBestKey(store.settings);
   }
 
   private async onDeath(r: Racer): Promise<void> {

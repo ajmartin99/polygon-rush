@@ -4,6 +4,7 @@ import { BaseScreen, button, slider } from '../components';
 import { h, ic, fmt, formatTime, ordinal, clear } from '../dom';
 import { previewCanvas } from '../preview';
 import { ui, type ModalHandle } from '../ui';
+import { nowPlaying } from '../soundtrack';
 import type { LevelUp } from '../../meta/economy';
 
 /** Transparent overlay during gameplay: pause button, hints, countdown. */
@@ -77,6 +78,7 @@ export function openPause(opts: { onResume: () => void; onRestart?: () => void; 
         { style: 'gap:0.5rem;align-items:center' },
         h('div.setting', { style: 'width:16rem' }, ic('music'), h('div.lbl', null, h('b', null, 'Music')), slider(s.music, (v) => store.setSetting('music', v))),
         h('div.setting', { style: 'width:16rem' }, ic('sound'), h('div.lbl', null, h('b', null, 'Sounds')), slider(s.sfx, (v) => store.setSetting('sfx', v))),
+        nowPlaying(),
       ),
       h(
         'div.actions',

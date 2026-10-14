@@ -10,7 +10,7 @@ import { iap } from './services/iap';
 import { account } from './services/account';
 import { ui } from './ui/ui';
 import { nav } from './ui/nav';
-import { AgeGateScreen, NameScreen } from './ui/screens/onboarding';
+import { AgeGateScreen, DifficultyScreen, NameScreen } from './ui/screens/onboarding';
 import { MenuScreen } from './ui/screens/menu';
 import { ShopScreen } from './ui/screens/shop';
 import { MissionsScreen } from './ui/screens/missions';
@@ -21,11 +21,14 @@ import { FriendsScreen } from './ui/screens/friends';
 import { CreateScreen } from './ui/screens/create';
 import { EditorScreen } from './ui/screens/editor';
 import { GameController } from './game/controller';
-import { audio, MENU_SONG } from './core/audio';
+import { audio } from './core/audio';
+import { music } from './core/music';
+import { SONGS } from './core/songs';
 
 function registerRoutes(): void {
   nav.register('agegate', () => new AgeGateScreen());
   nav.register('name', (p) => new NameScreen(p));
+  nav.register('difficulty', (p) => new DifficultyScreen(p));
   nav.register('menu', () => new MenuScreen());
   nav.register('shop', (p) => new ShopScreen(p));
   nav.register('missions', () => new MissionsScreen());
@@ -54,7 +57,7 @@ async function boot(): Promise<void> {
   // Browsers only allow audio after a gesture: start the menu music on the first tap.
   const unlock = () => {
     audio.unlock();
-    if (!game.session || nav.route) audio.playSong(MENU_SONG);
+    if (!game.session || nav.route) music.menu();
     window.removeEventListener('pointerdown', unlock, true);
   };
   window.addEventListener('pointerdown', unlock, true);
@@ -62,6 +65,8 @@ async function boot(): Promise<void> {
   if (import.meta.env.DEV) {
     // Dev-only hooks for automated audio checks and store screenshots.
     (window as unknown as { __audio: typeof audio }).__audio = audio;
+    (window as unknown as { __songs: typeof SONGS }).__songs = SONGS;
+    (window as unknown as { __music: typeof music }).__music = music;
     (window as unknown as { __game: GameController }).__game = game;
   }
 
@@ -82,6 +87,7 @@ async function boot(): Promise<void> {
   const p = store.data.profile;
   if (!p.ageGroup) nav.go('agegate');
   else if (!p.name) nav.go('name', { first: true });
+  else if (!store.data.tutorial.difficulty_pick && store.data.stats.runs === 0) nav.go('difficulty', { first: true });
   else nav.go('menu');
 
   document.getElementById('boot')?.classList.add('hide');

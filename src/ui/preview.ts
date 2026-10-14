@@ -1,6 +1,6 @@
-import { drawCharacter } from '../render/character';
+import { drawCharacter, drawTrailPreview } from '../render/character';
 import type { ShapeMode } from '../game/shapes';
-import { skinById } from '../meta/catalog';
+import { skinById, trailById } from '../meta/catalog';
 
 /** Prepare a canvas for crisp drawing at its CSS size. Returns the 2D context. */
 export function fitCanvas(canvas: HTMLCanvasElement, maxDpr = 2): CanvasRenderingContext2D {
@@ -53,15 +53,22 @@ function paint(canvas: HTMLCanvasElement, opts: PreviewOptions, t: number): void
   // Soft shadow
   ctx.fillStyle = 'rgba(0,0,0,0.28)';
   ctx.beginPath();
-  ctx.ellipse(w / 2, groundY, size * (0.55 - bounce * 0.15), size * 0.12, 0, 0, Math.PI * 2);
+  ctx.ellipse(opts.trail && opts.trail !== 'none' ? w * 0.66 : w / 2, groundY, size * (0.55 - bounce * 0.15), size * 0.12, 0, 0, Math.PI * 2);
   ctx.fill();
   const blink = opts.animate && t % 3.2 > 3.05 ? 1 : 0;
-  drawCharacter(ctx, w / 2, groundY - size * 0.55 - bounce * hh * 0.12, size, opts.shape ?? 'square', skinById(opts.skin), {
+  const hasTrail = Boolean(opts.trail && opts.trail !== 'none');
+  const cx = hasTrail ? w * 0.66 : w / 2;
+  if (hasTrail) {
+    const tr = trailById(opts.trail!);
+    drawTrailPreview(ctx, tr.style, tr.colors, cx - size * 0.45, groundY - size * 0.55 - bounce * hh * 0.12, size, t);
+  }
+  drawCharacter(ctx, cx, groundY - size * 0.55 - bounce * hh * 0.12, size, opts.shape ?? 'square', skinById(opts.skin), {
     squash,
     lookX: opts.animate ? Math.sin(t * 0.9) * 0.6 : 0.4,
     blink,
     time: t,
     rot: opts.animate && opts.shape === 'hexagon' ? t : 0,
+    faceRot: 0,
   });
 }
 

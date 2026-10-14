@@ -9,6 +9,7 @@ import { applyXp, endlessXp, leagueFor, LEAGUES, raceReward, REVIVE_GEM_COST, ty
 import { describe, reportMission, type MissionEvent } from '../meta/missions';
 import { skinById, trailById } from '../meta/catalog';
 import { Renderer, type ViewSpec } from '../render/renderer';
+import { BIOMES, paletteAt, type Palette } from '../render/biomes';
 import { drawEndlessHud, drawRaceHud } from '../render/hud';
 import { nav, type PlayRequest, type Rival } from '../ui/nav';
 import { ui } from '../ui/ui';
@@ -20,6 +21,7 @@ import { GameSession, type BoxItem, type SessionKind } from './session';
 import { SHAPE_INFO, type ShapeMode } from './shapes';
 
 const BIOME_LENGTH = 500;
+const START_X = 2;
 const DUEL_LENGTH = 650;
 const RACE_LENGTH = 900;
 
@@ -59,6 +61,10 @@ export class GameController {
   private lowPerfStrikes = 0;
   private songBiome = -1;
   private offs: (() => void)[] = [];
+  private biomeOffset = 0;
+  private lastBiome = -1;
+  private lastMilestone = 0;
+  private frameSkip = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new Renderer(canvas);
@@ -83,6 +89,10 @@ export class GameController {
   private applyGraphics(): void {
     const g = store.settings.graphics;
     this.renderer.maxDpr = g === 'low' ? 1 : g === 'high' ? 2.5 : this.lowPerfStrikes > 0 ? 1.25 : 2;
+    const low = g === 'low' || (g === 'auto' && this.lowPerfStrikes > 0);
+    this.renderer.detail = low ? 0.5 : 1;
+    this.renderer.fx.quality = low ? 0.5 : 1;
+    this.renderer.fx.reducedMotion = store.settings.reducedMotion;
     this.renderer.resize();
   }
 
@@ -106,9 +116,52 @@ export class GameController {
     this.session.running = true;
     this.phase = 'running';
     this.input.enabled = false;
+    this.biomeOffset = Math.floor(Math.random() * BIOMES.length);
+    this.wireSession();
     this.renderer.resetCameras();
     audio.intensity = 0.2;
     if (audio.ctx) audio.playSong(MENU_SONG);
+  }
+
+  /**
+   * Dev/marketing helper: a CPU-played run in a chosen world, fast-forwarded
+   * until a chosen shape is on screen (used to capture store screenshots).
+   */
+  showcase(opts: { kind: 'endless' | 'race'; world: number; mode?: ShapeMode; minDistance?: number; skin?: string; trail?: string }): void {
+    this.teardown();
+    const skin = opts.skin ?? 'classic';
+    const kind = opts.kind;
+    let seed = (Math.random() * 2 ** 31) >>> 0;
+    if (kind === 'race') seed = seed - (seed % BIOMES.length) + opts.world;
+    const racers: RacerSpec[] =
+      kind === 'race'
+        ? [
+            { id: 'me', name: store.data.profile.name || 'You', skin, trail: opts.trail, kind: 'bot', skill: 1 },
+            { id: 'c1', name: 'Zigzag Bot', skin: 'bubblegum', kind: 'bot', skill: 0.95 },
+            { id: 'c2', name: 'Hexy Bot', skin: 'mint', kind: 'bot', skill: 0.95 },
+            { id: 'c3', name: 'Comet Bot', skin: 'sky', kind: 'bot', skill: 0.95 },
+          ]
+        : [{ id: 'me', name: 'You', skin, trail: opts.trail, kind: 'bot', skill: 1 }];
+    this.kind = kind;
+    this.session = new GameSession({ kind, seed, length: 900, difficulty: 0.4, racers });
+    this.biomeOffset = kind === 'endless' ? opts.world : 0;
+    this.wireSession();
+    this.renderer.resetCameras();
+    const s = this.session;
+    s.running = true;
+    const me = s.racers[0];
+    for (let i = 0; i < 120 * 400; i++) {
+      s.step();
+      if (me.distance >= (opts.minDistance ?? 60) && (!opts.mode || me.body.mode === opts.mode) && !me.dead) {
+        // Settle a little into the section.
+        for (let k = 0; k < 90; k++) s.step();
+        break;
+      }
+    }
+    me.hearts = me.maxHearts;
+    me.dead = false;
+    this.phase = 'running';
+    this.input.enabled = false;
   }
 
   play(req: PlayRequest): void {
@@ -117,6 +170,9 @@ export class GameController {
     this.req = req;
     this.revived = false;
     this.onlineResults = null;
+    this.biomeOffset = 0;
+    this.lastBiome = 0;
+    this.lastMilestone = 0;
     const d = store.data;
     const me: RacerSpec = { id: 'me', name: d.profile.name || 'You', skin: d.skins.equipped, trail: d.trails.equipped, kind: 'human' };
     switch (req.mode) {
@@ -246,34 +302,42 @@ export class GameController {
     const local = (r: Racer) => r.kind === 'human';
     this.offs.push(
       s.on('jump', ({ racer, kind }) => {
+        this.renderer.fx.jump(racer, kind);
         if (!local(racer)) return;
         audio.play(kind === 'pad' ? 'pad' : kind === 'orb' ? 'orb' : kind === 'flip' ? 'flip' : kind === 'hop' ? 'hop' : 'jump');
       }),
       s.on('land', ({ racer }) => {
+        this.renderer.fx.land(racer);
         if (local(racer)) audio.play('land');
       }),
       s.on('hit', ({ racer, fell }) => {
+        // Shake/flash would hit both halves of a split screen, so skip them in duels.
+        this.renderer.fx.hit(racer, local(racer) && this.kind !== 'attract' && this.kind !== 'duel');
         if (!local(racer)) return;
         audio.play(fell ? 'fall' : 'hit');
         haptics.heavy();
       }),
       s.on('shieldPop', ({ racer }) => {
+        this.renderer.fx.shieldPop(racer);
         if (!local(racer)) return;
         audio.play('shieldPop');
         haptics.medium();
       }),
-      s.on('gem', ({ racer, value }) => {
+      s.on('gem', ({ racer, value, x, y }) => {
+        if (local(racer) || this.kind === 'attract') this.renderer.fx.gem(x, y, value, local(racer));
         if (!local(racer)) return;
         audio.play(value > 1 ? 'bigGem' : 'gem');
         if (value > 1) haptics.light();
       }),
-      s.on('pickup', ({ racer, type }) => {
+      s.on('pickup', ({ racer, type, x, y }) => {
+        if (local(racer)) this.renderer.fx.pickup(x, y, type === 'heart' ? '+1 ♥' : type === 'shield' ? 'Shield!' : 'Magnet!', type === 'heart' ? '#ff7a95' : type === 'shield' ? '#7fe9ff' : '#ff8a8a');
         if (!local(racer)) return;
         audio.play(type === 'heart' ? 'heart' : type === 'shield' ? 'shield' : 'magnet');
         haptics.light();
         this.hud?.showHint(type === 'heart' ? '+1 Heart!' : type === 'shield' ? 'Shield!' : 'Gem Magnet!', '', 1100, '18%');
       }),
-      s.on('box', ({ racer, item, x }) => {
+      s.on('box', ({ racer, item, x, y }) => {
+        if (local(racer)) this.renderer.fx.pickup(x, y, BOX_TEXT[item], item === 'boost' ? '#ffd23f' : item === 'snow' ? '#bff4ff' : item === 'shield' ? '#7fe9ff' : '#ff8a8a');
         if (!local(racer)) return;
         audio.play(item === 'boost' ? 'boost' : item === 'snow' ? 'snow' : 'box');
         haptics.light();
@@ -287,6 +351,7 @@ export class GameController {
         }
       }),
       s.on('portal', ({ racer, mode }) => {
+        this.renderer.fx.portal(racer, mode);
         if (!local(racer)) return;
         audio.play('portal');
         haptics.light();
@@ -294,9 +359,13 @@ export class GameController {
       }),
       s.on('hint', ({ racer, key, text, sub }) => this.onHint(racer, key, text, sub)),
       s.on('death', ({ racer }) => {
+        this.renderer.fx.death(racer);
         if (local(racer)) void this.onDeath(racer);
       }),
-      s.on('finish', ({ racer, place }) => this.onFinish(racer, place)),
+      s.on('finish', ({ racer, place }) => {
+        if (racer.kind === 'human') this.renderer.fx.confetti(racer.x + 2, racer.body.y + 2);
+        this.onFinish(racer, place);
+      }),
     );
   }
 
@@ -352,9 +421,15 @@ export class GameController {
       s.updateRemotes(now / 1000);
       this.netTick(now);
     }
-    if (this.kind === 'attract') this.keepAttractAlive();
+    if (this.kind === 'attract') {
+      this.keepAttractAlive();
+      // The menu backdrop renders at 30 fps to save battery.
+      this.frameSkip = !this.frameSkip;
+      if (this.frameSkip) return;
+    }
     this.updateMusic();
-    this.draw(raw);
+    this.progressEvents();
+    this.draw(this.kind === 'attract' ? raw * 2 : raw);
   };
 
   private applyInput(): void {
@@ -380,7 +455,19 @@ export class GameController {
       const focus = s.racers.find((r) => r.kind === 'human') ?? s.racers[0];
       views = [{ racer: focus, rect: rects[0] }];
     }
-    this.renderer.render(s, views, dt, this.time);
+    const fxDt = this.phase === 'paused' || this.phase === 'dying' ? 0 : dt * this.timeScale;
+    for (const r of s.racers) if (!r.dead) this.renderer.fx.racerTick(r, fxDt, r.kind === 'human');
+    const markers: { x: number; label: string; color: string }[] = [];
+    if (this.kind === 'endless') {
+      const best = store.data.best[this.bestKey()] ?? 0;
+      if (best > 30) markers.push({ x: START_X + best, label: 'BEST', color: '#ffd23f' });
+    }
+    this.renderer.render(s, views, fxDt, this.time, {
+      palette: (x) => this.paletteFor(x),
+      beat: audio.beatPhase(),
+      dim: this.kind === 'attract',
+      markers,
+    });
     if (this.kind === 'attract' || this.phase === 'results') return;
     const ctx = this.renderer.ctx;
     for (const v of views) {
@@ -389,6 +476,33 @@ export class GameController {
       } else {
         drawRaceHud(ctx, v.rect, s, v.racer, this.renderer.dpr, v.label, v.labelColor);
       }
+    }
+  }
+
+  private paletteFor(x: number): Palette {
+    const s = this.session;
+    if (s && s.raceLike) return BIOMES[(s.opts.seed >>> 0) % BIOMES.length];
+    return paletteAt(Math.max(0, x - START_X), this.biomeOffset).palette;
+  }
+
+  /** World banners and distance milestones for the local endless runner. */
+  private progressEvents(): void {
+    if (this.kind !== 'endless' || this.phase !== 'running') return;
+    const me = this.session!.racers[0];
+    const world = Math.floor(me.distance / BIOME_LENGTH);
+    if (world !== this.lastBiome) {
+      this.lastBiome = world;
+      const pal = BIOMES[world % BIOMES.length];
+      this.hud?.showHint(`World ${world + 1}`, pal.name, 2200, '20%');
+      audio.play('portal');
+    }
+    const milestone = Math.floor(me.distance / 250) * 250;
+    if (milestone > this.lastMilestone && milestone % BIOME_LENGTH !== 0) {
+      this.lastMilestone = milestone;
+      this.renderer.fx.text(me.x + 3, me.body.y + 2.2, `${milestone} m!`, '#ffd23f', 0.9, 1.4);
+      audio.play('box');
+    } else if (milestone > this.lastMilestone) {
+      this.lastMilestone = milestone;
     }
   }
 

@@ -189,7 +189,7 @@ export class ShopScreen extends BaseScreen {
           equipped ? h('span.equipped-tag', null, 'EQUIPPED') : null,
           isSkin
             ? previewCanvas({ skin: item.id, scale: 0.62 })
-            : trailSwatch(item as TrailDef),
+            : previewCanvas({ skin: store.data.skins.equipped, scale: 0.5, trail: item.id, animate: true }),
           h('div.nm', null, item.name),
           owned
             ? h('div.state', null, equipped ? 'In use' : 'Owned')
@@ -387,17 +387,4 @@ export class ShopScreen extends BaseScreen {
           }),
     );
   }
-}
-
-/** Small swatch for a trail (animated preview arrives with the visuals pass). */
-function trailSwatch(t: TrailDef): HTMLElement {
-  const wrap = h('div', { style: 'width:4.2rem;height:3.4rem;display:flex;align-items:center;justify-content:center;gap:0.2rem' });
-  if (!t.colors.length) {
-    wrap.appendChild(h('span.muted.small', null, 'none'));
-    return wrap;
-  }
-  t.colors.slice(0, 5).forEach((c, i) => {
-    wrap.appendChild(h('span', { style: `width:${0.5 + i * 0.12}rem;height:${0.5 + i * 0.12}rem;border-radius:50%;background:${c};display:block` }));
-  });
-  return wrap;
 }

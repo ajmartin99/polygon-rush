@@ -52,6 +52,11 @@ async function boot(): Promise<void> {
   };
   window.addEventListener('pointerdown', unlock, true);
   game.startAttract();
+  if (import.meta.env.DEV) {
+    // Dev-only hooks for automated audio checks and store screenshots.
+    (window as unknown as { __audio: typeof audio }).__audio = audio;
+    (window as unknown as { __game: GameController }).__game = game;
+  }
 
   if (isNative()) {
     void CapApp.addListener('backButton', () => {
@@ -75,11 +80,6 @@ async function boot(): Promise<void> {
     if (store.data.profile.ageGroup) void ads.init();
     void iap.init();
   }, 300);
-}
-
-if (import.meta.env.DEV) {
-  // Dev-only hooks for automated audio checks.
-  (window as unknown as { __audio: typeof audio }).__audio = audio;
 }
 
 void boot();

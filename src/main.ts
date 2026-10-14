@@ -16,7 +16,8 @@ import { SettingsScreen } from './ui/screens/settings';
 import { RaceLobbyScreen } from './ui/screens/race';
 import { DuelScreen } from './ui/screens/duel';
 import { FriendsScreen } from './ui/screens/friends';
-import { alertModal } from './ui/components';
+import { GameController } from './game/controller';
+import { audio, MENU_SONG } from './core/audio';
 
 function registerRoutes(): void {
   nav.register('agegate', () => new AgeGateScreen());
@@ -40,10 +41,17 @@ async function boot(): Promise<void> {
   document.documentElement.classList.toggle('reduced-motion', store.settings.reducedMotion);
   store.on('settings', (s) => document.documentElement.classList.toggle('reduced-motion', s.reducedMotion));
 
-  // Gameplay arrives with the Logic phase.
-  nav.setPlayHandler(() => {
-    void alertModal('Almost ready!', 'The game engine is being built. Menus, shop and settings are ready to explore.', 'shapes');
-  });
+  const game = new GameController(document.getElementById('game') as HTMLCanvasElement);
+  nav.setPlayHandler((req) => game.play(req));
+  ui.sfx = (name) => audio.play(name);
+  // Browsers only allow audio after a gesture: start the menu music on the first tap.
+  const unlock = () => {
+    audio.unlock();
+    if (!game.session || nav.route) audio.playSong(MENU_SONG);
+    window.removeEventListener('pointerdown', unlock, true);
+  };
+  window.addEventListener('pointerdown', unlock, true);
+  game.startAttract();
 
   if (isNative()) {
     void CapApp.addListener('backButton', () => {
@@ -67,6 +75,11 @@ async function boot(): Promise<void> {
     if (store.data.profile.ageGroup) void ads.init();
     void iap.init();
   }, 300);
+}
+
+if (import.meta.env.DEV) {
+  // Dev-only hooks for automated audio checks.
+  (window as unknown as { __audio: typeof audio }).__audio = audio;
 }
 
 void boot();

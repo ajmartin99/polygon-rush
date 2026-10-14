@@ -103,6 +103,11 @@ button {
   pointer-events: auto;
 }
 
+/* The in-game HUD must let taps through to the game canvas. */
+#ui > .hud {
+  pointer-events: none;
+}
+
 /* ------------------------------------------------------------------ boot */
 .boot {
   position: absolute;

@@ -13,8 +13,10 @@ Built in three phases:
 | Phase | Scope | State |
 | --- | --- | --- |
 | 1. UI | App shell, every menu & screen, shop, missions, daily gift, settings, parental controls, ads/IAP plumbing, Android project, CI + release workflows | ✅ |
-| 2. Logic | Game engine, physics, 4 shape modes, procedural levels, CPU rivals, Race / Duel / Online modes, rewards, audio | ⏳ |
+| 2. Logic | Game engine, physics, 4 shape modes, procedural levels, CPU rivals, Race / Duel / Online modes, rewards, original 8-track soundtrack | ✅ |
 | 3. Visuals | Character art & faces, skins, trails, biomes, particles, effects, icons, splash, store assets | ⏳ |
+
+See [docs/GAME_DESIGN.md](docs/GAME_DESIGN.md) for the full design.
 
 ## Develop
 

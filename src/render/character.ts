@@ -15,6 +15,8 @@ export interface CharacterPose {
   time: number;
   /** Draw at reduced alpha (ghosts / invulnerable blink). */
   alpha: number;
+  /** Rotation of the face; defaults to the body rotation. Upright faces read better on rolling shapes. */
+  faceRot?: number;
 }
 
 export const DEFAULT_POSE: CharacterPose = { rot: 0, squash: 1, lookX: 0.4, lookY: 0, blink: 0, time: 0, alpha: 1 };
@@ -36,8 +38,9 @@ export function drawCharacter(
   ctx.save();
   ctx.globalAlpha *= p.alpha;
   ctx.translate(x, y);
-  ctx.rotate(p.rot);
   ctx.scale(1 / Math.sqrt(p.squash), p.squash);
+  ctx.save();
+  ctx.rotate(p.rot);
   const pts = shapePoints(shape);
   ctx.beginPath();
   pts.forEach(([px, py], i) => (i ? ctx.lineTo(px * size, py * size) : ctx.moveTo(px * size, py * size)));
@@ -48,6 +51,8 @@ export function drawCharacter(
   ctx.lineJoin = 'round';
   ctx.strokeStyle = skin.outline;
   ctx.stroke();
+  ctx.restore();
+  ctx.rotate(p.faceRot ?? p.rot);
   // Eyes
   const eyeR = size * 0.12;
   const ex = size * 0.06;

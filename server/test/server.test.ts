@@ -149,7 +149,7 @@ describe('accounts', () => {
     assert.equal((await api('POST', '/api/account/start', { email: 'nope', birthYear: YEAR - 20 })).status, 400);
     assert.equal((await api('POST', '/api/account/start', { email: 'x@example.com' })).status, 400);
     const email = 'spammy@example.com';
-    for (let i = 0; i < 3; i++) assert.equal((await api('POST', '/api/account/start', { email, birthYear: YEAR - 30 })).status, 200);
+    for (let i = 0; i < 5; i++) assert.equal((await api('POST', '/api/account/start', { email, birthYear: YEAR - 30 })).status, 200);
     assert.equal((await api('POST', '/api/account/start', { email, birthYear: YEAR - 30 })).status, 429);
   });
 
@@ -302,5 +302,68 @@ describe('public build rooms', () => {
     assert.ok(!list.json.rooms.some((r: any) => r.code === 'CDFG'));
     const admin = await api('GET', '/api/admin/rooms', undefined, ADMIN);
     assert.ok(admin.json.rooms.some((r: any) => r.code === 'CDFG' && r.hidden));
+  });
+});
+
+describe('review hardening', () => {
+  test('deleting an account closes its chat; coming back keeps the old id and mute', async () => {
+    const a = await account(20);
+    const c = await chatter(a.token, 'room-key-delete-0123456789', 'Brave Fox 4');
+    await api('POST', `/api/admin/accounts/${a.id}/mute`, { hours: 5 }, ADMIN);
+    await c.wait((m) => m.t === 'muted');
+    assert.equal((await api('POST', '/api/account/delete', {}, a.token)).status, 200);
+    await c.wait((m) => m.t === 'error' && m.code === 'signed_out');
+    // Re-verify the same email: same id, still muted.
+    await api('POST', '/api/account/start', { email: a.email, birthYear: YEAR - 21 });
+    const v = await api('POST', '/api/account/verify', { email: a.email, code: lastCode(a.email) });
+    assert.equal(v.json.account.id, a.id);
+    assert.ok(v.json.account.mutedUntil > Date.now());
+    // A moderator can still ban the deleted-then-returned or a deleted account by id.
+    assert.equal((await api('POST', `/api/account/delete`, {}, v.json.token)).status, 200);
+    assert.equal((await api('POST', `/api/admin/accounts/${a.id}/ban`, { days: 0, reason: 'test' }, ADMIN)).status, 200);
+    assert.equal((await api('POST', '/api/account/start', { email: a.email, birthYear: YEAR - 21 })).status, 403);
+  });
+
+  test('a parent email gives each teen their own account; the parent stays separate', async () => {
+    const email = 'family@example.com';
+    const verify = async (age: number) => {
+      await api('POST', '/api/account/start', { email, birthYear: YEAR - age - 1 });
+      return (await api('POST', '/api/account/verify', { email, code: lastCode(email) })).json.account;
+    };
+    const teenA = await verify(13);
+    const teenB = await verify(15);
+    const parent = await verify(40);
+    const teenAagain = await verify(13);
+    assert.notEqual(teenA.id, teenB.id);
+    assert.notEqual(teenA.id, parent.id);
+    assert.equal(teenAagain.id, teenA.id);
+    assert.equal(teenA.consent, 'parent');
+    assert.equal(parent.consent, 'self');
+  });
+
+  test('nobody can join a chat room under a name already in it', async () => {
+    const a = await account(20);
+    const b = await account(20);
+    const channel = 'room-key-names-0123456789';
+    await chatter(a.token, channel, 'Lucky Otter 8');
+    const c = new Client();
+    await c.open();
+    c.send({ t: 'auth', token: b.token });
+    await c.wait((m) => m.t === 'ready');
+    c.send({ t: 'join', channel, name: 'Lucky Otter 8' });
+    await c.wait((m) => m.t === 'error' && m.code === 'name_taken');
+    c.close();
+  });
+
+  test('a hidden public room cannot list itself again', async () => {
+    // CDFG was hidden by reports above: neither it nor its host's connection can list again for a while.
+    const room = { name: [1, 1], host: 'Jolly Penguin 12', players: 1, max: 4, theme: 1 };
+    assert.equal((await api('POST', '/api/rooms/CDFG', room)).status, 403);
+    assert.equal((await api('POST', '/api/rooms/DFGH', room)).status, 403);
+  });
+
+  test('web deletion answers the same for unknown addresses', async () => {
+    const r = await api('POST', '/api/account/delete/start', { email: 'ghost@example.com' });
+    assert.deepEqual(r.json, { ok: true });
   });
 });

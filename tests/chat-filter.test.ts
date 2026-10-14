@@ -17,6 +17,8 @@ const ok = [
   'level 12 is hard',
   'Essex is in England',
   'I love this game',
+  'café is closed, nice level',
+  'gg 🎉🔥',
 ];
 
 const blocked: [string, string][] = [
@@ -43,6 +45,12 @@ const blocked: [string, string][] = [
   ['go kill yourself', 'blocked_word'],
   ['s3xy', 'blocked_word'],
   ['f u c k', 'blocked_word'],
+  ['how \u043eld are you', 'unsupported'],
+  ['wh\u0435re do you live', 'unsupported'],
+  ['\u0455n\u0430\u0440chat kidxyz', 'unsupported'],
+  ['call \u0665\u0665\u0665\u0661\u0662\u0663\u0664\u0665\u0666\u0667', 'unsupported'],
+  ['add me on d\u0131scord', 'off_platform'],
+  ['wh\u00e9re do you l\u00efve', 'personal_question'],
   ['', 'empty'],
   ['x'.repeat(200), 'too_long'],
 ];

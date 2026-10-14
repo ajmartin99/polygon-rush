@@ -3,6 +3,8 @@ import { CONFIG } from '../config';
 import { Emitter } from '../core/emitter';
 import type { EditOp } from '../editor/doc';
 import { quickLine } from '../meta/quickchat';
+import { isGeneratedName } from '../meta/names';
+import { SKINS } from '../meta/catalog';
 
 /**
  * Online rooms joined with a 4-character code. Two kinds:
@@ -34,7 +36,8 @@ export type NetMsg =
   | { t: 'hello'; v: number; name: string; skin: string }
   | { t: 'welcome'; you: string; players: NetPlayer[]; kind: RoomKind; chat: string; lock: boolean; level?: string; rev?: number; authors?: string[] }
   | { t: 'lobby'; players: NetPlayer[]; racing: boolean }
-  | { t: 'reject'; reason: 'full' | 'version' | 'started' }
+  | { t: 'reject'; reason: 'full' | 'version' | 'started' | 'closed' }
+  | { t: 'chatkey'; key: string }
   | { t: 'start'; seed: number; players: NetPlayer[]; delay: number; level?: string }
   | { t: 'st'; s: NetState }
   | { t: 'snap'; p: NetState[] }
@@ -74,12 +77,45 @@ export interface RoomEvents extends Record<string, unknown> {
   lock: boolean;
   authors: string[];
   quick: { id: string; n: number };
+  /** The room's Free Chat channel moved (after someone was removed). */
+  chatKey: string;
 }
 
 export interface HostOptions {
   kind: RoomKind;
   /** Build rooms: current level code + revision for new builders. */
   snapshot?: () => { code: string; rev: number; authors: string[] };
+}
+
+/** Shown instead of anything that isn't a generated racer name. */
+export const FALLBACK_NAME = 'Mystery Polygon';
+
+/** Only generated names travel between players: anything else (a modified client) is replaced. */
+export function safeName(name: unknown): string {
+  return typeof name === 'string' && isGeneratedName(name) ? name : FALLBACK_NAME;
+}
+
+function safeSkin(skin: unknown): string {
+  return typeof skin === 'string' && SKINS.some((s) => s.id === skin) ? skin : 'classic';
+}
+
+/** Clean a player list received from the host. */
+export function safePlayers(list: unknown): NetPlayer[] {
+  if (!Array.isArray(list)) return [];
+  return list.slice(0, 8).flatMap((p): NetPlayer[] => {
+    if (!p || typeof p !== 'object' || typeof (p as NetPlayer).id !== 'string') return [];
+    const q = p as NetPlayer;
+    return [{ id: q.id.slice(0, 64), name: safeName(q.name), skin: safeSkin(q.skin), host: q.host === true, color: Number.isInteger(q.color) ? Math.abs(q.color) % 4 : 0 }];
+  });
+}
+
+/** Generated names only, at most 4. */
+export function safeAuthors(list: unknown): string[] {
+  return Array.isArray(list) ? list.filter((a): a is string => typeof a === 'string' && isGeneratedName(a)).slice(0, 4) : [];
+}
+
+function validState(s: unknown): s is NetState {
+  return Array.isArray(s) && s.length === 7 && s.slice(1).every((v) => typeof v === 'number' && Number.isFinite(v) && Math.abs(v) < 1e6);
 }
 
 export function randomCode(rand: () => number = Math.random): string {
@@ -176,7 +212,8 @@ export class NetRoom extends Emitter<RoomEvents> {
   private closed = false;
   private rev = 0;
   private snapshot: HostOptions['snapshot'];
-  private buckets = new Map<string, { ops: Bucket; cur: Bucket; qc: Bucket }>();
+  private buckets = new Map<string, { ops: Bucket; cur: Bucket; qc: Bucket; st: Bucket; fx: Bucket }>();
+  private joinBlockedUntil = 0;
   private kicked = new Set<string>();
 
   private constructor(isHost: boolean) {
@@ -248,12 +285,12 @@ export class NetRoom extends Emitter<RoomEvents> {
         if (msg.t === 'welcome') {
           clearTimeout(timer);
           peer.off('error', onError);
-          room.localId = msg.you;
-          room.players = msg.players;
+          room.localId = String(msg.you);
+          room.players = safePlayers(msg.players);
           room.kind = msg.kind === 'build' ? 'build' : 'race';
           room.chatKey = typeof msg.chat === 'string' ? msg.chat.slice(0, 64) : '';
           room.locked = Boolean(msg.lock);
-          if (room.kind === 'build' && typeof msg.level === 'string') room.joinLevel = { code: msg.level, rev: msg.rev ?? 0, authors: msg.authors ?? [] };
+          if (room.kind === 'build' && typeof msg.level === 'string') room.joinLevel = { code: msg.level, rev: msg.rev ?? 0, authors: safeAuthors(msg.authors) };
           room.wireClient();
           resolve();
         } else if (msg.t === 'reject') {
@@ -264,7 +301,9 @@ export class NetRoom extends Emitter<RoomEvents> {
                 ? 'That room is full (4 players max).'
                 : msg.reason === 'started'
                   ? 'That room is racing right now. Try again in a minute!'
-                  : 'Your friend has a different game version. Update both apps!',
+                  : msg.reason === 'closed'
+                    ? 'That room isn’t taking new players right now.'
+                    : 'Your friend has a different game version. Update both apps!',
             ),
           );
         } else {
@@ -295,7 +334,7 @@ export class NetRoom extends Emitter<RoomEvents> {
   private bucket(id: string) {
     let b = this.buckets.get(id);
     if (!b) {
-      b = { ops: new Bucket(80, 400), cur: new Bucket(25, 30), qc: new Bucket(1, 3) };
+      b = { ops: new Bucket(80, 400), cur: new Bucket(25, 30), qc: new Bucket(1, 3), st: new Bucket(30, 40), fx: new Bucket(3, 5) };
       this.buckets.set(id, b);
     }
     return b;
@@ -307,14 +346,16 @@ export class NetRoom extends Emitter<RoomEvents> {
     const member = this.conns.has(from);
     switch (msg.t) {
       case 'hello': {
-        if (this.kicked.has(from)) return void conn.close();
+        if (member || this.kicked.has(from)) return; // one hello per connection
         if (msg.v !== PROTOCOL_VERSION) return void conn.send({ t: 'reject', reason: 'version' } satisfies NetMsg);
         if (this.racing) return void conn.send({ t: 'reject', reason: 'started' } satisfies NetMsg);
+        // Just removed someone: no new joiners for a bit (they'd come back with a new id).
+        if (performance.now() < this.joinBlockedUntil) return void conn.send({ t: 'reject', reason: 'closed' } satisfies NetMsg);
         if (this.players.length >= CONFIG.net.maxPlayers) return void conn.send({ t: 'reject', reason: 'full' } satisfies NetMsg);
         this.conns.set(from, conn);
         const used = new Set(this.players.map((p) => p.color));
         const color = [0, 1, 2, 3].find((c) => !used.has(c)) ?? 0;
-        this.players.push({ id: from, name: String(msg.name).slice(0, 32), skin: String(msg.skin).slice(0, 24), host: false, color });
+        this.players.push({ id: from, name: safeName(msg.name), skin: safeSkin(msg.skin), host: false, color });
         const welcome: NetMsg = { t: 'welcome', you: from, players: this.players, kind: this.kind, chat: this.chatKey, lock: this.locked };
         if (this.kind === 'build' && this.snapshot) {
           const snap = this.snapshot();
@@ -327,12 +368,12 @@ export class NetRoom extends Emitter<RoomEvents> {
         break;
       }
       case 'st':
-        if (!member || !Array.isArray(msg.s)) return;
+        if (!member || !validState(msg.s) || !this.bucket(from).st.take()) return;
         msg.s[0] = from; // never trust the sender's id
         this.states.set(from, msg.s);
         break;
       case 'fx':
-        if (!member) return;
+        if (!member || !this.bucket(from).fx.take()) return;
         this.broadcast({ t: 'fx', from, kind: 'snow', x: Number(msg.x) || 0 });
         this.emit('fx', { from, kind: 'snow', x: Number(msg.x) || 0 });
         break;
@@ -493,12 +534,22 @@ export class NetRoom extends Emitter<RoomEvents> {
     if (this.isHost) this.broadcast({ t: 'authors', list });
   }
 
-  /** Host: remove a player (they can't rejoin this room). */
+  /**
+   * Host: remove a player. New joiners are refused for two minutes (a
+   * removed player would come back with a new id), and the room's Free Chat
+   * channel moves to a new key that only the remaining players get.
+   */
   kick(id: string): void {
     if (!this.isHost || id === this.localId) return;
     this.sendTo(id, { t: 'kick' });
     this.kicked.add(id);
-    setTimeout(() => this.dropPeer(id), 120);
+    this.joinBlockedUntil = performance.now() + 120_000;
+    setTimeout(() => {
+      this.dropPeer(id);
+      this.chatKey = randomKey();
+      this.broadcast({ t: 'chatkey', key: this.chatKey });
+      this.emit('chatKey', this.chatKey);
+    }, 120);
   }
 
   // -------------------------------------------------------------- client side
@@ -516,19 +567,19 @@ export class NetRoom extends Emitter<RoomEvents> {
     switch (msg.t) {
       case 'lobby': {
         const wasRacing = this.racing;
-        this.players = msg.players;
+        this.players = safePlayers(msg.players);
         this.racing = Boolean(msg.racing);
-        this.emit('lobby', msg.players);
+        this.emit('lobby', this.players);
         if (wasRacing && !this.racing && this.kind === 'build') this.emit('raceOver', undefined);
         break;
       }
       case 'start':
         this.racing = true;
-        this.players = msg.players;
-        this.emit('start', { seed: msg.seed, players: msg.players, delay: msg.delay, level: msg.level });
+        this.players = safePlayers(msg.players);
+        this.emit('start', { seed: Number(msg.seed) >>> 0, players: this.players, delay: Math.min(5000, Math.max(0, Number(msg.delay) || 0)), level: typeof msg.level === 'string' ? msg.level : undefined });
         break;
       case 'snap':
-        this.emit('snap', msg.p);
+        if (Array.isArray(msg.p)) this.emit('snap', msg.p.filter(validState).slice(0, 8));
         break;
       case 'fx':
         this.emit('fx', { from: msg.from, kind: msg.kind, x: msg.x });
@@ -543,7 +594,7 @@ export class NetRoom extends Emitter<RoomEvents> {
         if (Array.isArray(msg.ops)) this.emit('ops', { by: String(msg.by ?? ''), seq: Number(msg.seq) || 0, ops: msg.ops, rev: Number(msg.rev) || 0 });
         break;
       case 'level':
-        this.emit('level', { code: msg.code, rev: msg.rev, authors: Array.isArray(msg.authors) ? msg.authors : [] });
+        if (typeof msg.code === 'string') this.emit('level', { code: msg.code, rev: Number(msg.rev) || 0, authors: safeAuthors(msg.authors) });
         break;
       case 'cur':
         if (msg.id) this.emit('cursor', { id: msg.id, x: msg.x, y: msg.y, tool: msg.tool });
@@ -553,7 +604,13 @@ export class NetRoom extends Emitter<RoomEvents> {
         this.emit('lock', this.locked);
         break;
       case 'authors':
-        if (Array.isArray(msg.list)) this.emit('authors', msg.list);
+        this.emit('authors', safeAuthors(msg.list));
+        break;
+      case 'chatkey':
+        if (typeof msg.key === 'string' && msg.key.length >= 16) {
+          this.chatKey = msg.key.slice(0, 64);
+          this.emit('chatKey', this.chatKey);
+        }
         break;
       case 'qc':
         if (msg.id && quickLine(msg.n)) this.emit('quick', { id: msg.id, n: msg.n });

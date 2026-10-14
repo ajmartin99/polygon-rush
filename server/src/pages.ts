@@ -24,7 +24,7 @@ export function deletePage(cfg: Config): string {
     'Delete your Polygon Rush chat account',
     `<h1>Delete a Free Chat account</h1>
 <p>Enter the email address used to verify the Free Chat account (for players aged 13–15 this is the parent's or guardian's email). We'll send a code to confirm.</p>
-<p class="muted">Deleting removes the account, its email address and its chat messages. Messages that are part of an open safety report are kept until the report is closed, as described in the privacy policy. You can also delete the account inside the game: Settings → Chat → Delete chat account.</p>
+<p class="muted">Deleting removes every chat account verified with this email address (a parent's email covers each teen they approved), the email address and the chat messages. Messages that are part of an open safety report are kept until the report is closed, and a one-way hash of the email with any mute or ban is kept for 90 days so deleting can't be used to dodge safety action, as described in the privacy policy. You can also delete the account inside the game: Settings → Chat → Delete chat account.</p>
 <form id="f1"><input id="email" type="email" required autocomplete="email" placeholder="Email address"><button type="submit">Send code</button></form>
 <form id="f2" hidden><input id="code" inputmode="numeric" pattern="[0-9]{6}" required placeholder="6-digit code"><button type="submit">Delete account</button></form>
 <p id="msg" role="status"></p>${cfg.supportEmail ? `<p class="muted">Need help? <a href="mailto:${esc(cfg.supportEmail)}">${esc(cfg.supportEmail)}</a></p>` : ''}

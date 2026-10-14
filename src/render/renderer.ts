@@ -31,6 +31,8 @@ export interface ViewRect {
 export interface ViewSpec {
   racer: Racer;
   rect: ViewRect;
+  /** Where the racer sits across the view (0..1, default 0.3). */
+  focus?: number;
   label?: string;
   labelColor?: string;
 }
@@ -129,7 +131,7 @@ export class Renderer {
     const scale = band / VIEW_H;
     const top = r.y + (r.h - band) / 2;
     const visibleW = r.w / scale;
-    const target = view.racer.x - visibleW * 0.3;
+    const target = view.racer.x - visibleW * (view.focus ?? 0.3);
     const prev = this.cams.get(view.racer.id);
     let x = target;
     if (prev !== undefined && Math.abs(target - prev) < 30 && Math.abs(target - prev) > 1.5) {

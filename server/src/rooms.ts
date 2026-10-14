@@ -8,6 +8,9 @@ const CODE_RE = /^[BCDFGHJKLMNPQRSTVWXZ23456789]{4}$/;
 const TTL = 45_000;
 const MAX_ROOMS = 200;
 const HIDE_AFTER_REPORTS = 3;
+/** A hidden room's code can't list again for a day; its host's connection for 2 hours (IPs can be shared by a whole school). */
+const HIDDEN_CODE_COOLDOWN = 24 * 60 * 60 * 1000;
+const HIDDEN_IP_COOLDOWN = 2 * 60 * 60 * 1000;
 
 export interface PublicRoom {
   code: string;
@@ -41,6 +44,7 @@ export class RoomDirectory {
   private readonly db: Db;
   private rooms = new Map<string, RoomEntry>();
   private readonly creates = new RateLimiter(10, 60 * 60 * 1000);
+  private cooldowns = new Map<string, number>();
 
   constructor(db: Db) {
     this.db = db;
@@ -62,6 +66,9 @@ export class RoomDirectory {
     this.sweep(now);
     if (typeof code !== 'string' || !CODE_RE.test(code)) throw new ApiError(400, 'bad_room', 'Bad room code.');
     const info = this.parse(body);
+    if ((this.cooldowns.get(`ip:${ipKey}`) ?? 0) > now || (this.cooldowns.get(`code:${code}`) ?? 0) > now) {
+      throw new ApiError(403, 'room_blocked', 'Public rooms are paused for you after reports. Friends rooms still work.');
+    }
     const mine = [...this.rooms.values()].filter((r) => r.ipKey === ipKey).length;
     if (mine >= 2 || !this.creates.hit(ipKey, now)) throw new ApiError(429, 'slow_down', 'Too many public rooms from this connection.');
     if (this.rooms.size >= MAX_ROOMS) throw new ApiError(503, 'full', 'Public rooms are full right now. Try a friends room!');
@@ -115,14 +122,25 @@ export class RoomDirectory {
       context: JSON.stringify({ host: r.host, name: r.name, level }),
       created_at: now,
     });
-    if (r.reporters.size >= HIDE_AFTER_REPORTS) r.hidden = true;
+    if (r.reporters.size >= HIDE_AFTER_REPORTS) this.setHidden(r, true, now);
   }
 
-  hide(code: string, hidden: boolean): boolean {
+  hide(code: string, hidden: boolean, now = Date.now()): boolean {
     const r = this.rooms.get(code);
     if (!r) return false;
-    r.hidden = hidden;
+    this.setHidden(r, hidden, now);
     return true;
+  }
+
+  private setHidden(r: RoomEntry, hidden: boolean, now: number): void {
+    r.hidden = hidden;
+    if (hidden) {
+      this.cooldowns.set(`ip:${r.ipKey}`, now + HIDDEN_IP_COOLDOWN);
+      this.cooldowns.set(`code:${r.code}`, now + HIDDEN_CODE_COOLDOWN);
+    } else {
+      this.cooldowns.delete(`ip:${r.ipKey}`);
+      this.cooldowns.delete(`code:${r.code}`);
+    }
   }
 
   adminList(now = Date.now()): (PublicRoom & { hidden: boolean; reports: number })[] {
@@ -132,5 +150,6 @@ export class RoomDirectory {
 
   private sweep(now: number): void {
     for (const [code, r] of this.rooms) if (r.seen + TTL < now) this.rooms.delete(code);
+    for (const [k, until] of this.cooldowns) if (until < now) this.cooldowns.delete(k);
   }
 }

@@ -76,6 +76,8 @@ export class GameController {
     this.input = new InputManager(canvas);
     this.input.onPress = () => audio.unlock();
     window.addEventListener('resize', () => this.renderer.resize());
+    // The canvas also changes size when the menu banner ad appears or goes.
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => this.renderer.resize()).observe(canvas);
     this.applyGraphics();
     store.on('settings', () => this.applyGraphics());
     document.addEventListener('visibilitychange', () => {
@@ -499,7 +501,8 @@ export class GameController {
       ];
     } else {
       const focus = s.racers.find((r) => r.kind === 'human') ?? s.racers[0];
-      views = [{ racer: focus, rect: rects[0] }];
+      // The menu demo runs in the open space right of the hero preview.
+      views = [{ racer: focus, rect: rects[0], focus: this.kind === 'attract' ? 0.62 : undefined }];
     }
     const fxDt = this.phase === 'paused' || this.phase === 'dying' ? 0 : dt * this.timeScale;
     for (const r of s.racers) if (!r.dead) this.renderer.fx.racerTick(r, fxDt, r.kind === 'human');

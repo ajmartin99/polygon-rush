@@ -32,7 +32,28 @@ Shape **portals** switch modes mid-run. The first time a player meets a shape, t
 * **Endless:** 3 hearts (5 in Kid Mode). Hearts, shields and magnets appear as pickups. One revive per run (rewarded video or 100 gems).
 * **Race:** 900 m vs 3 CPU rivals on a seeded track. Bumps stun instead of killing. Mystery boxes give Boost, Shield, Snowball or Magnet, weighted towards whoever is behind. Gentle rubber-banding keeps races close. Trophies (which never decrease) unlock leagues and stronger rivals.
 * **Duel:** 2 players, one device, split screen (top half / bottom half taps). 650 m.
-* **Friends (online):** up to 4 players via a 4-character room code. Peer-to-peer (PeerJS/WebRTC) with the host relaying state at 15 Hz; remote racers are interpolated 100 ms in the past. No chat, no free text, no public matchmaking.
+* **Friends (online):** up to 4 players via a 4-character room code. Peer-to-peer (PeerJS/WebRTC) with the host relaying state at 15 Hz; remote racers are interpolated 100 ms in the past. Quick Chat in the lobby; no public matchmaking.
+
+## Create mode (level maker)
+* **Grid levels** (`src/game/level.ts`): rows 0–7 between floor and roof, 30–1200 tiles long. Pieces: block, ledge, spike (up/down), saw (small/big), gem (normal/big), pad (up/down), orb, power-up (heart/shield/magnet), shape portals and pits. Tapping a placed piece again flips or changes it.
+* Levels compile to the **same world objects** as generated tracks: blocks merge into rectangles, everything is split to `MAX_OBJ_W`, non-Jumper sections get an automatic roof, and a flat run-out follows the finish. So physics, rendering, CPU rivals and tests all just work.
+* **Settings:** generated name, world (colours + song), speed (Chill 8.6 / Normal 10.2 / Turbo 11.8 tiles/s), hearts (1/3/5), length.
+* **Editor UX:** palette icons are drawn by the game renderer; drag to paint, two fingers or the Move tool to pan, a minimap to jump around, edge auto-scroll while painting, grouped undo/redo per stroke, Test from the start or from here.
+* **Verify to share:** like Geometry Dash, you must beat your own level from the start before its share code unlocks. Any gameplay edit un-verifies it.
+* **Share codes:** `PR1-` + base64url of a compact binary format (header, varint x-deltas, one byte per piece, checksum): about 2 bytes per piece.
+* **Featured levels** (`src/meta/featured.ts`) teach each shape and are checked by the CPU bot in `tests/featured.test.ts`. Players can remix them.
+* Player-made levels give XP-free, gem-free play (no farming); missions reward building and beating levels.
+
+## Build Together (co-op building)
+* A **build room** is a NetRoom with `kind: 'build'`. Joining by code works from Create or from Friends.
+* The **host orders every edit**: builders apply their own edits instantly as *pending*, send them, and rebase on the host's ordered stream (`SyncedDoc`). Everyone converges on exactly the host's level, which a randomised concurrency test checks.
+* Coloured cursors with names, Quick Chat bubbles over cursors, host lock (pause building), remove player, credits for up to 4 builders.
+* **Race it:** the host starts an online race on the current level; everyone returns to the editor afterwards.
+
+## Online community & safety
+* **Quick Chat** (`src/meta/quickchat.ts`): fixed phrases and emotes sent as indexes. On for everyone by default; parents can switch it off.
+* **Optional community server** (`server/`): PeerJS signalling, a **public build room** list (13+), and **Free Chat**.
+* **Free Chat** needs an email-verified account: 16+ verify their own email, 13–15 a parent verifies theirs (consent), under-13s never. Typed messages go only through the server (never peer-to-peer), are filtered (`src/shared/chat-filter.ts`), rate-limited, kept 30 days, and are only delivered to other verified players. Report → auto-mute after 3 reporters → moderator review. Details: [SAFETY.md](SAFETY.md).
 
 ## CPU rivals
 `BotBrain` searches press/release sequences ~1.25 s ahead with the real physics (memoised, budget-capped DFS), steering fliers toward the next gap. Skill controls how often it fumbles a press, so Bronze rivals stumble and Legend rivals rarely do.

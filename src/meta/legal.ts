@@ -42,7 +42,7 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'How long we keep chat data',
-    body: 'Free Chat messages are deleted after 30 days, unless they are part of an open safety report (then they are kept until the report is closed). Closed reports are deleted after one year. Accounts that are not used for two years are deleted.',
+    body: 'Free Chat messages are deleted after 30 days, unless they are part of an open safety report (then they are kept until the report is closed). Closed reports are deleted after one year. Accounts that are not used for two years are deleted. When a chat account is deleted, we keep only its random id, a one-way hash of the email address and any mute or ban for 90 days (longer while a report about it is open), so deleting can’t be used to dodge safety action.',
   },
   {
     title: 'Analytics',

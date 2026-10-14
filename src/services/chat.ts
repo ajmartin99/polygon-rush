@@ -42,7 +42,7 @@ export class FreeChatClient extends Emitter<FreeChatEvents> {
 
   constructor(
     private readonly token: string,
-    private readonly channel: string,
+    private channel: string,
     private readonly name: string,
   ) {
     super();
@@ -129,6 +129,15 @@ export class FreeChatClient extends Emitter<FreeChatEvents> {
       default:
         break;
     }
+  }
+
+  /** The room moved its chat to a new key (someone was removed): follow it. */
+  moveTo(channel: string): void {
+    if (channel === this.channel) return;
+    this.channel = channel;
+    this.ready = false;
+    this.emit('state', undefined);
+    this.ws?.send(JSON.stringify({ t: 'join', channel, name: this.name }));
   }
 
   /** Send a message. Returns an explanation if it can't be sent. */

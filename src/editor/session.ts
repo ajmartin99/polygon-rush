@@ -4,6 +4,7 @@ import { levels } from '../state/levels';
 import { store } from '../state/store';
 import type { NetPlayer, NetRoom } from '../services/net';
 import { quickLine } from '../meta/quickchat';
+import { isGeneratedName } from '../meta/names';
 import { ChatLog } from '../services/chatlog';
 import { History, LevelDoc, SyncedDoc, type Change, type EditOp } from './doc';
 import type { ToolId } from './tools';
@@ -159,7 +160,7 @@ export class EditorSession extends Emitter<SessionEvents> {
 
   private ensureAuthor(name: string): void {
     const a = this.doc.authors;
-    if (a.includes(name) || a.length >= 4) return;
+    if (!isGeneratedName(name) || a.includes(name) || a.length >= 4) return;
     if (this.room && !this.room.isHost) return; // the host credits builders
     a.push(name);
     this.room?.setAuthors([...a]);

@@ -41,6 +41,7 @@ export const account = {
     try {
       const r = await serverApi<{ account: PublicAccount }>('/api/account/me', { token });
       store.data.account.mutedUntil = r.account.mutedUntil;
+      store.data.account.consent = r.account.consent;
       store.data.account.emailHint = r.account.emailHint;
       store.commit();
     } catch (e) {

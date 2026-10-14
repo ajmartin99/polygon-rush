@@ -53,7 +53,8 @@ export function createServer(cfg: Config, opts: { mailer?: Mailer; log?: (msg: s
   const chatWss = new WebSocketServer({ noServer: true, maxPayload: 4096 });
   const alive = new WeakMap<WebSocket, boolean>();
   chatWss.on('connection', (ws: WebSocket, req: http.IncomingMessage) => {
-    const forwarded = cfg.trustProxy ? String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() : '';
+    // Behind one proxy the real client is the last hop it added (earlier entries can be spoofed).
+    const forwarded = cfg.trustProxy ? (String(req.headers['x-forwarded-for'] ?? '').split(',').map((x) => x.trim()).filter(Boolean).pop() ?? '') : '';
     const conn = {
       ipKey: ipKeyFor(cfg, forwarded || req.socket.remoteAddress),
       send: (msg: object) => {

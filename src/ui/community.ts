@@ -190,7 +190,18 @@ export function openChatSettings(): void {
               h('b', null, 'Free Chat'),
               h('span', null, `${d.account.consent === 'parent' ? 'Parent approved' : 'Verified'}: ${d.account.emailHint}. Type messages to other verified players in your room.`),
             ),
-            toggle(s.freeChat, (v) => store.setSetting('freeChat', v), 'Free Chat'),
+            toggle(
+              s.freeChat,
+              async (v) => {
+                // A parent approved Free Chat for a 13-15 player: switching it back on needs them again.
+                if (v && path === 'parent' && !(await parentalGate('Ask the grown-up who approved Free Chat.'))) {
+                  render();
+                  return;
+                }
+                store.setSetting('freeChat', v);
+              },
+              'Free Chat',
+            ),
           ),
           d.account.mutedUntil > Date.now() ? h('p.small.error-text', null, `Free Chat is paused until ${new Date(d.account.mutedUntil).toLocaleString()} because of reports.`) : null,
           h(

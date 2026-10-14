@@ -48,7 +48,8 @@ export class AccountService {
   private readonly mailer: Mailer;
   private readonly cfg: Config;
   private readonly perIp: RateLimiter;
-  private readonly perEmail = new RateLimiter(3, 60 * 60 * 1000);
+  /** A parent may approve a few teens in one sitting; more than that looks like inbox spam. */
+  private readonly perEmail = new RateLimiter(5, 60 * 60 * 1000);
   private readonly verifyPerIp: RateLimiter;
 
   constructor(db: Db, mailer: Mailer, cfg: Config) {
@@ -126,33 +127,35 @@ export class AccountService {
     return account;
   }
 
-  remove(token: unknown, now = Date.now()): void {
+  /** Delete your own account (in the app). Returns its id so live chat can be closed. */
+  remove(token: unknown, now = Date.now()): string | null {
     const claims = verifyToken(token, this.cfg.secret, now);
     if (!claims) throw new ApiError(401, 'signed_out', 'Please verify your email again.');
     const account = this.db.accountById(claims.sub);
-    if (!account) return;
+    if (!account) return null;
     this.deleteNow(account, 'self', now);
+    return account.id;
   }
 
-  /** Web deletion (no app needed): email a code to the account's address. */
-  async deleteStart(body: { email?: unknown }, ipKey: string, now = Date.now()): Promise<{ devCode?: string }> {
+  /**
+   * Web deletion (no app needed): email a code to the address. The answer and
+   * its timing are the same whether or not an account exists (no probing).
+   */
+  deleteStart(body: { email?: unknown }, ipKey: string, now = Date.now()): { devCode?: string } {
     const email = normalizeEmail(body.email);
     if (!email) throw new ApiError(400, 'bad_email', 'That email address doesn’t look right.');
     const hash = this.emailHash(email);
     if (!this.perIp.hit(ipKey, now) || !this.perEmail.hit(`del:${hash}`, now)) throw new ApiError(429, 'slow_down', 'Too many requests. Try again in an hour.');
-    // Same answer whether or not the account exists (no address probing).
-    if (!this.db.accountByEmailHash(hash)) return {};
+    if (!this.db.accountsByEmailHash(hash).length) return {};
     const code = sixDigitCode();
     this.db.putCode({ email_hash: hash, purpose: 'delete', email, code_hash: this.codeHash(email, code), consent: 'self', birth_year: 0, expires_at: now + CODE_TTL, attempts: 0 });
-    try {
-      await this.mailer.send(deleteMail(email, code));
-    } catch {
-      throw new ApiError(503, 'email_unavailable', 'We couldn’t send the email right now. Please try again later.');
-    }
+    this.mailer.send(deleteMail(email, code)).catch((e: Error) => console.error(`[mail] deletion code failed: ${e.message}`));
+    // Development servers without email hand the code back (never in production).
     return this.mailer.real ? {} : { devCode: code };
   }
 
-  deleteConfirm(body: { email?: unknown; code?: unknown }, ipKey: string, now = Date.now()): void {
+  /** Deletes every chat account verified with this email (a parent's covers all their teens). Returns their ids. */
+  deleteConfirm(body: { email?: unknown; code?: unknown }, ipKey: string, now = Date.now()): string[] {
     const email = normalizeEmail(body.email);
     const code = typeof body.code === 'string' ? body.code.replace(/\D/g, '') : '';
     if (!email || code.length !== 6) throw new ApiError(400, 'bad_code', 'Enter the 6-digit code from the email.');
@@ -165,41 +168,50 @@ export class AccountService {
       throw new ApiError(400, 'wrong_code', 'That code isn’t right.');
     }
     this.db.dropCode(hash, 'delete');
-    const account = this.db.accountByEmailHash(hash);
-    if (account) this.deleteNow(account, 'web', now);
+    const accounts = this.db.accountsByEmailHash(hash);
+    for (const a of accounts) this.deleteNow(a, 'web', now);
+    return accounts.map((a) => a.id);
   }
 
   private deleteNow(account: Account, via: string, now: number): void {
     // A banned email stays blocked (the ban list holds only a hash, not the address).
     if (account.banned_until > now) this.db.banEmail(account.email_hash, account.banned_until, account.ban_reason);
-    this.db.deleteAccount(account.id);
+    this.db.deleteAccount(account.id, now);
     this.db.audit(via, 'delete_account', account.id, null, now);
   }
 
   // ------------------------------------------------------------ moderation
+  /** Mute an account (or the tombstone of a deleted one, which carries over if they come back). */
   mute(id: string, hours: number, actor: string, now = Date.now()): number {
     const until = now + hours * 60 * 60 * 1000;
-    this.db.setMute(id, until);
+    if (this.db.accountById(id)) this.db.setMute(id, until);
+    else if (this.db.tombstone(id)) this.db.setTombstoneMute(id, until);
+    else throw new ApiError(404, 'not_found', 'No such account.');
     this.db.audit(actor, 'mute', id, `${hours}h`, now);
     return until;
   }
 
+  /** Ban an account and block its email address, even if the account was deleted. */
   ban(id: string, days: number, reason: string, actor: string, now = Date.now()): number {
     const a = this.db.accountById(id);
-    if (!a) throw new ApiError(404, 'not_found', 'No such account.');
+    const hash = a?.email_hash ?? this.db.tombstone(id)?.email_hash;
+    if (!hash) throw new ApiError(404, 'not_found', 'No such account.');
     const until = days > 0 ? now + days * DAY : PERMANENT;
-    this.db.setBan(id, until, reason);
-    this.db.banEmail(a.email_hash, until, reason);
+    if (a) this.db.setBan(id, until, reason);
+    this.db.banEmail(hash, until, reason);
     this.db.audit(actor, 'ban', id, `${days || 'permanent'}d: ${reason}`, now);
     return until;
   }
 
   unban(id: string, actor: string, now = Date.now()): void {
     const a = this.db.accountById(id);
-    if (!a) throw new ApiError(404, 'not_found', 'No such account.');
-    this.db.setBan(id, 0, null);
-    this.db.setMute(id, 0);
-    this.db.unbanEmail(a.email_hash);
+    const hash = a?.email_hash ?? this.db.tombstone(id)?.email_hash;
+    if (!hash) throw new ApiError(404, 'not_found', 'No such account.');
+    if (a) {
+      this.db.setBan(id, 0, null);
+      this.db.setMute(id, 0);
+    } else this.db.setTombstoneMute(id, 0);
+    this.db.unbanEmail(hash);
     this.db.audit(actor, 'unban', id, null, now);
   }
 }

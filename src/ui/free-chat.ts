@@ -41,6 +41,7 @@ export class RoomFreeChat {
       },
     };
     this.offs.push(
+      room.on('chatKey', (key) => client.moveTo(key)),
       client.on('state', () => this.panel?.setFree(this.port)),
       client.on('msg', (m) => {
         if (blocked.has(m.from)) return;

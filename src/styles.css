@@ -35,8 +35,9 @@
   --safe-r: env(safe-area-inset-right, 0px);
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-l: env(safe-area-inset-left, 0px);
-  /* Everything is sized in rem; rem tracks the short side of the screen. */
-  font-size: clamp(11px, calc(min(100vh, 56.25vw) / 24), 28px);
+  /* Everything is sized in rem; rem tracks the short side of the screen
+     (minus the menu banner ad, so the whole UI shrinks to fit above it). */
+  font-size: clamp(11px, calc(min(100vh - var(--banner-h, 0px), 56.25vw) / 24), 28px);
 }
 
 * {
@@ -76,6 +77,8 @@ button {
 #app {
   position: fixed;
   inset: 0;
+  /* The AdMob banner (menu only) sits below the app, never on top of it. */
+  bottom: var(--banner-h, 0px);
   overflow: hidden;
   background: radial-gradient(120% 120% at 30% 10%, #3a1f8f 0%, var(--bg) 45%, var(--bg-deep) 100%);
 }
@@ -705,13 +708,6 @@ p {
 
 .bottombar .btn {
   min-height: 2.8rem;
-}
-
-.ad-safe {
-  /* Room reserved for the AdMob banner on the main menu. */
-  height: var(--banner-h, 0px);
-  flex: none;
-  transition: height 0.2s ease;
 }
 
 /* ------------------------------------------------------------------ tabs */

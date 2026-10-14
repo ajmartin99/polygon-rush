@@ -107,7 +107,6 @@ export class MenuScreen extends BaseScreen {
         h('div.spacer'),
         h('span.kbd-hint', null, `v${CONFIG.version}`),
       ),
-      h('div.ad-safe'),
     );
 
     this.own(

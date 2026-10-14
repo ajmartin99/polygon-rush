@@ -87,18 +87,20 @@ export function createApp(d: AppDeps): express.Express {
   app.post('/api/account/start', route((req) => accounts.start(req.body ?? {}, ipKey(req))));
   app.post('/api/account/verify', route((req) => accounts.verify(req.body ?? {}, ipKey(req))));
   app.get('/api/account/me', route((req) => ({ account: publicAccount(accounts.auth(bearer(req))) })));
+  // Deleting an account also closes its live chat connections.
   app.post(
     '/api/account/delete',
     route((req) => {
-      accounts.remove(bearer(req));
+      const id = accounts.remove(bearer(req));
+      if (id) hub.kick(id, 'This chat account was deleted.', 'signed_out');
       return { ok: true };
     }),
   );
-  app.post('/api/account/delete/start', route(async (req) => ({ ok: true, ...(await accounts.deleteStart(req.body ?? {}, ipKey(req))) })));
+  app.post('/api/account/delete/start', route((req) => ({ ok: true, ...accounts.deleteStart(req.body ?? {}, ipKey(req)) })));
   app.post(
     '/api/account/delete/confirm',
     route((req) => {
-      accounts.deleteConfirm(req.body ?? {}, ipKey(req));
+      for (const id of accounts.deleteConfirm(req.body ?? {}, ipKey(req))) hub.kick(id, 'This chat account was deleted.', 'signed_out');
       return { ok: true };
     }),
   );
@@ -176,7 +178,8 @@ export function createApp(d: AppDeps): express.Express {
     route((req) => {
       const r = db.report(req.params.id);
       if (!r) throw new ApiError(404, 'not_found', 'No such report.');
-      return { report: { ...r, context: JSON.parse(r.context) as unknown } };
+      // Message reports point at stored messages (gone once retention ends); room reports carry a level snapshot.
+      return { report: { ...r, context: r.kind === 'message' ? db.reportMessages(r.id) : (JSON.parse(r.context) as unknown) } };
     }),
   );
   admin.post(

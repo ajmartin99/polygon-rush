@@ -42,7 +42,8 @@ The game is designed for a **mixed audience (children and adults)**:
 
 * A **neutral age screen** on first launch asks for a birth year with no default and no hint about the "right" answer.
 * Under-13 (or unknown): child-directed, non-personalised, G-rated ads; a grown-up check before purchases and external links.
-* No chat, no free-text input (racer names are generated), no public matchmaking. Online rooms are private 4-character codes shared in person, and parents can switch them off.
+* No free-text names (racer and level names are generated). Online rooms are private 4-character codes shared in person, and parents can switch them off.
+* Chat for under-13s is **Quick Chat only** (preset phrases, parents can switch it off). Typed **Free Chat** needs the optional community server and an email-verified account: 16+ verify themselves, 13–15 need a parent's email approval, under-13s can never sign up. Public build rooms are 13+ only. See [SAFETY.md](SAFETY.md).
 * No analytics or tracking SDKs.
 
 In Play Console, choose target ages that include under-13s **and** older groups, and declare ads. The AdMob SDK merges the `AD_ID` permission. That is allowed for mixed-audience apps because the SDK never uses it for child-directed requests. If you ever target **children only**, remove it by adding this to `AndroidManifest.xml`:

@@ -58,7 +58,7 @@ const SCHEMA = `
 CREATE TABLE IF NOT EXISTS accounts (
   id TEXT PRIMARY KEY,
   email TEXT NOT NULL,
-  email_hash TEXT NOT NULL UNIQUE,
+  email_hash TEXT NOT NULL,
   consent TEXT NOT NULL,
   birth_year INTEGER NOT NULL,
   created_at INTEGER NOT NULL,
@@ -68,6 +68,22 @@ CREATE TABLE IF NOT EXISTS accounts (
   banned_until INTEGER NOT NULL DEFAULT 0,
   ban_reason TEXT
 );
+CREATE INDEX IF NOT EXISTS accounts_email ON accounts (email_hash);
+CREATE TABLE IF NOT EXISTS tombstones (
+  account_id TEXT PRIMARY KEY,
+  email_hash TEXT NOT NULL,
+  consent TEXT NOT NULL,
+  birth_year INTEGER NOT NULL,
+  muted_until INTEGER NOT NULL DEFAULT 0,
+  deleted_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS tombstones_email ON tombstones (email_hash);
+CREATE TABLE IF NOT EXISTS report_messages (
+  report_id TEXT NOT NULL,
+  message_id TEXT NOT NULL,
+  PRIMARY KEY (report_id, message_id)
+);
+CREATE INDEX IF NOT EXISTS report_messages_msg ON report_messages (message_id);
 CREATE TABLE IF NOT EXISTS codes (
   email_hash TEXT NOT NULL,
   purpose TEXT NOT NULL,
@@ -124,6 +140,10 @@ CREATE TABLE IF NOT EXISTS audit (
 
 type Row = Record<string, unknown>;
 
+/** Messages that are evidence in an open report (kept past retention and deletion). */
+const EVIDENCE = `SELECT message_id FROM reports WHERE status = 'open' AND message_id IS NOT NULL
+  UNION SELECT rm.message_id FROM report_messages rm JOIN reports r ON r.id = rm.report_id WHERE r.status = 'open'`;
+
 /**
  * SQLite storage (node:sqlite, no native dependencies). Personal data kept:
  * the verified email (for safety, legal requests and account deletion),
@@ -161,19 +181,45 @@ export class Db {
     return this.one<Account>('SELECT * FROM accounts WHERE id = ?', id);
   }
 
-  accountByEmailHash(hash: string): Account | undefined {
-    return this.one<Account>('SELECT * FROM accounts WHERE email_hash = ?', hash);
+  /** Any account verified with this email (there can be several: one per teen a parent approved). */
+  accountsByEmailHash(hash: string): Account[] {
+    return this.all<Account>('SELECT * FROM accounts WHERE email_hash = ?', hash);
+  }
+
+  /**
+   * One account per person: a 16+ player's own email is one account; a parent's
+   * email gives one account per approved teen (told apart by birth year).
+   */
+  findIdentity(hash: string, consent: Consent, birthYear: number): Account | undefined {
+    return consent === 'self'
+      ? this.one<Account>(`SELECT * FROM accounts WHERE email_hash = ? AND consent = 'self'`, hash)
+      : this.one<Account>(`SELECT * FROM accounts WHERE email_hash = ? AND consent = 'parent' AND birth_year = ?`, hash, birthYear);
   }
 
   upsertAccount(a: Pick<Account, 'id' | 'email' | 'email_hash' | 'consent' | 'birth_year'>, now: number): Account {
-    const existing = this.accountByEmailHash(a.email_hash);
+    // Mutes follow the email address (so re-verifying or a new sibling account can't dodge one).
+    const mutedRow = this.one<{ m: number | null }>(
+      'SELECT MAX(m) AS m FROM (SELECT muted_until AS m FROM accounts WHERE email_hash = ? UNION ALL SELECT muted_until AS m FROM tombstones WHERE email_hash = ?)',
+      a.email_hash,
+      a.email_hash,
+    );
+    const muted = Math.max(0, mutedRow?.m ?? 0);
+    const existing = this.findIdentity(a.email_hash, a.consent, a.birth_year);
     if (existing) {
-      this.run('UPDATE accounts SET consent = ?, birth_year = ?, verified_at = ?, last_seen = ?, email = ? WHERE id = ?', a.consent, a.birth_year, now, now, a.email, existing.id);
+      this.run('UPDATE accounts SET verified_at = ?, last_seen = ?, email = ?, muted_until = MAX(muted_until, ?) WHERE id = ?', now, now, a.email, muted, existing.id);
       return this.accountById(existing.id)!;
     }
+    // Someone who deleted their account and came back keeps their old id, so
+    // reports and moderator actions still apply to them.
+    const tomb =
+      a.consent === 'self'
+        ? this.one<{ account_id: string }>(`SELECT account_id FROM tombstones WHERE email_hash = ? AND consent = 'self' ORDER BY deleted_at DESC`, a.email_hash)
+        : this.one<{ account_id: string }>(`SELECT account_id FROM tombstones WHERE email_hash = ? AND consent = 'parent' AND birth_year = ? ORDER BY deleted_at DESC`, a.email_hash, a.birth_year);
+    const id = tomb?.account_id ?? a.id;
+    if (tomb) this.run('DELETE FROM tombstones WHERE account_id = ?', tomb.account_id);
     this.run(
-      'INSERT INTO accounts (id, email, email_hash, consent, birth_year, created_at, verified_at, last_seen) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      a.id,
+      'INSERT INTO accounts (id, email, email_hash, consent, birth_year, created_at, verified_at, last_seen, muted_until) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      id,
       a.email,
       a.email_hash,
       a.consent,
@@ -181,8 +227,17 @@ export class Db {
       now,
       now,
       now,
+      muted,
     );
-    return this.accountById(a.id)!;
+    return this.accountById(id)!;
+  }
+
+  tombstone(id: string): { account_id: string; email_hash: string; muted_until: number } | undefined {
+    return this.one('SELECT account_id, email_hash, muted_until FROM tombstones WHERE account_id = ?', id);
+  }
+
+  setTombstoneMute(id: string, until: number): void {
+    this.run('UPDATE tombstones SET muted_until = ? WHERE account_id = ?', until, id);
   }
 
   touchAccount(id: string, now: number): void {
@@ -210,15 +265,26 @@ export class Db {
   }
 
   /**
-   * Delete an account and its messages. Messages that are evidence in an open
-   * report are kept until that report is resolved (then purged normally).
+   * Delete an account, its email address and its messages. Messages that are
+   * evidence in an open report are kept until that report is resolved. A
+   * tombstone (account id, one-way email hash, mute) stays for 90 days so
+   * deleting can't be used to dodge moderation.
    */
-  deleteAccount(id: string): void {
-    this.run(
-      `DELETE FROM messages WHERE account_id = ? AND id NOT IN (SELECT message_id FROM reports WHERE status = 'open' AND message_id IS NOT NULL)`,
-      id,
-    );
+  deleteAccount(id: string, now: number): void {
+    const a = this.accountById(id);
+    this.run(`DELETE FROM messages WHERE account_id = ? AND id NOT IN (${EVIDENCE})`, id);
     this.run('UPDATE reports SET reporter = NULL WHERE reporter = ?', id);
+    if (a) {
+      this.run(
+        'INSERT OR REPLACE INTO tombstones (account_id, email_hash, consent, birth_year, muted_until, deleted_at) VALUES (?, ?, ?, ?, ?, ?)',
+        a.id,
+        a.email_hash,
+        a.consent,
+        a.birth_year,
+        a.muted_until,
+        now,
+      );
+    }
     this.run('DELETE FROM accounts WHERE id = ?', id);
   }
 
@@ -288,6 +354,19 @@ export class Db {
     );
   }
 
+  /** Remember which messages a report points at (the messages themselves stay in one place). */
+  linkReportMessages(reportId: string, messageIds: string[]): void {
+    for (const m of messageIds) this.run('INSERT OR IGNORE INTO report_messages (report_id, message_id) VALUES (?, ?)', reportId, m);
+  }
+
+  /** The conversation around a report, as far as it is still retained. */
+  reportMessages(reportId: string): Message[] {
+    return this.all<Message>(
+      'SELECT m.* FROM report_messages r JOIN messages m ON m.id = r.message_id WHERE r.report_id = ? ORDER BY m.created_at',
+      reportId,
+    );
+  }
+
   report(id: string): Report | undefined {
     return this.one<Report>('SELECT * FROM reports WHERE id = ?', id);
   }
@@ -333,15 +412,18 @@ export class Db {
   purge(now: number, opts: { messageDays: number; reportDays: number; inactiveDays: number }): Record<string, number> {
     const out: Record<string, number> = {};
     out.codes = this.run('DELETE FROM codes WHERE expires_at < ?', now);
-    out.messages = this.run(
-      `DELETE FROM messages WHERE created_at < ? AND id NOT IN (SELECT message_id FROM reports WHERE status = 'open' AND message_id IS NOT NULL)`,
-      now - opts.messageDays * DAY,
-    );
+    out.messages = this.run(`DELETE FROM messages WHERE created_at < ? AND id NOT IN (${EVIDENCE})`, now - opts.messageDays * DAY);
     out.reports = this.run(`DELETE FROM reports WHERE status = 'resolved' AND resolved_at < ?`, now - opts.reportDays * DAY);
+    this.run('DELETE FROM report_messages WHERE report_id NOT IN (SELECT id FROM reports)');
     out.bans = this.run('DELETE FROM banned_emails WHERE until < ?', now);
     const stale = this.all<{ id: string }>('SELECT id FROM accounts WHERE last_seen < ? AND banned_until < ?', now - opts.inactiveDays * DAY, now);
-    for (const a of stale) this.deleteAccount(a.id);
+    for (const a of stale) this.deleteAccount(a.id, now);
     out.accounts = stale.length;
+    out.tombstones = this.run(
+      `DELETE FROM tombstones WHERE deleted_at < ? AND muted_until < ? AND account_id NOT IN (SELECT target_account FROM reports WHERE status = 'open' AND target_account IS NOT NULL)`,
+      now - 90 * DAY,
+      now,
+    );
     out.audit = this.run('DELETE FROM audit WHERE at < ?', now - 2 * 365 * DAY);
     return out;
   }

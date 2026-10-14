@@ -9,6 +9,8 @@ import { randomId } from './util.ts';
 export const CHANNEL_RE = /^[A-Za-z0-9_-]{16,64}$/;
 const AUTO_MUTE_REPORTERS = 3;
 const AUTO_MUTE_HOURS = 24;
+const MAX_SOCKETS_PER_IP = 8;
+const MAX_SOCKETS_PER_ACCOUNT = 4;
 
 export interface ChatConn {
   send(msg: object): void;
@@ -40,6 +42,7 @@ export class ChatHub {
   private byAccount = new Map<string, Set<Member>>();
   private readonly burst = new RateLimiter(8, 20_000);
   private readonly reportsPerAccount = new RateLimiter(20, 60 * 60 * 1000);
+  private perIp = new Map<string, number>();
 
   constructor(db: Db, accounts: AccountService) {
     this.db = db;
@@ -47,12 +50,38 @@ export class ChatHub {
   }
 
   connect(conn: ChatConn): { message(raw: string): void; close(): void } {
+    const n = (this.perIp.get(conn.ipKey) ?? 0) + 1;
+    this.perIp.set(conn.ipKey, n);
+    let closed = false;
+    const release = () => {
+      if (closed) return;
+      closed = true;
+      const left = (this.perIp.get(conn.ipKey) ?? 1) - 1;
+      if (left > 0) this.perIp.set(conn.ipKey, left);
+      else this.perIp.delete(conn.ipKey);
+    };
     const m: Member = { conn, account: null, channel: null, name: '', lastAt: 0, recent: [], authTimer: null };
+    if (n > MAX_SOCKETS_PER_IP) {
+      conn.close(4008, 'too many connections');
+      return { message: () => {}, close: release };
+    }
     m.authTimer = setTimeout(() => conn.close(4001, 'auth timeout'), 10_000);
     return {
       message: (raw) => this.onMessage(m, raw),
-      close: () => this.onClose(m),
+      close: () => {
+        release();
+        this.onClose(m);
+      },
     };
+  }
+
+  /** Re-read the account so deletions, mutes and bans apply immediately. */
+  private live(m: Member): Account {
+    const fresh = m.account ? this.db.accountById(m.account.id) : undefined;
+    if (!fresh) throw new ApiError(401, 'signed_out', 'Please verify your email again.');
+    if (fresh.banned_until > Date.now()) throw new ApiError(403, 'banned', 'This account can’t use Free Chat.');
+    m.account = fresh;
+    return fresh;
   }
 
   /** Live presence of a channel. */
@@ -61,10 +90,10 @@ export class ChatHub {
   }
 
   /** Disconnect an account everywhere (after a ban). */
-  kick(accountId: string, reason: string): void {
+  kick(accountId: string, reason: string, code: 'banned' | 'signed_out' = 'banned'): void {
     for (const m of [...(this.byAccount.get(accountId) ?? [])]) {
-      m.conn.send({ t: 'error', code: 'banned', message: reason });
-      m.conn.close(4003, 'banned');
+      m.conn.send({ t: 'error', code, message: reason });
+      m.conn.close(4003, code);
     }
   }
 
@@ -113,10 +142,11 @@ export class ChatHub {
   private auth(m: Member, token: unknown): void {
     if (m.account) return;
     const account = this.accounts.auth(token);
+    let set = this.byAccount.get(account.id);
+    if (set && set.size >= MAX_SOCKETS_PER_ACCOUNT) throw new ApiError(429, 'too_many', 'Too many chat connections.');
     m.account = account;
     if (m.authTimer) clearTimeout(m.authTimer);
     m.authTimer = null;
-    let set = this.byAccount.get(account.id);
     if (!set) this.byAccount.set(account.id, (set = new Set()));
     set.add(m);
     m.conn.send({ t: 'ready', account: publicAccount(account) });
@@ -124,8 +154,13 @@ export class ChatHub {
 
   private join(m: Member, channel: unknown, name: unknown): void {
     if (!m.account) throw new ApiError(401, 'signed_out', 'Sign in first.');
+    const me = this.live(m);
     if (typeof channel !== 'string' || !CHANNEL_RE.test(channel)) throw new ApiError(400, 'bad_channel', 'Bad room.');
     if (typeof name !== 'string' || !isGeneratedName(name)) throw new ApiError(400, 'bad_name', 'Only generated racer names can chat.');
+    // Nobody can borrow the name of someone already in the room.
+    for (const other of this.channels.get(channel) ?? []) {
+      if (other !== m && other.name === name && other.account?.id !== me.id) throw new ApiError(409, 'name_taken', 'Someone in this room already uses that name.');
+    }
     this.leave(m);
     m.channel = channel;
     m.name = name;
@@ -150,10 +185,7 @@ export class ChatHub {
   private say(m: Member, text: unknown): void {
     const now = Date.now();
     if (!m.account || !m.channel) throw new ApiError(400, 'not_joined', 'Join a room first.');
-    // Re-read moderation state: mutes and bans apply immediately.
-    const fresh = this.db.accountById(m.account.id);
-    if (!fresh || fresh.banned_until > now) throw new ApiError(403, 'banned', 'This account can’t use Free Chat.');
-    m.account = fresh;
+    const fresh = this.live(m);
     if (fresh.muted_until > now) return m.conn.send({ t: 'blocked', reason: 'muted', until: fresh.muted_until });
     if (now - m.lastAt < 1200 || !this.burst.hit(fresh.id, now)) return m.conn.send({ t: 'blocked', reason: 'spam' });
     const r = filterChat(typeof text === 'string' ? text : '');
@@ -169,14 +201,19 @@ export class ChatHub {
 
   private report(m: Member, id: unknown, reason: unknown): void {
     if (!m.account || !m.channel) throw new ApiError(400, 'not_joined', 'Join a room first.');
+    this.live(m);
     const now = Date.now();
     const msg = typeof id === 'string' ? this.db.message(id) : undefined;
     // You can only report messages from your own room (and not your own).
     if (!msg || msg.channel !== m.channel || msg.account_id === m.account.id) throw new ApiError(404, 'not_found', 'Message not found.');
     if (!this.reportsPerAccount.hit(m.account.id, now)) throw new ApiError(429, 'slow_down', 'Too many reports.');
     if (!this.db.alreadyReported(m.account.id, msg.id)) {
+      const reportId = randomId(10);
+      // Keep only pointers to the conversation: the messages stay in one place and
+      // follow the normal retention once the report is closed.
+      const around = this.db.channelContext(msg.channel, msg.created_at).map((x) => x.id);
       this.db.addReport({
-        id: randomId(10),
+        id: reportId,
         kind: 'message',
         reporter: m.account.id,
         reporter_ip: m.conn.ipKey,
@@ -185,9 +222,10 @@ export class ChatHub {
         channel: msg.channel,
         room_code: null,
         reason: typeof reason === 'string' ? reason.slice(0, 60) : 'unspecified',
-        context: JSON.stringify(this.db.channelContext(msg.channel, msg.created_at)),
+        context: JSON.stringify({ messages: around.length }),
         created_at: now,
       });
+      this.db.linkReportMessages(reportId, around);
       // Several different people reporting the same player: mute them until a moderator looks.
       if (this.db.distinctReporters(msg.account_id, now - 24 * 60 * 60 * 1000) >= AUTO_MUTE_REPORTERS) {
         const target = this.db.accountById(msg.account_id);

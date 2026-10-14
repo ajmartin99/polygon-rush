@@ -13,7 +13,7 @@
 
 export const MAX_CHAT_LENGTH = 120;
 
-export type FilterReason = 'empty' | 'too_long' | 'personal_info' | 'link' | 'off_platform' | 'personal_question' | 'blocked_word' | 'spam';
+export type FilterReason = 'empty' | 'too_long' | 'unsupported' | 'personal_info' | 'link' | 'off_platform' | 'personal_question' | 'blocked_word' | 'spam';
 
 export interface FilterResult {
   ok: boolean;
@@ -26,6 +26,7 @@ export interface FilterResult {
 export const FILTER_MESSAGES: Record<FilterReason, string> = {
   empty: 'Type a message first.',
   too_long: `Keep it short (${MAX_CHAT_LENGTH} characters max).`,
+  unsupported: 'Free Chat supports English letters, numbers and emoji only.',
   personal_info: 'Keep personal info private — no numbers, emails or addresses.',
   link: 'Links aren’t allowed in chat.',
   off_platform: 'Keep chats in the game — no other apps or usernames.',
@@ -39,15 +40,24 @@ const INVISIBLE = new RegExp('[\\u0000-\\u001f\\u007f-\\u009f\\u200b-\\u200f\\u2
 
 const LEET: Record<string, string> = { '0': 'o', '1': 'i', '3': 'e', '4': 'a', '5': 's', '7': 't', '8': 'b', '@': 'a', $: 's', '!': 'i', '|': 'l', '+': 't', '€': 'e' };
 
-/** Lower-case, de-leet, letters only. */
+/** Latin letters that don't decompose to a-z. */
+const FOLD: Record<string, string> = { ı: 'i', ł: 'l', ø: 'o', đ: 'd', ħ: 'h', ŧ: 't', ß: 'ss', æ: 'ae', œ: 'oe', þ: 'th', ð: 'd', ŋ: 'n', ĸ: 'k', ſ: 's', ɑ: 'a', ɡ: 'g', ʀ: 'r', ɪ: 'i', ʏ: 'y', ᴏ: 'o' };
+
+/** Lower-case, strip accents, de-leet, letters only. */
 function squash(s: string): string {
   let out = '';
-  for (const ch of s.toLowerCase()) {
-    const c = LEET[ch] ?? ch;
-    if (c >= 'a' && c <= 'z') out += c;
+  for (const ch of s.toLowerCase().normalize('NFKD').replace(MARKS, '')) {
+    const c = LEET[ch] ?? FOLD[ch] ?? ch;
+    for (const x of c) if (x >= 'a' && x <= 'z') out += x;
   }
   return out;
 }
+
+const MARKS = new RegExp('\\p{M}', 'gu');
+/** Any letter outside the Latin script (Cyrillic/Greek look-alikes would dodge the filter). */
+const NON_LATIN_LETTER = new RegExp('(?![\\p{Script=Latin}])\\p{L}', 'u');
+/** Digits other than 0-9 (e.g. Arabic-Indic) would dodge the phone check. */
+const NON_ASCII_DIGIT = new RegExp('(?![0-9])\\p{Nd}', 'u');
 
 /** Collapse "heeeeey" → "heey" so stretched words still match. */
 function unstretch(s: string): string {
@@ -134,6 +144,7 @@ export function filterChat(input: string): FilterResult {
     .trim();
   if (!text) return { ok: false, text: '', reason: 'empty' };
   if (text.length > MAX_CHAT_LENGTH) return { ok: false, text: '', reason: 'too_long' };
+  if (NON_LATIN_LETTER.test(text) || NON_ASCII_DIGIT.test(text)) return { ok: false, text: '', reason: 'unsupported' };
 
   if (EMAIL_RE.test(text)) return { ok: false, text: '', reason: 'personal_info' };
   if (URL_RE.test(text)) return { ok: false, text: '', reason: 'link' };

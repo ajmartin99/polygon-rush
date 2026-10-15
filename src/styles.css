@@ -2812,3 +2812,50 @@ button.player-slot {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* ------------------------------------------------------------------ halloween */
+.equipped-tag.spooky {
+  background: linear-gradient(90deg, #ff8a1f, #7b3fd1);
+  color: #fff;
+}
+
+.event-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 2.3rem;
+  padding: 0 0.8rem 0 0.45rem;
+  border: 0.13rem solid #ffb36b;
+  border-radius: 2rem;
+  background: linear-gradient(90deg, rgba(255, 122, 47, 0.85), rgba(123, 63, 209, 0.85));
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  animation: ev-bob 2.4s ease-in-out infinite;
+}
+
+.event-chip .ev-pumpkin {
+  font-size: 1.3rem;
+}
+
+.event-chip b {
+  display: block;
+  font-size: 0.8rem;
+}
+
+.event-chip small {
+  display: block;
+  font-size: 0.65rem;
+  opacity: 0.9;
+}
+
+@keyframes ev-bob {
+  50% {
+    transform: translateY(-0.15rem);
+  }
+}
+
+.reduced-motion .event-chip {
+  animation: none;
+}

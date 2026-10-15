@@ -66,15 +66,15 @@ reliable room signalling. Details: [server/README.md](../server/README.md).
    * *User-generated content*: in-app reporting, blocking/muting, Community Rules
      acceptance and moderation are built in (see SAFETY.md).
 
-## 3. Authorise the release (v1.0.0)
+## 3. Authorise the release (v1.0.3)
 
 Pick one:
 
-* **GitHub website:** Actions → **Release** → *Run workflow* → version `1.0.0` → Run.
+* **GitHub website:** Actions → **Release** → *Run workflow* → version `1.0.3` → Run.
   (GitHub only lists `workflow_dispatch` workflows that exist on the default branch, so merge this branch into `main` first.)
-* **Tag:** `git tag v1.0.0 && git push origin v1.0.0` (works from any branch).
+* **Tag:** `git tag v1.0.3 && git push origin v1.0.3` (works from any branch).
 
-The workflow runs typecheck and tests, builds the web bundle, builds `PolygonRush-v1.0.0.apk` and `PolygonRush-v1.0.0.aab`, verifies the signature, and publishes a GitHub Release with both files plus `SHA256SUMS.txt` and the changelog.
+The workflow runs typecheck and tests, builds the web bundle, builds `PolygonRush-v1.0.3.apk` and `PolygonRush-v1.0.3.aab`, verifies the signature, and publishes a GitHub Release with both files plus `SHA256SUMS.txt` and the changelog.
 
 **Extra safety (recommended):** Settings → Environments → `production` → *Required reviewers* → add yourself. Every release run will then wait for your click.
 
@@ -97,7 +97,7 @@ The version code is derived from the version: `1.0.0` → `10000`, `1.2.3` → `
 
 ## 5. Install the APK directly
 
-Download `PolygonRush-v1.0.0.apk` from the GitHub Release on your phone, open it, and allow *Install unknown apps* when prompted.
+Download `PolygonRush-v1.0.3.apk` from the GitHub Release on your phone, open it, and allow *Install unknown apps* when prompted.
 
 ## Regenerating art
 

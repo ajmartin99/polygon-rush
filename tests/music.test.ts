@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { audio } from '../src/core/audio';
 import { music } from '../src/core/music';
-import { MENU_SONG, SONGS, songsFor } from '../src/core/songs';
+import { menuTheme, SONGS, songsFor } from '../src/core/songs';
 import { store } from '../src/state/store';
 
 const played: number[] = [];
@@ -19,7 +19,7 @@ beforeEach(() => {
 describe('music director', () => {
   it('opens the menu with its theme and rotates instead of repeating', () => {
     music.menu();
-    expect(played).toEqual([MENU_SONG]);
+    expect(played).toEqual([menuTheme()]);
     for (let i = 0; i < 6; i++) audio.onSongEnd?.();
     for (let i = 1; i < played.length; i++) expect(played[i]).not.toBe(played[i - 1]);
     expect(new Set(played).size).toBe(songsFor('menu').length);

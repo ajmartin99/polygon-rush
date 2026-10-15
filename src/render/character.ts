@@ -206,6 +206,85 @@ function fillPattern(ctx: CanvasRenderingContext2D, skin: SkinDef, s: number, t:
       }
       break;
     }
+    case 'pumpkin': {
+      // Pumpkin ribs.
+      ctx.strokeStyle = rgba(acc, 0.85);
+      ctx.lineWidth = Math.max(1, s * 0.05);
+      for (const k of [-0.5, -0.2, 0.2, 0.5]) {
+        ctx.beginPath();
+        ctx.ellipse(0, 0, Math.abs(k) * s * 0.85, s * 0.62, 0, k < 0 ? Math.PI * 0.5 : -Math.PI * 0.5, k < 0 ? Math.PI * 1.5 : Math.PI * 0.5);
+        ctx.stroke();
+      }
+      break;
+    }
+    case 'wisp': {
+      // Soft drifting ghost glow.
+      for (let i = 0; i < 3; i++) {
+        const by = ((t * 0.25 + i / 3) % 1) * s * 1.4 - s * 0.7;
+        const g = ctx.createRadialGradient(Math.sin(t + i * 2) * s * 0.25, -by, 0, 0, -by, s * 0.4);
+        g.addColorStop(0, rgba(acc, 0.7));
+        g.addColorStop(1, rgba(acc, 0));
+        ctx.fillStyle = g;
+        ctx.fillRect(-h, -h, h * 2, h * 2);
+      }
+      break;
+    }
+    case 'bandage': {
+      ctx.strokeStyle = rgba(acc, 0.95);
+      ctx.lineWidth = Math.max(1, s * 0.07);
+      for (const [y, a] of [
+        [-0.42, 0.18],
+        [-0.12, -0.14],
+        [0.16, 0.1],
+        [0.42, -0.08],
+      ] as const) {
+        ctx.save();
+        ctx.translate(0, y * s);
+        ctx.rotate(a);
+        ctx.beginPath();
+        ctx.moveTo(-s, 0);
+        ctx.lineTo(s, 0);
+        ctx.stroke();
+        ctx.restore();
+      }
+      break;
+    }
+    case 'cape': {
+      // Dark cape with a red collar V and a pale face patch.
+      ctx.fillStyle = acc;
+      ctx.beginPath();
+      ctx.moveTo(-h, -h);
+      ctx.lineTo(-s * 0.1, s * 0.1);
+      ctx.lineTo(-h, s * 0.2);
+      ctx.closePath();
+      ctx.moveTo(h, -h);
+      ctx.lineTo(s * 0.1, s * 0.1);
+      ctx.lineTo(h, s * 0.2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.fillStyle = '#e9e1f2';
+      ctx.beginPath();
+      ctx.ellipse(s * 0.05, -s * 0.06, s * 0.32, s * 0.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+    case 'bones': {
+      ctx.strokeStyle = acc;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(1, s * 0.06);
+      // Ribs under the face.
+      for (const y of [0.28, 0.4, 0.52]) {
+        ctx.beginPath();
+        ctx.moveTo(-s * 0.32, y * s);
+        ctx.quadraticCurveTo(0, (y - 0.08) * s, s * 0.32, y * s);
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      ctx.moveTo(0, s * 0.2);
+      ctx.lineTo(0, s * 0.6);
+      ctx.stroke();
+      break;
+    }
     default:
       break;
   }
@@ -407,6 +486,91 @@ function drawFace(ctx: CanvasRenderingContext2D, skin: SkinDef, s: number, p: Ch
         ctx.fill();
       }
       break;
+    case 'jack': {
+      // Glowing carved face.
+      const glow = '#ffe066';
+      ctx.fillStyle = glow;
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(fx + side * gap - r, fy + r * 0.6);
+        ctx.lineTo(fx + side * gap + r, fy + r * 0.6);
+        ctx.lineTo(fx + side * gap, fy - r);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.beginPath();
+      const my = fy + s * 0.17;
+      const mw = gap * 1.6;
+      ctx.moveTo(fx - mw, my);
+      for (let i = 0; i <= 6; i++) ctx.lineTo(fx - mw + (i * mw * 2) / 6, my + (i % 2 ? r * 0.55 : 0));
+      ctx.quadraticCurveTo(fx, my + r * 2.2, fx - mw, my);
+      ctx.fill();
+      break;
+    }
+    case 'ghost':
+      ctx.fillStyle = '#2a2050';
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.ellipse(fx + side * gap + p.lookX * r * 0.2, fy, r * 0.75, r * (p.blink > 0.5 ? 0.15 : 1.05), 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.beginPath();
+      ctx.ellipse(fx, fy + s * 0.2, r * 0.45, r * 0.6, 0, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    case 'mummy': {
+      // One eye peeking through the wraps.
+      eye(ctx, fx + gap, fy, r, p);
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = r * 0.3;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(fx - gap - r, fy);
+      ctx.lineTo(fx - gap + r, fy);
+      ctx.stroke();
+      mouth(ctx, fx, fy + s * 0.2, r * 0.7, ink);
+      break;
+    }
+    case 'vampire':
+      eye(ctx, fx - gap, fy, r, p, '#c4183a');
+      eye(ctx, fx + gap, fy, r, p, '#c4183a');
+      mouth(ctx, fx, fy + s * 0.2, r, '#2a0a12');
+      ctx.fillStyle = '#ffffff';
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.moveTo(fx + side * r * 0.55 - r * 0.18, fy + s * 0.165);
+        ctx.lineTo(fx + side * r * 0.55 + r * 0.18, fy + s * 0.165);
+        ctx.lineTo(fx + side * r * 0.55, fy + s * 0.165 + r * 0.55);
+        ctx.fill();
+      }
+      break;
+    case 'skull': {
+      const bone = '#f2f0e6';
+      ctx.fillStyle = bone;
+      ctx.beginPath();
+      ctx.ellipse(fx, fy + r * 0.2, gap + r * 1.5, r * 2.3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#1c1a26';
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.ellipse(fx + side * gap, fy, r * 0.85, r * 0.95, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#7cff4f';
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.arc(fx + side * gap + p.lookX * r * 0.3, fy, r * 0.25, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.fillStyle = '#1c1a26';
+      ctx.beginPath();
+      ctx.moveTo(fx - r * 0.3, fy + r * 1.2);
+      ctx.lineTo(fx + r * 0.3, fy + r * 1.2);
+      ctx.lineTo(fx, fy + r * 0.7);
+      ctx.fill();
+      for (let i = -2; i <= 2; i++) ctx.fillRect(fx + i * r * 0.45 - r * 0.06, fy + r * 1.6, r * 0.12, r * 0.6);
+      break;
+    }
     case 'cute':
     default:
       eye(ctx, fx - gap, fy, r, p);
@@ -452,6 +616,49 @@ function drawExtras(ctx: CanvasRenderingContext2D, skin: SkinDef, s: number, sha
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
+    }
+  } else if (skin.topper === 'stem' && behind) {
+    ctx.fillStyle = '#4caf3a';
+    ctx.strokeStyle = '#173d0f';
+    ctx.lineWidth = Math.max(1.2, s * 0.05);
+    ctx.beginPath();
+    ctx.roundRect(-s * 0.06, top - s * 0.2, s * 0.13, s * 0.26, s * 0.04);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.ellipse(s * 0.17, top - s * 0.1, s * 0.14, s * 0.06, -0.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+  } else if (skin.topper === 'witch' && !behind) {
+    // Pointy hat, drawn in front so the brim overlaps the body.
+    ctx.fillStyle = '#21123f';
+    ctx.strokeStyle = '#0b0420';
+    ctx.lineWidth = Math.max(1.2, s * 0.05);
+    ctx.beginPath();
+    ctx.ellipse(0, top + s * 0.02, s * 0.48, s * 0.09, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.26, top);
+    ctx.quadraticCurveTo(-s * 0.08, top - s * 0.4, s * 0.12, top - s * 0.62);
+    ctx.lineTo(s * 0.02, top - s * 0.32);
+    ctx.lineTo(s * 0.26, top);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = skin.accent;
+    ctx.fillRect(-s * 0.25, top - s * 0.09, s * 0.5, s * 0.07);
+  } else if (skin.topper === 'bat' && behind) {
+    // Little bat wings at the sides.
+    ctx.fillStyle = '#1a0b22';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * s * 0.42, -s * 0.05);
+      ctx.quadraticCurveTo(side * s * 0.75, -s * 0.35, side * s * 0.82, -s * 0.05);
+      ctx.quadraticCurveTo(side * s * 0.7, -s * 0.08, side * s * 0.66, s * 0.05);
+      ctx.quadraticCurveTo(side * s * 0.58, -s * 0.02, side * s * 0.42, s * 0.1);
+      ctx.closePath();
+      ctx.fill();
     }
   } else if (skin.face === 'robot' && behind) {
     ctx.strokeStyle = skin.outline;
@@ -528,6 +735,10 @@ export function drawCharacter(
 
   ctx.rotate(p.faceRot ?? p.rot);
   drawFace(ctx, skin, s, p, shape);
+  if (skin.topper) {
+    ctx.rotate(p.rot - (p.faceRot ?? p.rot));
+    drawExtras(ctx, skin, s, shape, false);
+  }
   ctx.restore();
 }
 
@@ -590,6 +801,58 @@ export function drawParticleShape(ctx: CanvasRenderingContext2D, style: string, 
       ctx.fillRect(-r * 0.8, -r * 0.35, r * 1.6, r * 0.7);
       ctx.restore();
       break;
+    case 'bats': {
+      ctx.save();
+      ctx.translate(x, y);
+      const flap = Math.sin(rot * 3) * 0.5 + 0.5;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r * 0.35, r * 0.45, 0, 0, Math.PI * 2);
+      for (const side of [-1, 1]) {
+        ctx.moveTo(side * r * 0.25, 0);
+        ctx.quadraticCurveTo(side * r * 1.1, -r * (0.4 + flap * 0.8), side * r * 1.6, -r * 0.1);
+        ctx.quadraticCurveTo(side * r * 1.0, r * 0.05, side * r * 0.25, r * 0.25);
+      }
+      ctx.fill();
+      ctx.restore();
+      break;
+    }
+    case 'candycorn': {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rot * 0.3);
+      const tri = (w: number, c: string) => {
+        ctx.fillStyle = c;
+        ctx.beginPath();
+        ctx.moveTo(-w * r, r * 0.9);
+        ctx.lineTo(w * r, r * 0.9);
+        ctx.lineTo(0, -r * 1.1);
+        ctx.closePath();
+        ctx.fill();
+      };
+      tri(0.8, '#ffd23f');
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(-r, -r * 1.2, r * 2, r * 1.3);
+      ctx.clip();
+      tri(0.8, '#ff8a1f');
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(-r, -r * 1.2, r * 2, r * 0.6);
+      ctx.clip();
+      tri(0.8, '#ffffff');
+      ctx.restore();
+      ctx.restore();
+      break;
+    }
+    case 'mist': {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r * 1.6);
+      g.addColorStop(0, rgba(color.startsWith('#') ? color : '#ffffff', 0.55));
+      g.addColorStop(1, rgba(color.startsWith('#') ? color : '#ffffff', 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(x - r * 1.6, y - r * 1.6, r * 3.2, r * 3.2);
+      break;
+    }
     case 'rainbow':
     case 'comet':
     default:

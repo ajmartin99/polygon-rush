@@ -12,9 +12,12 @@ import { previewCanvas } from '../preview';
 import { ui } from '../ui';
 import { openDailyGift } from './missions';
 import { DIFFICULTY_NAMES, endlessBestKey } from '../../state/save';
+import { activeEvent } from '../../meta/events';
+import { eventChip, giftClaimed, openEventModal } from '../event';
 import { openNoAdsOffer } from './shop';
 
 let dailyPromptShown = false;
+let eventPromptShown = false;
 
 export class MenuScreen extends BaseScreen {
   constructor() {
@@ -57,6 +60,7 @@ export class MenuScreen extends BaseScreen {
         null,
         levelChip(),
         h('div.chip', { title: 'Trophies' }, ic('trophy'), h('span', null, fmt(d.trophies))),
+        eventChip(),
         h('div.spacer'),
         gemChip(this),
         button({ icon: 'cart', cls: 'icon mint', aria: 'Shop', onClick: () => nav.go('shop') }),
@@ -120,6 +124,14 @@ export class MenuScreen extends BaseScreen {
 
   override enter(): void {
     void ads.showBanner();
+    // Spooky Season: offer the free gift once (after onboarding).
+    if (!eventPromptShown && activeEvent() && !giftClaimed() && store.data.stats.runs > 0) {
+      eventPromptShown = true;
+      setTimeout(() => {
+        if (nav.route === 'menu' && !ui.hasModal) openEventModal();
+      }, 700);
+      return;
+    }
     if (!dailyPromptShown && dailyAvailable(store.data) && store.data.stats.runs > 0) {
       dailyPromptShown = true;
       setTimeout(() => {

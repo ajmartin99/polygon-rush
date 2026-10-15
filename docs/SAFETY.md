@@ -17,7 +17,7 @@ needs a person, and what to do when something serious happens.
 | Play, Create, share level codes | ✓ | ✓ | ✓ |
 | Private rooms (Friends, Build Together) | ✓ (parents can switch off) | ✓ | ✓ |
 | Quick Chat (preset phrases & emotes only) | ✓ (parents can switch off) | ✓ | ✓ |
-| Public build rooms | ✗ | ✓ (parents can switch off) | ✓ |
+| Public build rooms, public race rooms & Quick Match | ✗ | ✓ (parents can switch off) | ✓ |
 | Free Chat (typed) | ✗ never | with a **parent's** verified email | with own verified email |
 
 * Ages come from the neutral age screen (birth year, conservatively rounded down)
@@ -42,6 +42,7 @@ needs a person, and what to do when something serious happens.
   verification attempts (5 per code) and reports.
 * **Auto-mute:** 3 different players reporting the same account within 24 h mutes
   it for 24 h until a moderator reviews it.
+* **Public race rooms** (Quick Match) leave the list as soon as the race starts and can be reported from the lobby.
 * **Public rooms** are hidden after 3 reports; the report includes a snapshot of
   the level so rude drawings can be checked. A hidden room's code can't be listed
   again for 24 h (its host's connection for 2 h).

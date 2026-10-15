@@ -18,6 +18,7 @@ import { EndlessResultsScreen, GameHud, LevelResultsScreen, RaceResultsScreen, o
 import { levelName, type LevelContent } from './level';
 import type { Scene } from './scene';
 import { DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED } from './constants';
+import { activeEvent, SPOOKY } from '../meta/events';
 import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, VARIANT_INFO, dailyRewardKey, dailySeed, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
 import { InputManager } from './input';
 import type { Racer, RacerSpec } from './racer';
@@ -552,6 +553,8 @@ export class GameController {
 
   private paletteFor(x: number): Palette {
     const s = this.session;
+    // Spooky Season: the menu backdrop and the Daily Run are haunted.
+    if ((this.kind === 'attract' || (this.kind === 'endless' && this.variant === 'daily')) && activeEvent()?.id === 'halloween') return SPOOKY;
     const level = this.level();
     if (level) return BIOMES[level.theme % BIOMES.length];
     if (s && s.raceLike) return BIOMES[(s.opts.seed >>> 0) % BIOMES.length];

@@ -2,6 +2,28 @@
 
 All notable changes to Polygon Rush are documented here.
 
+## [1.0.3] - 2026-10-15
+
+### Added
+- **Quick Match:** race random players online (13+). It joins the fullest open public race or hosts one, and public rooms start on their own once two racers are in.
+- **Private or public rooms:** choose when creating a room, and switch any time as host. Public rooms show a PUBLIC tag to everyone and can be reported. Under-13s keep private code rooms only.
+- **Game Modes hub** on the home screen: Endless, Daily Run, One Heart, Gem Rush, Race, Online, Duel and Player Levels.
+  - **Daily Run:** the same course for everyone each day, no revives, and 100 gems once a day for reaching 500 m.
+  - **One Heart:** one bump and it's over.
+  - **Gem Rush:** 60 seconds to grab as many gems as you can; bumps drop 5.
+- **Spooky Season (Oct 1 – Nov 7):**
+  - A free Wicked Witch skin.
+  - Halloween skins: Boo, Mummy, Jack-o'-Lantern, Count Polygon and Rattle Bones.
+  - Halloween trails: Candy Corn, Bat Swarm and Ghostly Mist.
+  - A haunted menu backdrop and Haunted Daily Run.
+  - The new **Haunted Hop** theme.
+  - A Trick or Treat profile badge and a Halloween banner.
+  - Everything you get stays yours after the event.
+
+### Changed
+- The home screen's Duel button moved into Modes; Friends is now **Online**.
+- The community server lists race rooms separately from build rooms.
+
 ## [1.0.0] - 2026-10-14
 
 ### Added

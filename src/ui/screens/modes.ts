@@ -2,6 +2,7 @@ import { DIFFICULTY_NAMES } from '../../state/save';
 import { store } from '../../state/store';
 import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, dailyRewardKey, variantBestKey, VARIANT_INFO, type EndlessVariant } from '../../meta/modes';
 import { leagueFor } from '../../meta/economy';
+import { activeEvent } from '../../meta/events';
 import { BaseScreen, titleBar } from '../components';
 import { fmt, h, ic } from '../dom';
 import type { IconName } from '../icons';
@@ -27,6 +28,7 @@ export class ModesScreen extends BaseScreen {
     const best = (v: EndlessVariant) => d.best[variantBestKey(v, d.settings)] ?? 0;
     const endless = (v: EndlessVariant) => () => nav.play({ mode: 'endless', variant: v });
     const dailyDone = Boolean(d.best[dailyRewardKey()]);
+    const haunted = activeEvent()?.id === 'halloween';
     const cards: ModeCard[] = [
       {
         id: 'endless',
@@ -40,8 +42,8 @@ export class ModesScreen extends BaseScreen {
       },
       {
         id: 'daily',
-        name: VARIANT_INFO.daily.name,
-        blurb: VARIANT_INFO.daily.blurb,
+        name: haunted ? 'Haunted Daily Run' : VARIANT_INFO.daily.name,
+        blurb: haunted ? 'Today’s course, Halloween style. No revives!' : VARIANT_INFO.daily.blurb,
         icon: 'gift',
         color: 'mint',
         tag: dailyDone ? 'Done today ✓' : `Reach ${DAILY_TARGET} m: +${DAILY_REWARD}`,

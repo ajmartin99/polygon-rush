@@ -12,8 +12,12 @@ const HIDE_AFTER_REPORTS = 3;
 const HIDDEN_CODE_COOLDOWN = 24 * 60 * 60 * 1000;
 const HIDDEN_IP_COOLDOWN = 2 * 60 * 60 * 1000;
 
+export type RoomKind = 'build' | 'race';
+
 export interface PublicRoom {
   code: string;
+  /** Build together, or race (Quick Match). */
+  kind: RoomKind;
   /** Level name indexes (the app turns them into words). */
   name: [number, number];
   host: string;
@@ -27,6 +31,7 @@ interface RoomEntry extends PublicRoom {
   secret: string;
   ipKey: string;
   seen: number;
+  open: boolean;
   hidden: boolean;
   reporters: Set<string>;
 }
@@ -50,7 +55,7 @@ export class RoomDirectory {
     this.db = db;
   }
 
-  private parse(body: Record<string, unknown>): Omit<PublicRoom, 'code' | 'createdAt'> {
+  private parse(body: Record<string, unknown>): Omit<PublicRoom, 'code' | 'createdAt' | 'kind'> & { open: boolean } {
     const name = Array.isArray(body.name) ? body.name : [];
     const a = int(name[0], 0, 31);
     const n = int(name[1], 0, 31);
@@ -59,7 +64,8 @@ export class RoomDirectory {
     const theme = int(body.theme, 0, 5);
     if (a === null || n === null || players === null || theme === null) throw new ApiError(400, 'bad_room', 'Room details are missing.');
     if (typeof body.host !== 'string' || !isGeneratedName(body.host)) throw new ApiError(400, 'bad_room', 'Only generated racer names can host.');
-    return { name: [a, n], host: body.host, players, max, theme };
+    // A race that has started can't be joined: it stays registered (reports still work) but unlisted.
+    return { name: [a, n], host: body.host, players, max, theme, open: body.open !== false };
   }
 
   register(code: unknown, body: Record<string, unknown>, ipKey: string, now = Date.now()): { secret: string } {
@@ -75,7 +81,8 @@ export class RoomDirectory {
     const existing = this.rooms.get(code);
     if (existing && existing.ipKey !== ipKey && existing.seen + TTL > now) throw new ApiError(409, 'taken', 'That room is already listed.');
     const secret = randomId(18);
-    this.rooms.set(code, { ...info, code, createdAt: now, secret, ipKey, seen: now, hidden: false, reporters: new Set() });
+    const kind: RoomKind = body.kind === 'race' ? 'race' : 'build';
+    this.rooms.set(code, { ...info, kind, code, createdAt: now, secret, ipKey, seen: now, hidden: false, reporters: new Set() });
     return { secret };
   }
 
@@ -91,13 +98,13 @@ export class RoomDirectory {
     if (r && typeof secret === 'string' && safeEqual(secret, r.secret)) this.rooms.delete(r.code);
   }
 
-  list(now = Date.now()): PublicRoom[] {
+  list(now = Date.now(), kind: RoomKind = 'build'): PublicRoom[] {
     this.sweep(now);
     return [...this.rooms.values()]
-      .filter((r) => !r.hidden && r.players < r.max)
+      .filter((r) => r.kind === kind && r.open && !r.hidden && r.players < r.max)
       .sort((a, b) => b.players - a.players || b.createdAt - a.createdAt)
       .slice(0, 50)
-      .map(({ code, name, host, players, max, theme, createdAt }) => ({ code, name, host, players, max, theme, createdAt }));
+      .map(({ code, kind, name, host, players, max, theme, createdAt }) => ({ code, kind, name, host, players, max, theme, createdAt }));
   }
 
   /** Anyone in a public room can report it (bad drawings, griefing...). */
@@ -143,9 +150,9 @@ export class RoomDirectory {
     }
   }
 
-  adminList(now = Date.now()): (PublicRoom & { hidden: boolean; reports: number })[] {
+  adminList(now = Date.now()): (PublicRoom & { open: boolean; hidden: boolean; reports: number })[] {
     this.sweep(now);
-    return [...this.rooms.values()].map(({ code, name, host, players, max, theme, createdAt, hidden, reporters }) => ({ code, name, host, players, max, theme, createdAt, hidden, reports: reporters.size }));
+    return [...this.rooms.values()].map(({ code, kind, name, host, players, max, theme, createdAt, open, hidden, reporters }) => ({ code, kind, name, host, players, max, theme, createdAt, open, hidden, reports: reporters.size }));
   }
 
   private sweep(now: number): void {

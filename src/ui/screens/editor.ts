@@ -354,6 +354,7 @@ export class EditorScreen extends BaseScreen {
       existing.stop();
       listings.delete(s);
       s.publicRoom = false;
+      room.setPublic(false);
       this.hint('Your room is private again (friends with the code can still join).', 2600);
       this.refresh();
       return;
@@ -368,6 +369,7 @@ export class EditorScreen extends BaseScreen {
     }
     listings.set(s, listing);
     s.publicRoom = true;
+    room.setPublic(true);
     s.onEnd(() => listing.stop());
     this.hint('Your room is public: players 13+ can find and join it. You can remove anyone or pause building.', 4200);
     this.refresh();

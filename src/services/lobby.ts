@@ -3,8 +3,11 @@ import { store } from '../state/store';
 import type { NetRoom } from './net';
 import { serverApi } from './server';
 
+export type PublicKind = 'build' | 'race';
+
 export interface PublicRoomInfo {
   code: string;
+  kind?: PublicKind;
   name: [number, number];
   host: string;
   players: number;
@@ -14,9 +17,10 @@ export interface PublicRoomInfo {
 }
 
 /**
- * Lists a build room on the community server so players 13+ can find and
- * join it. Only the room code, the host's generated name and the level's
- * name/theme are shared. Stops automatically when the room closes.
+ * Lists a build or race room on the community server so players 13+ can
+ * find and join it. Only the room code, the host's generated name and the
+ * level's name/theme are shared. Stops automatically when the room closes;
+ * race rooms drop off the list once the race starts.
  */
 export class PublicListing {
   private secret = '';
@@ -27,11 +31,17 @@ export class PublicListing {
   constructor(
     private readonly room: NetRoom,
     private readonly info: () => { name: [number, number]; theme: number },
+    private readonly kind: PublicKind = 'build',
   ) {}
 
   private body(): Record<string, unknown> {
     const i = this.info();
-    return { name: i.name, theme: i.theme, host: store.data.profile.name, players: this.room.players.length, max: CONFIG.net.maxPlayers };
+    return { kind: this.kind, name: i.name, theme: i.theme, host: store.data.profile.name, players: this.room.players.length, max: CONFIG.net.maxPlayers, open: !this.room.racing };
+  }
+
+  /** Send the player count / open state now (e.g. someone joined, the race started). */
+  update(): void {
+    void this.beat();
   }
 
   async start(): Promise<void> {
@@ -66,8 +76,8 @@ export class PublicListing {
 }
 
 export const lobby = {
-  async list(): Promise<PublicRoomInfo[]> {
-    const r = await serverApi<{ rooms: PublicRoomInfo[] }>('/api/rooms');
+  async list(kind: PublicKind = 'build'): Promise<PublicRoomInfo[]> {
+    const r = await serverApi<{ rooms: PublicRoomInfo[] }>(kind === 'race' ? '/api/rooms?kind=race' : '/api/rooms');
     return Array.isArray(r.rooms) ? r.rooms : [];
   },
 

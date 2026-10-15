@@ -2730,3 +2730,12 @@ button.player-slot {
     grid-template-columns: 1fr;
   }
 }
+
+.tag.pub {
+  background: var(--orange);
+  color: #2a1200;
+  padding: 0.15rem 0.55rem;
+  border-radius: 1rem;
+  font-weight: 700;
+  font-size: 0.75rem;
+}

@@ -13,6 +13,7 @@ import { ui } from '../ui';
 import { openDailyGift } from './missions';
 import { DIFFICULTY_NAMES, endlessBestKey } from '../../state/save';
 import { activeEvent } from '../../meta/events';
+import { unlockedLevels } from '../../meta/modes';
 import { eventChip, giftClaimed, openEventModal } from '../event';
 import { openNoAdsOffer } from './shop';
 
@@ -53,6 +54,12 @@ export class MenuScreen extends BaseScreen {
       sub: kid ? 'Endless · Kid Mode' : `Endless · ${DIFFICULTY_NAMES[d.settings.difficulty]}`,
       onClick: () => nav.play({ mode: 'endless' }),
     });
+    const unlocked = unlockedLevels(best);
+    // Level select sits on the PLAY button once there's more than one level to pick.
+    const playArea =
+      unlocked > 1
+        ? h('div.play-wrap', null, playBtn, button({ label: `Levels 1–${unlocked}`, icon: 'target', cls: 'violet sm level-pick', onClick: () => nav.go('levels') }))
+        : playBtn;
 
     this.el.append(
       h(
@@ -79,11 +86,11 @@ export class MenuScreen extends BaseScreen {
         h(
           'div.menu-right',
           null,
-          playBtn,
+          playArea,
           h(
             'div.mode-grid',
             null,
-            button({ label: 'Modes', icon: 'shapes', cls: 'pink stack', sub: '8 ways to play', onClick: () => nav.go('modes') }),
+            button({ label: 'Modes', icon: 'shapes', cls: 'pink stack', sub: '9 ways to play', onClick: () => nav.go('modes') }),
             button({ label: 'Race', icon: 'flag', cls: 'cyan stack', sub: league.name, onClick: () => nav.go('race') }),
             button({
               label: 'Online',

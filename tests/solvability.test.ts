@@ -13,11 +13,13 @@ interface RunResult {
 }
 
 /** Let a perfect bot play `distance` tiles and record every failure. */
-export function playLevel(seed: number, kind: 'endless' | 'race', distance: number, opts: { kid?: boolean; difficulty?: number; margin?: number; diff?: Difficulty } = {}): RunResult {
+export function playLevel(seed: number, kind: 'endless' | 'race', distance: number, opts: { kid?: boolean; difficulty?: number; margin?: number; diff?: Difficulty; start?: number } = {}): RunResult {
   const world = new World();
-  const gen = new LevelGen(world, { seed, kind, kid: opts.kid, diff: opts.diff, length: kind === 'race' ? distance : undefined, difficulty: opts.difficulty });
+  const start = opts.start ?? 0;
+  const gen = new LevelGen(world, { seed, kind, kid: opts.kid, diff: opts.diff, startX: start ? 2 + start : undefined, offset: start || undefined, length: kind === 'race' ? distance : undefined, difficulty: opts.difficulty });
   const bot = new BotBrain({ skill: 1, seed, margin: opts.margin ?? 0.05 });
   const body = createBody(2);
+  body.x += start;
   const ev = newEvents();
   const hits: RunResult['hits'] = [];
   const modes = new Set<string>();
@@ -105,6 +107,13 @@ describe('every generated level is beatable', () => {
   for (const seed of [41, 42, 43, 44, 45, 46, 47, 48]) {
     it(`hard seed ${seed}`, () => {
       const r = playLevel(seed, 'endless', 4500, { diff: 'hard' });
+      expect(r.hits, JSON.stringify(r.hits)).toEqual([]);
+    });
+  }
+  for (const [seed, level, diff] of [[71, 6, 'medium'], [72, 9, 'hard'], [73, 4, 'easy']] as const) {
+    it(`starting at level ${level} (${diff}) seed ${seed}`, () => {
+      const start = (level - 1) * 500;
+      const r = playLevel(seed, 'endless', start + 1500, { diff, start });
       expect(r.hits, JSON.stringify(r.hits)).toEqual([]);
     });
   }

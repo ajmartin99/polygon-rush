@@ -19,6 +19,8 @@ import { levelName, type LevelContent } from './level';
 import type { Scene } from './scene';
 import { DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED } from './constants';
 import { activeEvent, SPOOKY } from '../meta/events';
+import { clampStartLevel, levelStart, levelWorld } from '../meta/modes';
+import { endlessBestKey } from '../state/save';
 import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, VARIANT_INFO, dailyRewardKey, dailySeed, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
 import { InputManager } from './input';
 import type { Racer, RacerSpec } from './racer';
@@ -52,6 +54,7 @@ export class GameController {
   private hud: GameHud | null = null;
   private req: PlayRequest | null = null;
   private variant: EndlessVariant = 'classic';
+  private startLevel = 1;
   private acc = 0;
   private last = 0;
   private time = 0;
@@ -195,6 +198,8 @@ export class GameController {
       case 'endless': {
         this.kind = 'endless';
         const v = (this.variant = req.variant ?? 'classic');
+        // Classic runs can start from any level already reached on this difficulty.
+        const level = (this.startLevel = v === 'classic' ? clampStartLevel(req.level, d.best[endlessBestKey(d.settings)] ?? 0) : 1);
         // The Daily Run is the same course and rules for everyone.
         const daily = v === 'daily';
         this.session = new GameSession({
@@ -202,11 +207,12 @@ export class GameController {
           seed: daily ? dailySeed() : (Math.random() * 2 ** 31) >>> 0,
           kid: daily ? false : d.settings.kidMode,
           diff: daily ? 'medium' : d.settings.difficulty,
-          tutorial: v === 'classic' && d.stats.runs < 2,
+          tutorial: v === 'classic' && level === 1 && d.stats.runs < 2,
           hearts: v === 'oneheart' ? 1 : undefined,
           noHearts: v === 'oneheart',
           stunOnly: v === 'gemrush',
           gemChance: v === 'gemrush' ? 0.9 : undefined,
+          startDistance: levelStart(level),
           racers: [me],
         });
         break;
@@ -276,8 +282,13 @@ export class GameController {
     audio.intensity = 0.4;
     const level = this.level();
     if (this.kind === 'endless') {
-      music.run(0);
-      this.songBiome = 0;
+      const world = levelWorld(this.startLevel);
+      music.run(world);
+      this.songBiome = world;
+      // Starting from a later level: no "World 1" banner or milestones for metres already behind us.
+      this.lastBiome = this.startLevel - 1;
+      this.lastMilestone = levelStart(this.startLevel);
+      if (this.startLevel > 1) hud.showHint(`Level ${this.startLevel}`, `${BIOMES[world].name} · ${levelStart(this.startLevel)} m`, 2200, '24%');
       this.go();
       if (d.stats.runs === 0) hud.showHint('Tap or hold anywhere to play!', 'Avoid spikes, grab gems', 3200, '22%');
     } else if (this.kind === 'custom' && req.mode === 'custom') {
@@ -569,7 +580,7 @@ export class GameController {
     if (world !== this.lastBiome) {
       this.lastBiome = world;
       const pal = BIOMES[world % BIOMES.length];
-      this.hud?.showHint(`World ${world + 1}`, pal.name, 2200, '20%');
+      this.hud?.showHint(`Level ${world + 1}`, pal.name, 2200, '20%');
       audio.play('portal');
     }
     const milestone = Math.floor(me.distance / 250) * 250;
@@ -739,7 +750,7 @@ export class GameController {
           unit: v === 'gemrush' ? 'gems' : 'm',
         },
         {
-          onAgain: () => this.play({ mode: 'endless', variant: v }),
+          onAgain: () => this.play({ mode: 'endless', variant: v, level: this.startLevel }),
           onHome: () => this.quitToMenu(),
           onDouble: async () => {
             const ok = await ads.showRewarded('double_run');

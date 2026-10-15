@@ -22,6 +22,8 @@ export interface GenOptions {
   difficulty?: number;
   /** Player start x. */
   startX?: number;
+  /** Endless: distance already covered at the start (starting from a later level). */
+  offset?: number;
 }
 
 interface Pattern {
@@ -66,10 +68,12 @@ export class LevelGen {
     this.opts = opts;
     this.rng = new Rng(opts.seed);
     const start = opts.startX ?? 0;
-    this.groundFrom = start - 12;
+    // Later-level starts get extra floor behind the player (the camera can see it).
+    this.groundFrom = start - (opts.offset ? 40 : 12);
     this.x = start + (opts.kind === 'race' ? 18 : 14);
-    this.sectionEnd = opts.kind === 'race' ? this.x + this.rng.range(150, 200) : 240 + this.rng.range(0, 60);
-    this.nextPickup = opts.kind === 'endless' ? 160 + this.rng.range(0, 80) : Infinity;
+    const off = opts.offset ?? 0;
+    this.sectionEnd = opts.kind === 'race' ? this.x + this.rng.range(150, 200) : off + 240 + this.rng.range(0, 60);
+    this.nextPickup = opts.kind === 'endless' ? off + 160 + this.rng.range(0, 80) : Infinity;
     this.nextBox = opts.kind === 'race' ? this.x + 30 : Infinity;
     world.sections.push({ x0: -Infinity, x1: Infinity, mode: 'square', ceiling: false });
     if (opts.kind === 'race' && opts.length) world.finishX = opts.length;

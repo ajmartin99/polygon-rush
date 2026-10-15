@@ -48,3 +48,28 @@ describe('game modes', () => {
     expect(r.dead).toBe(false);
   });
 });
+
+describe('Endless levels', () => {
+  it('unlocks a level for every 500 m reached', async () => {
+    const { unlockedLevels, levelStart, clampStartLevel, levelWorld } = await import('../src/meta/modes');
+    expect(unlockedLevels(0)).toBe(1);
+    expect(unlockedLevels(499)).toBe(1);
+    expect(unlockedLevels(500)).toBe(2);
+    expect(unlockedLevels(2750)).toBe(6);
+    expect(unlockedLevels(1e9)).toBe(40);
+    expect(levelStart(4)).toBe(1500);
+    expect(levelWorld(7)).toBe(0);
+    expect(clampStartLevel(5, 2600)).toBe(5);
+    expect(clampStartLevel(7, 2600)).toBe(1);
+    expect(clampStartLevel(0, 2600)).toBe(1);
+  });
+
+  it('starts a run partway in, at that point’s speed, counting from 0 m', () => {
+    const s = new GameSession({ kind: 'endless', seed: 9, startDistance: 1500, racers: [me] });
+    const r = s.racers[0];
+    expect(Math.round(r.distance)).toBe(1500);
+    expect(s.baseSpeed(r.x)).toBeGreaterThan(new GameSession({ kind: 'endless', seed: 9, racers: [me] }).baseSpeed(2));
+    // Track is generated ahead of the new start.
+    expect(s.world.generatedTo).toBeGreaterThan(r.x + 60);
+  });
+});

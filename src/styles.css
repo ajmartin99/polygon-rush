@@ -2859,3 +2859,95 @@ button.player-slot {
 .reduced-motion .event-chip {
   animation: none;
 }
+
+/* ------------------------------------------------------------------ level select */
+.levels-intro {
+  margin: 0.5rem 0 0.6rem;
+}
+
+.level-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.4rem, 1fr));
+  gap: 0.55rem;
+}
+
+.level-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.1rem;
+  min-height: 5.6rem;
+  padding: 0.5rem 0.6rem;
+  border: 0.15rem solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--radius);
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 0.25rem 0 rgba(0, 0, 0, 0.25);
+}
+
+.level-tile.current {
+  border-color: var(--yellow);
+}
+
+.level-tile.locked {
+  filter: grayscale(0.85) brightness(0.55);
+}
+
+.lt-num {
+  font-size: 1.6rem;
+  line-height: 1;
+}
+
+.lt-world {
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.lt-dist {
+  font-size: 0.65rem;
+  opacity: 0.9;
+}
+
+.lt-lock,
+.lt-done,
+.lt-tag {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.45rem;
+}
+
+.lt-lock svg,
+.lt-done svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.lt-tag {
+  font-size: 0.55rem;
+  font-weight: 800;
+  padding: 0.05rem 0.35rem;
+  border-radius: 1rem;
+  background: var(--yellow);
+  color: #3a2400;
+  text-shadow: none;
+}
+
+.play-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.play-wrap .level-pick {
+  position: absolute;
+  top: -0.6rem;
+  right: -0.4rem;
+  z-index: 2;
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  min-height: 0;
+}

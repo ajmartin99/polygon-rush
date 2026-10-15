@@ -5,7 +5,7 @@ import type { NetPlayer, NetRoom } from '../services/net';
 import type { LevelContent, LevelData } from '../game/level';
 import type { Scene } from '../game/scene';
 
-export type Route = 'agegate' | 'name' | 'difficulty' | 'menu' | 'profile' | 'modes' | 'shop' | 'missions' | 'settings' | 'race' | 'duel' | 'friends' | 'create' | 'editor';
+export type Route = 'agegate' | 'name' | 'difficulty' | 'menu' | 'profile' | 'modes' | 'levels' | 'shop' | 'missions' | 'settings' | 'race' | 'duel' | 'friends' | 'create' | 'editor';
 
 /** How a player-made level run ended (reported back to whoever started it). */
 export interface LevelRunResult {
@@ -26,7 +26,7 @@ export interface Rival {
 }
 
 export type PlayRequest =
-  | { mode: 'endless'; variant?: EndlessVariant }
+  | { mode: 'endless'; variant?: EndlessVariant; /** Start from this Endless level (classic only). */ level?: number }
   | { mode: 'race'; seed: number; rivals: Rival[] }
   | { mode: 'duel'; seed: number; p2Skin: string }
   | {

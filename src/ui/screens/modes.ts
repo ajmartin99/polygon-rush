@@ -1,6 +1,6 @@
 import { DIFFICULTY_NAMES } from '../../state/save';
 import { store } from '../../state/store';
-import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, dailyRewardKey, variantBestKey, VARIANT_INFO, type EndlessVariant } from '../../meta/modes';
+import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, MAX_START_LEVEL, dailyRewardKey, unlockedLevels, variantBestKey, VARIANT_INFO, type EndlessVariant } from '../../meta/modes';
 import { leagueFor } from '../../meta/economy';
 import { activeEvent } from '../../meta/events';
 import { BaseScreen, titleBar } from '../components';
@@ -28,6 +28,7 @@ export class ModesScreen extends BaseScreen {
     const best = (v: EndlessVariant) => d.best[variantBestKey(v, d.settings)] ?? 0;
     const endless = (v: EndlessVariant) => () => nav.play({ mode: 'endless', variant: v });
     const dailyDone = Boolean(d.best[dailyRewardKey()]);
+    const unlocked = unlockedLevels(best('classic'));
     const haunted = activeEvent()?.id === 'halloween';
     const cards: ModeCard[] = [
       {
@@ -39,6 +40,16 @@ export class ModesScreen extends BaseScreen {
         tag: d.settings.kidMode ? 'Kid Mode' : DIFFICULTY_NAMES[d.settings.difficulty],
         stat: best('classic') ? `Best ${fmt(best('classic'))} m` : undefined,
         go: endless('classic'),
+      },
+      {
+        id: 'levels',
+        name: 'Levels',
+        blurb: 'Start from any Endless level you’ve reached.',
+        icon: 'target',
+        color: 'violet',
+        tag: `${unlocked} of ${MAX_START_LEVEL} open`,
+        stat: unlocked > 1 ? `Up to Level ${unlocked}` : 'Reach 500 m for Level 2',
+        go: () => nav.go('levels'),
       },
       {
         id: 'daily',

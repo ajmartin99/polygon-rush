@@ -7,6 +7,7 @@ All notable changes to Polygon Rush are documented here.
 ### Added
 - **Quick Match:** race random players online (13+). It joins the fullest open public race or hosts one, and public rooms start on their own once two racers are in.
 - **Private or public rooms:** choose when creating a room, and switch any time as host. Public rooms show a PUBLIC tag to everyone and can be reported. Under-13s keep private code rooms only.
+- **Level select:** Endless is split into levels, one per 500 m world. Start from any level you've reached on your difficulty. Use the Levels button on PLAY or Modes → Levels. You start at that level's speed and obstacles, and distance keeps counting from 0 m.
 - **Game Modes hub** on the home screen: Endless, Daily Run, One Heart, Gem Rush, Race, Online, Duel and Player Levels.
   - **Daily Run:** the same course for everyone each day, no revives, and 100 gems once a day for reaching 500 m.
   - **One Heart:** one bump and it's over.

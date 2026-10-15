@@ -29,6 +29,8 @@ export interface SessionOptions {
   gemChance?: number;
   /** Endless: bumps stun instead of costing hearts (timed modes). */
   stunOnly?: boolean;
+  /** Endless: start this many metres in (a later level); distance counts from 0. */
+  startDistance?: number;
   tutorial?: boolean;
   /** Race length (race/duel/online). */
   length?: number;
@@ -85,6 +87,7 @@ export class GameSession extends Emitter<GameEvents> {
     this.rng = new Rng(opts.seed ^ 0x9e3779b9);
     const raceLike = opts.kind === 'race' || opts.kind === 'duel' || opts.kind === 'online';
     let startX = START_X;
+    const offset = opts.kind === 'endless' ? Math.max(0, Math.floor(opts.startDistance ?? 0)) : 0;
     if (opts.level) {
       buildWorld(opts.level, this.world);
       this.gen = null;
@@ -101,8 +104,10 @@ export class GameSession extends Emitter<GameEvents> {
         gemChance: opts.gemChance,
         tutorial: opts.tutorial,
         difficulty: raceLike ? opts.difficulty ?? 0.35 : undefined,
-        startX: START_X,
+        startX: START_X + offset,
+        offset,
       });
+      startX = START_X + offset;
       this.fixedSpeed = raceLike ? RACE_SPEED : null;
     }
     opts.racers.forEach((spec, i) => {
@@ -112,6 +117,8 @@ export class GameSession extends Emitter<GameEvents> {
       } else if (opts.kind === 'custom' && opts.level) {
         r.maxHearts = r.hearts = opts.level.hearts;
       }
+      // Distance always counts from the very start, so a later level begins at its own metres.
+      if (offset) r.startX = START_X;
       if (opts.level) {
         r.body.mode = modeAt(opts.level, startX);
         // Measure progress from the level start even when testing from the middle.
@@ -120,7 +127,7 @@ export class GameSession extends Emitter<GameEvents> {
       }
       this.racers.push(r);
     });
-    this.gen?.ensure(START_X + 80);
+    this.gen?.ensure(startX + 80);
   }
 
 

@@ -43,21 +43,54 @@ export const PHYS: Record<ShapeMode, ModePhysics> = {
   diamond: { gravity: 46, maxFall: 14, jump: 13.6, pad: 0, orb: 0, thrust: 0, maxRise: 20 },
 };
 
-/** Endless speed curve (tiles / second) by distance. */
-export const ENDLESS_SPEED_START = 8.6;
-export const ENDLESS_SPEED_MAX = 12.6;
-export const ENDLESS_SPEED_RAMP = 4200;
+export type Difficulty = 'easy' | 'medium' | 'hard';
+export const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
+
+export interface EndlessTuning {
+  /** Speed (tiles / second) at the start, at full ramp, and the distance of the ramp. */
+  speedStart: number;
+  speedMax: number;
+  speedRamp: number;
+  /** Pattern difficulty 0..1 = base + scale * smoothstep(from, to, distance). */
+  dBase: number;
+  dScale: number;
+  dFrom: number;
+  dTo: number;
+  /** Multiplier on breathing room between patterns. */
+  runway: number;
+  /** Hearts for an Endless run (Kid Mode always gives 5). */
+  hearts: number;
+}
+
+/** Endless curves per difficulty (picked on first launch, changeable in Settings). */
+export const ENDLESS_TUNING: Record<Difficulty, EndlessTuning> = {
+  easy: { speedStart: 8.0, speedMax: 11.4, speedRamp: 5000, dBase: 0, dScale: 0.75, dFrom: 200, dTo: 6000, runway: 1.18, hearts: 4 },
+  medium: { speedStart: 8.6, speedMax: 12.8, speedRamp: 3600, dBase: 0, dScale: 1, dFrom: 120, dTo: 4000, runway: 1, hearts: 3 },
+  hard: { speedStart: 9.4, speedMax: 13.4, speedRamp: 3000, dBase: 0.22, dScale: 0.78, dFrom: 0, dTo: 3000, runway: 0.86, hearts: 3 },
+};
+
+export const ENDLESS_SPEED_START = ENDLESS_TUNING.medium.speedStart;
+export const ENDLESS_SPEED_MAX = ENDLESS_TUNING.medium.speedMax;
 export const KID_SPEED_FACTOR = 0.86;
 export const RACE_SPEED = 10.2;
+/** Race track difficulty offset per mode (CPU races; online rooms stay fair at medium). */
+export const RACE_DIFFICULTY_OFFSET: Record<Difficulty, number> = { easy: -0.12, medium: 0, hard: 0.14 };
 
 export function smoothstep(e0: number, e1: number, x: number): number {
   const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
   return t * t * (3 - 2 * t);
 }
 
-export function endlessSpeedAt(x: number, kid: boolean): number {
-  const v = ENDLESS_SPEED_START + (ENDLESS_SPEED_MAX - ENDLESS_SPEED_START) * smoothstep(0, ENDLESS_SPEED_RAMP, x);
+export function endlessSpeedAt(x: number, kid: boolean, diff: Difficulty = 'medium'): number {
+  const k = ENDLESS_TUNING[diff];
+  const v = k.speedStart + (k.speedMax - k.speedStart) * smoothstep(0, k.speedRamp, x);
   return kid ? v * KID_SPEED_FACTOR : v;
+}
+
+export function endlessDifficultyAt(x: number, kid: boolean, diff: Difficulty = 'medium'): number {
+  const k = ENDLESS_TUNING[diff];
+  const d = Math.min(1, k.dBase + k.dScale * smoothstep(k.dFrom, k.dTo, x));
+  return kid ? d * 0.7 : d;
 }
 
 /** Air time of a standard square jump at normal gravity. */

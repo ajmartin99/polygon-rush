@@ -2,7 +2,7 @@ import { CEIL, VIEW_BOTTOM, VIEW_H, VIEW_TOP } from '../game/constants';
 import type { GameSession } from '../game/session';
 import type { Racer } from '../game/racer';
 import { SHAPE_INFO, type ShapeMode } from '../game/shapes';
-import type { WorldObj } from '../game/world';
+import type { World, WorldObj } from '../game/world';
 import { skinById } from '../meta/catalog';
 import { darken, lighten, rgba, type Palette } from './biomes';
 import { drawCharacter } from './character';
@@ -31,6 +31,8 @@ export interface ViewRect {
 export interface ViewSpec {
   racer: Racer;
   rect: ViewRect;
+  /** Where the racer sits across the view (0..1, default 0.3). */
+  focus?: number;
   label?: string;
   labelColor?: string;
 }
@@ -44,6 +46,19 @@ export interface RenderOptions {
   dim?: boolean;
   /** Vertical marker flags on the track (e.g. your best distance). */
   markers?: { x: number; label: string; color: string }[];
+}
+
+/** A free camera for scenes without a racer (the editor). */
+export interface FreeView {
+  x: number;
+  scale: number;
+  top: number;
+  /** World → screen. */
+  sx: (x: number) => number;
+  sy: (y: number) => number;
+  /** Screen → world. */
+  wx: (px: number) => number;
+  wy: (py: number) => number;
 }
 
 interface Camera {
@@ -71,13 +86,19 @@ export class Renderer {
   detail = 1;
   private cams = new Map<string, number>();
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, opts: { alpha?: boolean } = {}) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d', { alpha: false })!;
+    this.ctx = canvas.getContext('2d', { alpha: opts.alpha ?? false })!;
     this.resize();
   }
 
   resize(): void {
+    if (!this.canvas.clientWidth) {
+      // Offscreen canvas (icons): keep the size it was given.
+      this.width = this.canvas.width;
+      this.height = this.canvas.height;
+      return;
+    }
     this.dpr = Math.min(window.devicePixelRatio || 1, this.maxDpr);
     const w = Math.max(1, Math.round(this.canvas.clientWidth * this.dpr));
     const h = Math.max(1, Math.round(this.canvas.clientHeight * this.dpr));
@@ -110,7 +131,7 @@ export class Renderer {
     const scale = band / VIEW_H;
     const top = r.y + (r.h - band) / 2;
     const visibleW = r.w / scale;
-    const target = view.racer.x - visibleW * 0.3;
+    const target = view.racer.x - visibleW * (view.focus ?? 0.3);
     const prev = this.cams.get(view.racer.id);
     let x = target;
     if (prev !== undefined && Math.abs(target - prev) < 30 && Math.abs(target - prev) > 1.5) {
@@ -155,40 +176,8 @@ export class Renderer {
     this.drawBackground(r, cam, pal, time, opts.beat);
     if (opts.markers) for (const m of opts.markers) if (m.x > x0 && m.x < x1) this.drawMarker(sx(m.x), sy, s, m.label, m.color, time);
 
-    session.world.query(x0, x1, scratch);
     const me = view.racer;
-    for (const o of scratch) {
-      if (o.kind === 'portal') this.drawPortal(o.x, o.mode, sx, sy, s, time);
-      else if (o.kind === 'finish') this.drawFinish(o.x, sx, sy, s, time);
-    }
-    this.drawSolids(pal, sx, sy, s);
-    for (const o of scratch) {
-      switch (o.kind) {
-        case 'spike':
-          this.drawSpike(pal, sx(o.x), sy(o.y), o.size * s, o.dir);
-          break;
-        case 'saw':
-          this.drawSaw(pal, sx(o.x), sy(o.y), o.r * s, time);
-          break;
-        case 'pad':
-          this.drawPad(sx(o.x), sy(o.y), s, o.dir, time);
-          break;
-        case 'orb':
-          this.drawOrb(sx(o.x), sy(o.y), s, time, me.body.usedOrb === o.id);
-          break;
-        case 'gem':
-          if (!me.collected.has(o.id)) this.drawGem(sx(o.x), sy(o.y) + Math.sin(time * 4 + o.x) * s * 0.06, s, o.big, time + o.x);
-          break;
-        case 'pickup':
-          if (!me.collected.has(o.id)) this.drawPickup(o.type, sx(o.x), sy(o.y) + Math.sin(time * 3) * s * 0.08, s, time);
-          break;
-        case 'box':
-          if (!me.collected.has(o.id)) this.drawBox(sx(o.x), sy(o.y) + Math.sin(time * 3 + o.x) * s * 0.08, s, time);
-          break;
-        default:
-          break;
-      }
-    }
+    this.drawTrack(session.world, x0, x1, sx, sy, s, pal, time, me.collected, me.body.usedOrb);
 
     this.fx.draw(ctx, sx, sy, s, true, x0, x1);
     for (const other of session.racers) {
@@ -215,6 +204,89 @@ export class Renderer {
       ctx.fillStyle = g;
       ctx.fillRect(r.x, r.y, r.w, r.h);
     }
+    ctx.restore();
+  }
+
+  /** Portals, finish line, solids and objects in [x0, x1]. */
+  private drawTrack(world: World, x0: number, x1: number, sx: (x: number) => number, sy: (y: number) => number, s: number, pal: Palette, time: number, collected: Set<number> | null, usedOrb: number): void {
+    world.query(x0, x1, scratch);
+    for (const o of scratch) {
+      if (o.kind === 'portal') this.drawPortal(o.x, o.mode, sx, sy, s, time);
+      else if (o.kind === 'finish') this.drawFinish(o.x, sx, sy, s, time);
+    }
+    this.drawSolids(pal, sx, sy, s);
+    for (const o of scratch) {
+      switch (o.kind) {
+        case 'spike':
+          this.drawSpike(pal, sx(o.x), sy(o.y), o.size * s, o.dir);
+          break;
+        case 'saw':
+          this.drawSaw(pal, sx(o.x), sy(o.y), o.r * s, time);
+          break;
+        case 'pad':
+          this.drawPad(sx(o.x), sy(o.y), s, o.dir, time);
+          break;
+        case 'orb':
+          this.drawOrb(sx(o.x), sy(o.y), s, time, usedOrb === o.id);
+          break;
+        case 'gem':
+          if (!collected?.has(o.id)) this.drawGem(sx(o.x), sy(o.y) + Math.sin(time * 4 + o.x) * s * 0.06, s, o.big, time + o.x);
+          break;
+        case 'pickup':
+          if (!collected?.has(o.id)) this.drawPickup(o.type, sx(o.x), sy(o.y) + Math.sin(time * 3) * s * 0.08, s, time);
+          break;
+        case 'box':
+          if (!collected?.has(o.id)) this.drawBox(sx(o.x), sy(o.y) + Math.sin(time * 3 + o.x) * s * 0.08, s, time);
+          break;
+        default:
+          break;
+      }
+    }
+  }
+
+  /**
+   * Fit the playfield (VIEW_BOTTOM..VIEW_TOP) into `area` with the left edge
+   * at world x = camX. Used by the editor, which owns its camera.
+   */
+  frameView(area: ViewRect, camX: number, zoom = 1): FreeView {
+    const scale = (area.h / VIEW_H) * zoom;
+    const top = area.y + (area.h - VIEW_H * scale) / 2;
+    return {
+      x: camX,
+      scale,
+      top,
+      sx: (x: number) => area.x + (x - camX) * scale,
+      sy: (y: number) => top + (VIEW_TOP - y) * scale,
+      wx: (px: number) => camX + (px - area.x) / scale,
+      wy: (py: number) => VIEW_TOP - (py - top) / scale,
+    };
+  }
+
+  /** Draw part of a world centred on (cx, cy), `span` tiles wide, on a transparent canvas (palette icons). */
+  drawIcon(world: World, cx: number, cy: number, span: number, pal: Palette, time = 0.5): void {
+    const ctx = this.ctx;
+    const W = this.canvas.width;
+    const H = this.canvas.height;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const s = W / span;
+    this.drawTrack(world, cx - span, cx + span, (x) => W / 2 + (x - cx) * s, (y) => H / 2 - (y - cy) * s, s, pal, time, null, -1);
+  }
+
+  /** Draw a world with a free camera (no racer): background, track and an overlay. */
+  renderScene(world: World, view: FreeView, opts: { palette: Palette; time: number; beat: number; dt: number; overlay?: (ctx: CanvasRenderingContext2D, v: FreeView) => void }): void {
+    const ctx = this.ctx;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const full: ViewRect = { x: 0, y: 0, w: this.width, h: this.height };
+    this.fx.update(opts.dt);
+    ctx.save();
+    this.drawBackground(full, { x: view.x, scale: view.scale, top: view.top }, opts.palette, opts.time, opts.beat);
+    const x0 = view.wx(0) - 3;
+    const x1 = view.wx(this.width) + 3;
+    this.drawTrack(world, x0, x1, view.sx, view.sy, view.scale, opts.palette, opts.time, null, -1);
+    this.fx.draw(ctx, view.sx, view.sy, view.scale, true, x0, x1);
+    this.fx.draw(ctx, view.sx, view.sy, view.scale, false, x0, x1);
+    opts.overlay?.(ctx, view);
     ctx.restore();
   }
 

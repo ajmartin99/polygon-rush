@@ -34,10 +34,37 @@ In **Settings → Secrets and variables → Actions → Variables** (not secrets
 | `ADMOB_REWARDED_ID` | `ca-app-pub-1234…/3333` | Rewarded unit |
 | `PRIVACY_URL` | `https://ajmartin99.github.io/polygon-rush/privacy.html` | Shown in Settings |
 | `SUPPORT_EMAIL` | `you@example.com` | Shown in the privacy policy |
-| `PEER_HOST` / `PEER_PORT` / `PEER_PATH` / `PEER_KEY` | | Your own PeerJS server (optional; defaults to the free PeerJS cloud) |
+| `SERVER_URL` | `https://polygon-rush-server.onrender.com` | Optional community server: public build rooms, Free Chat and room signalling (see below) |
+| `PEER_HOST` / `PEER_PORT` / `PEER_PATH` / `PEER_KEY` | | Your own PeerJS server (optional; defaults to `SERVER_URL`, else the free PeerJS cloud) |
 | `TURN_URL` / `TURN_USERNAME` + secret `TURN_CREDENTIAL` | | Optional TURN relay for strict mobile networks |
 
 Until real AdMob ids are set, the app shows **Google's test ads**. They never earn money, but they're also safe to tap.
+
+## Optional: community server
+
+Everything works without it: solo play, Create mode, level codes, private Friends
+and Build Together rooms, and Quick Chat. Deploying `server/` adds **public build
+rooms (13+)**, **email-verified Free Chat (16+, or 13–15 with a parent's email)** and
+reliable room signalling. Details: [server/README.md](../server/README.md).
+
+1. **Deploy:** Render → New → Blueprint → this repo (uses `render.yaml`), or run
+   `server/Dockerfile` anywhere with a persistent `/data` disk.
+2. **Email:** set `SMTP_URL` and `MAIL_FROM` (any transactional email provider), plus
+   `PUBLIC_URL` and `SUPPORT_EMAIL`. Keep the generated `ADMIN_TOKEN` somewhere safe.
+3. **Connect the app:** repository variable `SERVER_URL` = the server's https URL,
+   then rebuild. Without it, Free Chat and public rooms are hidden.
+4. **Privacy policy:** replace `https://YOUR-COMMUNITY-SERVER/account/delete` in
+   `docs/privacy.html` with your server's address.
+5. **Moderation:** someone must review reports daily. Read [SAFETY.md](SAFETY.md).
+6. **Play Console** (only when `SERVER_URL` is set):
+   * *Content rating*: answer **yes** to "users can interact or exchange information"
+     (moderated text chat for verified 13+, preset chat for all) and to user-generated
+     content (player-made levels in public rooms).
+   * *Data safety*: add the extra rows in [store/listing.md](../store/listing.md#data-safety-form).
+   * *Account deletion*: the in-app path is Settings → Chat & Community → Delete chat
+     account; the web URL is `https://YOUR-SERVER/account/delete`.
+   * *User-generated content*: in-app reporting, blocking/muting, Community Rules
+     acceptance and moderation are built in (see SAFETY.md).
 
 ## 3. Authorise the release (v1.0.0)
 

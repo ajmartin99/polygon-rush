@@ -19,6 +19,21 @@ const interstitialId = str(env.VITE_ADMOB_INTERSTITIAL_ID, TEST_ADS.interstitial
 const rewardedId = str(env.VITE_ADMOB_REWARDED_ID, TEST_ADS.rewarded);
 const usingTestUnits = bannerId === TEST_ADS.banner || interstitialId === TEST_ADS.interstitial || rewardedId === TEST_ADS.rewarded;
 
+/** e.g. https://polygon-rush.example.com (no trailing slash). */
+const serverUrl = (env.VITE_SERVER_URL?.trim() || '').replace(/\/+$/, '');
+
+/** PeerJS signalling lives on the community server at /peerjs. */
+const serverPeer = (() => {
+  if (!serverUrl) return null;
+  try {
+    const u = new URL(serverUrl);
+    const secure = u.protocol === 'https:';
+    return { host: u.hostname, port: u.port ? Number(u.port) : secure ? 443 : 80, path: `${u.pathname.replace(/\/+$/, '')}/peerjs`, secure };
+  } catch {
+    return null;
+  }
+})();
+
 export const CONFIG = {
   version: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.0.0',
   appName: 'Polygon Rush',
@@ -48,12 +63,20 @@ export const CONFIG = {
       legendPack: 'legend_pack',
     },
   },
+  /**
+   * Optional community server (server/): public build rooms, email-verified
+   * Free Chat and room signalling. Without it those features are hidden and
+   * rooms use the free PeerJS cloud.
+   */
+  server: {
+    url: serverUrl,
+  },
   net: {
-    host: env.VITE_PEER_HOST?.trim() || undefined,
-    port: env.VITE_PEER_PORT ? Number(env.VITE_PEER_PORT) : undefined,
-    path: env.VITE_PEER_PATH?.trim() || undefined,
+    host: env.VITE_PEER_HOST?.trim() || serverPeer?.host,
+    port: env.VITE_PEER_PORT ? Number(env.VITE_PEER_PORT) : serverPeer?.port,
+    path: env.VITE_PEER_PATH?.trim() || serverPeer?.path,
     key: env.VITE_PEER_KEY?.trim() || undefined,
-    secure: env.VITE_PEER_SECURE ? env.VITE_PEER_SECURE === 'true' : undefined,
+    secure: env.VITE_PEER_SECURE ? env.VITE_PEER_SECURE === 'true' : serverPeer?.secure,
     turnUrl: env.VITE_TURN_URL?.trim() || undefined,
     turnUsername: env.VITE_TURN_USERNAME?.trim() || undefined,
     turnCredential: env.VITE_TURN_CREDENTIAL?.trim() || undefined,

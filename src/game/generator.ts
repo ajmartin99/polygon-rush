@@ -1,5 +1,5 @@
 import { Rng } from '../core/rng';
-import { CEIL, JUMP_TIME, RACE_SPEED, endlessSpeedAt, smoothstep } from './constants';
+import { CEIL, ENDLESS_TUNING, JUMP_TIME, RACE_SPEED, endlessDifficultyAt, endlessSpeedAt, type Difficulty } from './constants';
 import type { ShapeMode } from './shapes';
 import type { PickupType, SolidRole, World, WorldObj } from './world';
 import { MAX_OBJ_W } from './world';
@@ -10,6 +10,8 @@ export interface GenOptions {
   /** Race finish line distance. */
   length?: number;
   kid?: boolean;
+  /** Endless difficulty mode (speed and pattern curves). */
+  diff?: Difficulty;
   /** Add onboarding hints (first runs). */
   tutorial?: boolean;
   /** Race difficulty 0..1 (endless ramps with distance). */
@@ -74,13 +76,14 @@ export class LevelGen {
 
   // ------------------------------------------------------------------ tuning
   speedAt(x: number): number {
-    return this.opts.kind === 'race' ? RACE_SPEED : endlessSpeedAt(Math.max(0, x), !!this.opts.kid);
+    return this.opts.kind === 'race' ? RACE_SPEED : endlessSpeedAt(Math.max(0, x), !!this.opts.kid, this.opts.diff);
   }
 
   difficultyAt(x: number): number {
     if (this.opts.difficulty !== undefined) return this.opts.difficulty;
-    const d = smoothstep(150, 5200, x);
-    return this.opts.kid ? d * 0.7 : d;
+    // The first-run tutorial stays gentle whatever the mode.
+    if (this.opts.tutorial && this.tutorialStep < TUTORIAL.length) return 0;
+    return endlessDifficultyAt(x, !!this.opts.kid, this.opts.diff);
   }
 
   /** Horizontal distance of a normal square jump at x. */
@@ -141,7 +144,7 @@ export class LevelGen {
     const v = this.v;
     const d = this.d;
     const tutorial = this.opts.tutorial && this.tutorialStep <= TUTORIAL.length;
-    const secs = this.rng.range(0.42, 0.75) * (1.25 - 0.45 * d) * (tutorial ? 1.6 : 1) * (this.opts.kid ? 1.25 : 1);
+    const secs = this.rng.range(0.42, 0.75) * (1.25 - 0.45 * d) * (tutorial ? 1.6 : 1) * (this.opts.kid ? 1.25 : 1) * (this.opts.kind === 'endless' ? ENDLESS_TUNING[this.opts.diff ?? 'medium'].runway : 1);
     const len = Math.max(3, v * secs);
     const x0 = this.x;
     const midY = this.mode === 'square' ? 1.0 : this.mode === 'hexagon' ? (this.side < 0 ? 0.5 : CEIL - 0.5) : MID;
@@ -536,6 +539,84 @@ const PATTERNS: Pattern[] = [
     },
   },
   {
+    id: 'sq_pad_pit',
+    mode: 'square',
+    minD: 0.3,
+    weight: w(0.15, 0.55),
+    run: (g) => {
+      // A pad throws you over a pit wider than any normal jump.
+      const J = g.jumpLen();
+      const x = g.x + 1;
+      g.pad(x + 0.5);
+      const pw = J * g.rng.range(0.95, 1.1);
+      g.pit(x + 1.4, pw);
+      const air = g.v * (2 * 26.5) / 74;
+      g.gemArc(x + 0.5, air, 0.9, 3.4, 6);
+      g.x = Math.max(x + 1.4 + pw, x + 0.5 + air) + 1;
+    },
+  },
+  {
+    id: 'sq_double_pit',
+    mode: 'square',
+    minD: 0.34,
+    weight: w(0.15, 0.6),
+    run: (g) => {
+      // Pit, short island, pit: land and jump again straight away.
+      const J = g.jumpLen();
+      const x = g.x + 1;
+      const w1 = Math.min(J * 0.5, 2.2 + g.d);
+      const island = J * g.rng.range(0.95, 1.05);
+      const w2 = Math.min(J * 0.55, 2.2 + g.d * 1.2);
+      g.pit(x, w1);
+      g.pit(x + w1 + island, w2);
+      g.gemArc(x + w1 / 2 - J / 2, J, 0.9, 1.9, 4);
+      g.gemArc(x + w1 + island + w2 / 2 - J / 2, J, 0.9, 1.9, 4);
+      g.x = x + w1 + island + w2 + 0.5;
+    },
+  },
+  {
+    id: 'sq_orb_chain',
+    mode: 'square',
+    minD: 0.55,
+    weight: w(0.05, 0.45),
+    run: (g) => {
+      // Two rings over one long pit: tap on each.
+      const J = g.jumpLen();
+      const x = g.x + 1;
+      const o1 = x + J * 0.62;
+      const o2 = o1 + J * g.rng.range(0.85, 0.95);
+      const width = o2 - x + J * 0.85;
+      g.pit(x, width);
+      g.orb(o1, 2.3);
+      g.orb(o2, 2.5);
+      g.gemArc(o1, o2 - o1, 2.3, 1.6, 3);
+      g.gemArc(o2, J, 2.5, 1.6, 3);
+      g.x = x + width + 0.5;
+    },
+  },
+  {
+    id: 'sq_spike_steps',
+    mode: 'square',
+    minD: 0.48,
+    weight: w(0.1, 0.5),
+    run: (g) => {
+      // Up two steps with a spike waiting on each (land first, then hop it).
+      const J = g.jumpLen();
+      const x = g.x + 1;
+      const s1 = J * 1.95 + 1.6;
+      const s2 = J * 1.95 + 1.6;
+      const a = x + J * 1.15 + 0.6;
+      const b = x + s1 + J * 1.15 + 0.6;
+      g.block(x, 0, s1, 1);
+      g.block(x + s1, 0, s2, 2);
+      g.spike(a, 1, 1);
+      g.spike(b, 1, 2);
+      g.gem(a, 3.3);
+      g.gem(b, 4.3, true);
+      g.x = x + s1 + s2 + 0.5;
+    },
+  },
+  {
     id: 'sq_breather',
     mode: 'square',
     minD: 0,
@@ -625,6 +706,27 @@ const PATTERNS: Pattern[] = [
     },
   },
 
+  {
+    id: 'hx_gauntlet',
+    mode: 'hexagon',
+    minD: 0.55,
+    weight: w(0.05, 0.5),
+    run: (g) => {
+      // Quick flips: short rows alternating sides, closer together than zigzag.
+      const k = g.rng.int(3, 4);
+      let x = g.x + g.v * 0.45;
+      for (let i = 0; i < k; i++) {
+        const n = g.rng.int(2, 3);
+        const dir: 1 | -1 = g.side < 0 ? 1 : -1;
+        g.spikeRow(x, n, dir);
+        g.gem(x + n / 2, MID);
+        g.side = g.side < 0 ? 1 : -1;
+        x += n + g.v * (0.72 - g.d * 0.12);
+      }
+      g.x = x + g.v * 0.2;
+    },
+  },
+
   // ------------------------------------------------------------ Glider (triangle)
   {
     id: 'tr_open',
@@ -705,6 +807,36 @@ const PATTERNS: Pattern[] = [
     },
   },
 
+  {
+    id: 'tr_saw_gates',
+    mode: 'triangle',
+    minD: 0.5,
+    weight: w(0.05, 0.5),
+    run: (g) => {
+      // Gates with a saw parked between them: thread the needle.
+      const n = g.rng.int(2, 3);
+      const gap = 4.6 - g.d * 0.8;
+      let c = MID + g.rng.range(-1, 1);
+      let x = g.x + 2;
+      const climb = (10.5 / g.v) * 0.5;
+      for (let i = 0; i < n; i++) {
+        const gw = g.rng.range(1, 1.6);
+        g.block(x, 0, gw, c - gap / 2);
+        g.block(x, c + gap / 2, gw, CEIL - (c + gap / 2));
+        g.gem(x + gw / 2, c);
+        const dist = g.v * g.rng.range(0.95, 1.15);
+        const shift = Math.min(2.4, dist * climb) * (g.rng.chance(0.5) ? 1 : -1);
+        const next = Math.min(CEIL - 0.9 - gap / 2, Math.max(0.9 + gap / 2, c + shift));
+        // The saw sits on the side you are NOT heading to.
+        const sawY = next > c ? Math.max(1.2, c - 1.6) : Math.min(CEIL - 1.2, c + 1.6);
+        if (i < n - 1) g.saw(x + gw + dist * 0.5, sawY, 0.7);
+        c = next;
+        x += gw + dist;
+      }
+      g.x = x;
+    },
+  },
+
   // ------------------------------------------------------------ Hopper (diamond)
   {
     id: 'di_open',
@@ -771,6 +903,21 @@ const PATTERNS: Pattern[] = [
         x += g.v * 0.9;
       }
       g.x = x;
+    },
+  },
+  {
+    id: 'di_low_roof',
+    mode: 'diamond',
+    minD: 0.5,
+    weight: w(0.05, 0.45),
+    run: (g) => {
+      // Spiky floor under a low roof: small, steady hops.
+      const n = g.rng.int(5, 8);
+      const x = g.x + 2;
+      g.spikeRow(x, n, 1);
+      g.block(x - 1, 5.6, n + 2, CEIL - 5.6);
+      g.gemLine(x + 0.5, x + n - 0.5, 3, 1.5);
+      g.x = x + n + 2 + g.v * 0.5;
     },
   },
 ];

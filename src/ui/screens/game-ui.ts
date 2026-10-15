@@ -4,6 +4,7 @@ import { BaseScreen, button, slider } from '../components';
 import { h, ic, fmt, formatTime, ordinal, clear } from '../dom';
 import { previewCanvas } from '../preview';
 import { ui, type ModalHandle } from '../ui';
+import { nowPlaying } from '../soundtrack';
 import type { LevelUp } from '../../meta/economy';
 
 /** Transparent overlay during gameplay: pause button, hints, countdown. */
@@ -67,7 +68,7 @@ export class GameHud extends BaseScreen {
   }
 }
 
-export function openPause(opts: { onResume: () => void; onRestart?: () => void; onQuit: () => void; title?: string }): ModalHandle {
+export function openPause(opts: { onResume: () => void; onRestart?: () => void; onQuit: () => void; title?: string; quitLabel?: string }): ModalHandle {
   const s = store.settings;
   const m = ui.modal(
     [
@@ -77,11 +78,12 @@ export function openPause(opts: { onResume: () => void; onRestart?: () => void; 
         { style: 'gap:0.5rem;align-items:center' },
         h('div.setting', { style: 'width:16rem' }, ic('music'), h('div.lbl', null, h('b', null, 'Music')), slider(s.music, (v) => store.setSetting('music', v))),
         h('div.setting', { style: 'width:16rem' }, ic('sound'), h('div.lbl', null, h('b', null, 'Sounds')), slider(s.sfx, (v) => store.setSetting('sfx', v))),
+        nowPlaying(),
       ),
       h(
         'div.actions',
         null,
-        button({ label: 'Home', icon: 'home', cls: 'ghost lg', onClick: () => (m.close(), opts.onQuit()), sfx: 'back' }),
+        button({ label: opts.quitLabel ?? 'Home', icon: opts.quitLabel === 'Edit' ? 'edit' : opts.quitLabel ? 'back' : 'home', cls: 'ghost lg', onClick: () => (m.close(), opts.onQuit()), sfx: 'back' }),
         opts.onRestart ? button({ label: 'Restart', icon: 'restart', cls: 'orange lg', onClick: () => (m.close(), opts.onRestart!()) }) : null,
         button({ label: 'Resume', icon: 'play', cls: 'mint lg', onClick: () => m.close() }),
       ),
@@ -253,7 +255,7 @@ export class RaceResultsScreen extends BaseScreen {
     title: string,
     placements: RacePlacement[],
     reward: { gems: number; trophies: number; xp: number } | null,
-    actions: { onAgain?: () => void; onHome: () => void; againLabel?: string },
+    actions: { onAgain?: () => void; onHome: () => void; againLabel?: string; homeLabel?: string },
   ) {
     super('.dim');
     const myPlace = placements.findIndex((p) => p.me) + 1;
@@ -297,7 +299,7 @@ export class RaceResultsScreen extends BaseScreen {
           h(
             'div.row',
             { style: 'justify-content:center' },
-            button({ label: 'Home', icon: 'home', cls: 'ghost lg', onClick: actions.onHome, sfx: 'back' }),
+            button({ label: actions.homeLabel ?? 'Home', icon: actions.homeLabel ? 'build' : 'home', cls: `${actions.homeLabel ? 'mint' : 'ghost'} lg`, onClick: actions.onHome, sfx: 'back' }),
             actions.onAgain ? button({ label: actions.againLabel ?? 'Race again', icon: 'restart', cls: 'mint lg pulse', onClick: actions.onAgain }) : null,
           ),
         ),
@@ -310,6 +312,72 @@ export class RaceResultsScreen extends BaseScreen {
 
   override back(): boolean {
     this.home();
+    return true;
+  }
+}
+
+export interface LevelResult {
+  title: string;
+  completed: boolean;
+  progress: number;
+  best: number;
+  newBest: boolean;
+  gems: number;
+  time: number;
+  hits: number;
+  /** The builder just beat their level from the start. */
+  verifiedNow: boolean;
+  missionsDone: string[];
+}
+
+/** End of a player-made level run (test runs from the editor too). */
+export class LevelResultsScreen extends BaseScreen {
+  constructor(r: LevelResult, actions: { onRetry: () => void; onBack: () => void; backLabel: string; backIcon: 'edit' | 'back' }) {
+    super('.dim');
+    const pct = Math.floor(r.progress * 100);
+    this.el.append(
+      h(
+        'div.results',
+        null,
+        h(
+          'div.col',
+          { style: 'align-items:center;gap:0.4rem;text-align:center' },
+          h('span.stat-label', null, r.title),
+          h('div.stat-big', { class: r.completed ? 'medal-1' : '' }, r.completed ? 'COMPLETE!' : `${pct}%`),
+          r.verifiedNow
+            ? h('span.new-best', null, 'VERIFIED! READY TO SHARE')
+            : r.newBest && !r.completed
+              ? h('span.new-best', null, 'NEW BEST!')
+              : h('span.muted', null, r.completed ? 'You reached the finish!' : `Best ${Math.floor(r.best * 100)}%`),
+          previewCanvas({ skin: store.data.skins.equipped, animate: true, scale: 0.6 }, 'hero-preview'),
+        ),
+        h(
+          'div.panel.col',
+          { style: 'gap:0.7rem' },
+          h(
+            'div.result-stats',
+            null,
+            h('div.card', null, h('b', null, ic('gem'), fmt(r.gems)), h('span', null, 'Gems')),
+            h('div.card', null, h('b', null, formatTime(r.time)), h('span', null, 'Time')),
+            h('div.card', null, h('b', null, fmt(r.hits)), h('span', null, 'Bumps')),
+          ),
+          r.missionsDone.length ? h('div.card', { style: 'border-color:var(--yellow)' }, h('b', null, 'Mission complete!'), r.missionsDone.map((t) => h('p.small', null, `✓ ${t}`))) : null,
+          h(
+            'div.row',
+            { style: 'flex-wrap:wrap;justify-content:center' },
+            button({ label: actions.backLabel, icon: actions.backIcon, cls: 'ghost lg', onClick: actions.onBack, sfx: 'back' }),
+            button({ label: 'Retry', icon: 'restart', cls: 'mint lg pulse', onClick: actions.onRetry }),
+          ),
+        ),
+      ),
+    );
+    this.backAction = actions.onBack;
+  }
+
+  private backAction: () => void = () => {};
+
+  override back(): boolean {
+    this.backAction();
     return true;
   }
 }

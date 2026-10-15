@@ -49,6 +49,7 @@ jobs:
       VITE_ADMOB_BANNER_ID: ${{ vars.ADMOB_BANNER_ID }}
       VITE_ADMOB_INTERSTITIAL_ID: ${{ vars.ADMOB_INTERSTITIAL_ID }}
       VITE_ADMOB_REWARDED_ID: ${{ vars.ADMOB_REWARDED_ID }}
+      VITE_SERVER_URL: ${{ vars.SERVER_URL }}
       VITE_PEER_HOST: ${{ vars.PEER_HOST }}
       VITE_PEER_PORT: ${{ vars.PEER_PORT }}
       VITE_PEER_PATH: ${{ vars.PEER_PATH }}

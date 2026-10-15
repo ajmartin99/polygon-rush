@@ -1,0 +1,13 @@
+# Only the community server is built with Docker (see server/Dockerfile).
+**/node_modules
+android
+dist
+docs
+store
+public
+tools
+scripts
+tests
+server/data
+*.sqlite
+.git

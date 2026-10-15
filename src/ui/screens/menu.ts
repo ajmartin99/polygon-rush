@@ -11,6 +11,7 @@ import { nav } from '../nav';
 import { previewCanvas } from '../preview';
 import { ui } from '../ui';
 import { openDailyGift } from './missions';
+import { DIFFICULTY_NAMES, endlessBestKey } from '../../state/save';
 import { openNoAdsOffer } from './shop';
 
 let dailyPromptShown = false;
@@ -20,7 +21,7 @@ export class MenuScreen extends BaseScreen {
     super();
     const d = store.data;
     const kid = d.settings.kidMode;
-    const bestKey = kid ? 'endless_kid' : 'endless';
+    const bestKey = endlessBestKey(d.settings);
     const best = d.best[bestKey] ?? 0;
     const league = leagueFor(d.trophies);
 
@@ -46,7 +47,7 @@ export class MenuScreen extends BaseScreen {
       label: 'PLAY',
       icon: 'play',
       cls: 'yellow xl pulse',
-      sub: kid ? 'Endless · Kid Mode' : 'Endless Rush',
+      sub: kid ? 'Endless · Kid Mode' : `Endless · ${DIFFICULTY_NAMES[d.settings.difficulty]}`,
       onClick: () => nav.play({ mode: 'endless' }),
     });
 
@@ -93,6 +94,7 @@ export class MenuScreen extends BaseScreen {
                 nav.go('friends');
               },
             }),
+            button({ label: 'Create', icon: 'build', cls: 'orange stack', sub: 'Level maker', onClick: () => nav.go('create') }),
           ),
         ),
       ),
@@ -106,7 +108,6 @@ export class MenuScreen extends BaseScreen {
         h('div.spacer'),
         h('span.kbd-hint', null, `v${CONFIG.version}`),
       ),
-      h('div.ad-safe'),
     );
 
     this.own(

@@ -1,0 +1,32 @@
+# One-click deploy of the optional community server on Render (render.com):
+# Dashboard → New → Blueprint → pick this repository. Fill in the SMTP and URL
+# values it asks for, then put the service URL in the app's VITE_SERVER_URL.
+services:
+  - type: web
+    name: polygon-rush-server
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /healthz
+    disk:
+      name: data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: TRUST_PROXY
+        value: "true"
+      - key: TOKEN_SECRET
+        generateValue: true
+      - key: ADMIN_TOKEN
+        generateValue: true
+      - key: SMTP_URL
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      - key: PUBLIC_URL
+        sync: false
+      - key: SUPPORT_EMAIL
+        sync: false

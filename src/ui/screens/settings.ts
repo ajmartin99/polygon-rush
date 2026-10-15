@@ -3,12 +3,18 @@ import { ads } from '../../services/ads';
 import { iap } from '../../services/iap';
 import { CONFIG } from '../../config';
 import { PRIVACY_SECTIONS } from '../../meta/legal';
-import type { GraphicsQuality } from '../../state/save';
+import { DIFFICULTY_NAMES, type GraphicsQuality } from '../../state/save';
+import { DIFFICULTIES, type Difficulty } from '../../game/constants';
 import { BaseScreen, button, confirm, parentalGate, segmented, slider, titleBar, toggle } from '../components';
 import { h, ic, type Child } from '../dom';
 import type { IconName } from '../icons';
 import { nav } from '../nav';
 import { ui } from '../ui';
+import { openChatSettings, startFreeChatSignup } from '../community';
+import { music } from '../../core/music';
+import { SONGS } from '../../core/songs';
+import { openSoundtrack } from '../soundtrack';
+import { canOfferFreeChat, freeChatPath, serverAvailable } from '../../meta/community';
 
 function row(iconName: IconName, title: string, sub: string, control: Child): HTMLElement {
   return h('div.setting', null, h('span', { class: 'ico', style: 'display:contents' }, ic(iconName)), h('div.lbl', null, h('b', null, title), h('span', null, sub)), control);
@@ -54,17 +60,52 @@ function openCredits(): void {
 async function openParentalControls(): Promise<void> {
   if (!(await parentalGate('Parental controls are for grown-ups.'))) return;
   const s = store.settings;
-  ui.modal(
+  const d = store.data;
+  const teenPlus = freeChatPath(d.profile.birthYear) !== 'none';
+  const freeToggle = toggle(s.freeChat && Boolean(d.account.token), async (v) => {
+    if (!v) {
+      store.setSetting('freeChat', false);
+      return;
+    }
+    if (d.account.token && (freeChatPath(d.profile.birthYear) === 'self' || d.account.consent === 'parent')) {
+      store.setSetting('freeChat', true);
+      return;
+    }
+    // No approved account yet: run the email approval now.
+    m.close();
+    await startFreeChatSignup();
+  }, 'Free Chat');
+  const m = ui.modal(
     [
       h('h2', null, 'Parental Controls'),
       h(
-        'div.col',
+        'div.col.body-scroll',
         { style: 'text-align:left;gap:0.8rem' },
-        row('globe', 'Online play', 'Allow "Play with Friends" rooms (no chat).', toggle(s.onlineAllowed, (v) => store.setSetting('onlineAllowed', v), 'Online play')),
+        row('globe', 'Online play', 'Allow online rooms: Play with Friends and Build Together.', toggle(s.onlineAllowed, (v) => store.setSetting('onlineAllowed', v), 'Online play')),
+        row('chat', 'Quick Chat', 'Preset friendly phrases and emotes in online rooms. No typing.', toggle(s.quickChat, (v) => store.setSetting('quickChat', v), 'Quick Chat')),
+        teenPlus && serverAvailable()
+          ? row('public', 'Public build rooms', 'Let your teen find and join build rooms hosted by other players (13+).', toggle(s.publicRooms, (v) => store.setSetting('publicRooms', v), 'Public build rooms'))
+          : null,
+        canOfferFreeChat(d)
+          ? row(
+              'verified',
+              'Free Chat',
+              freeChatPath(d.profile.birthYear) === 'parent'
+                ? 'Typed messages with other verified players, filtered and moderated. Ages 13–15 need your email approval.'
+                : 'Typed messages with other verified players, filtered and moderated.',
+              freeToggle,
+            )
+          : null,
         row('cart', 'Purchases', 'Allow in-app purchases (a grown-up check is always shown).', toggle(s.purchasesAllowed, (v) => store.setSetting('purchasesAllowed', v), 'Purchases')),
         row('child', 'Kid Mode', 'Slower speed and extra hearts in Endless.', toggle(s.kidMode, (v) => store.setSetting('kidMode', v), 'Kid Mode')),
       ),
-      h('p.muted.small', null, 'Ads for players under 13 are always child-directed, non-personalised and G-rated.'),
+      h(
+        'p.muted.small',
+        null,
+        teenPlus
+          ? 'Ads for players under 13 are always child-directed, non-personalised and G-rated. Free Chat is never available under 13.'
+          : 'Ads for players under 13 are always child-directed, non-personalised and G-rated. Players under 13 can only use Quick Chat, never typed chat or public rooms.',
+      ),
     ],
     { showClose: true },
   );
@@ -96,6 +137,7 @@ export class SettingsScreen extends BaseScreen {
         },
       }),
       button({ label: 'Parental controls', icon: 'child', cls: 'ghost sm', onClick: () => void openParentalControls() }),
+      button({ label: 'Chat & Community', icon: 'chat', cls: 'ghost sm', onClick: () => openChatSettings() }),
       button({ label: 'Privacy policy', icon: 'privacy', cls: 'ghost sm', onClick: () => openPrivacyPolicy() }),
     ];
     if (ads.privacyOptionsRequired) {
@@ -129,9 +171,25 @@ export class SettingsScreen extends BaseScreen {
             'div.settings-grid',
             null,
             row('music', 'Music', 'Background beats', slider(s.music, (v) => store.setSetting('music', v), 'Music volume')),
+            row(
+              'skip',
+              'Soundtrack',
+              `${SONGS.length} songs · pick, skip or switch off`,
+              h('div.row', { style: 'gap:0.4rem' }, button({ icon: 'skip', cls: 'icon ghost', aria: 'Skip song', onClick: () => music.skip() }), button({ label: 'Songs', cls: 'yellow sm', onClick: () => openSoundtrack() })),
+            ),
             row('sound', 'Sound effects', 'Jumps, gems & more', slider(s.sfx, (v) => store.setSetting('sfx', v), 'Sound volume')),
             row('vibrate', 'Vibration', 'Buzz on bumps and pickups', toggle(s.haptics, (v) => store.setSetting('haptics', v), 'Vibration')),
             row('motion', 'Reduce motion', 'Less shaking and flashing', toggle(s.reducedMotion, (v) => store.setSetting('reducedMotion', v), 'Reduce motion')),
+            row(
+              'target',
+              'Difficulty',
+              'Endless & CPU races',
+              segmented<Difficulty>(
+                DIFFICULTIES.map((v) => ({ value: v, label: DIFFICULTY_NAMES[v] })),
+                s.difficulty,
+                (v) => store.setSetting('difficulty', v),
+              ),
+            ),
             row('child', 'Kid Mode', 'Slower Endless with 5 hearts', toggle(s.kidMode, (v) => store.setSetting('kidMode', v), 'Kid Mode')),
             row('graphics', 'Graphics', 'Lower = smoother on older phones', gfx),
           ),

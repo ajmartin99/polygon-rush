@@ -1,5 +1,6 @@
 import { App as CapApp } from '@capacitor/app';
-import { audio, MENU_SONG, RACE_SONG, WORLD_SONGS } from '../core/audio';
+import { audio, WORLD_SONGS } from '../core/audio';
+import { music } from '../core/music';
 import { haptics } from '../core/haptics';
 import { isNative } from '../core/platform';
 import { store } from '../state/store';
@@ -10,11 +11,14 @@ import { describe, reportMission, type MissionEvent } from '../meta/missions';
 import { skinById, trailById } from '../meta/catalog';
 import { Renderer, type ViewSpec } from '../render/renderer';
 import { BIOMES, paletteAt, type Palette } from '../render/biomes';
-import { drawEndlessHud, drawRaceHud } from '../render/hud';
-import { nav, type PlayRequest, type Rival } from '../ui/nav';
+import { drawEndlessHud, drawLevelHud, drawRaceHud } from '../render/hud';
+import { nav, type LevelRunResult, type PlayRequest, type Rival } from '../ui/nav';
 import { ui } from '../ui/ui';
-import { EndlessResultsScreen, GameHud, RaceResultsScreen, openPause, openRevive, type RacePlacement } from '../ui/screens/game-ui';
-import { DT, MODE_INDEX, RACE_SPEED } from './constants';
+import { EndlessResultsScreen, GameHud, LevelResultsScreen, RaceResultsScreen, openPause, openRevive, type RacePlacement } from '../ui/screens/game-ui';
+import { levelName, type LevelContent } from './level';
+import type { Scene } from './scene';
+import { DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED } from './constants';
+import { endlessBestKey } from '../state/save';
 import { InputManager } from './input';
 import type { Racer, RacerSpec } from './racer';
 import { GameSession, type BoxItem, type SessionKind } from './session';
@@ -65,12 +69,17 @@ export class GameController {
   private lastBiome = -1;
   private lastMilestone = 0;
   private frameSkip = false;
+  private scene: Scene | null = null;
+  /** Build rooms outlive the race played in them. */
+  private keepRoom = false;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new Renderer(canvas);
     this.input = new InputManager(canvas);
     this.input.onPress = () => audio.unlock();
     window.addEventListener('resize', () => this.renderer.resize());
+    // The canvas also changes size when the menu banner ad appears or goes.
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => this.renderer.resize()).observe(canvas);
     this.applyGraphics();
     store.on('settings', () => this.applyGraphics());
     document.addEventListener('visibilitychange', () => {
@@ -120,7 +129,7 @@ export class GameController {
     this.wireSession();
     this.renderer.resetCameras();
     audio.intensity = 0.2;
-    if (audio.ctx) audio.playSong(MENU_SONG);
+    if (audio.ctx) music.menu();
   }
 
   /**
@@ -176,12 +185,18 @@ export class GameController {
     const d = store.data;
     const me: RacerSpec = { id: 'me', name: d.profile.name || 'You', skin: d.skins.equipped, trail: d.trails.equipped, kind: 'human' };
     switch (req.mode) {
+      case 'custom': {
+        this.kind = 'custom';
+        this.session = new GameSession({ kind: 'custom', seed: 1, level: req.level, startX: req.startX, racers: [me] });
+        break;
+      }
       case 'endless': {
         this.kind = 'endless';
         this.session = new GameSession({
           kind: 'endless',
           seed: (Math.random() * 2 ** 31) >>> 0,
           kid: d.settings.kidMode,
+          diff: d.settings.difficulty,
           tutorial: d.stats.runs < 2,
           racers: [me],
         });
@@ -194,7 +209,7 @@ export class GameController {
           kind: 'race',
           seed: req.seed,
           length: RACE_LENGTH,
-          difficulty: 0.22 + li * 0.09,
+          difficulty: Math.min(0.9, Math.max(0.1, 0.22 + li * 0.09 + RACE_DIFFICULTY_OFFSET[d.settings.difficulty])),
           racers: [me, ...req.rivals.map((r: Rival, i: number) => ({ id: `cpu${i}`, name: r.name, skin: r.skin, kind: 'bot' as const, skill: r.skill, tag: 'CPU' }))],
         });
         break;
@@ -216,12 +231,14 @@ export class GameController {
       case 'online': {
         this.kind = 'online';
         this.room = req.room;
+        this.keepRoom = Boolean(req.exit);
         const room = req.room;
         this.session = new GameSession({
           kind: 'online',
           seed: req.seed,
           length: RACE_LENGTH,
           difficulty: 0.35,
+          level: req.level,
           racers: req.players.map((p) => ({
             id: p.id,
             name: p.name,
@@ -248,13 +265,20 @@ export class GameController {
 
     this.songBiome = -1;
     audio.intensity = 0.4;
+    const level = this.level();
     if (this.kind === 'endless') {
-      audio.playSong(0);
+      music.run(0);
       this.songBiome = 0;
       this.go();
       if (d.stats.runs === 0) hud.showHint('Tap or hold anywhere to play!', 'Avoid spikes, grab gems', 3200, '22%');
+    } else if (this.kind === 'custom' && req.mode === 'custom') {
+      music.level(req.level.music, req.level.theme);
+      audio.intensity = 0.7;
+      this.go();
+      hud.showHint(levelName(req.level), req.level.authors.length ? `by ${req.level.authors.join(', ')}` : 'Tap or hold to play!', 1800, '40%');
     } else {
-      audio.playSong(this.kind === 'duel' ? 4 : RACE_SONG);
+      if (level) music.level(level.music, level.theme);
+      else music.race(this.kind === 'duel' ? 4 : undefined);
       this.phase = 'countdown';
       const delay = req.mode === 'online' ? req.delay : 0;
       setTimeout(() => {
@@ -271,14 +295,29 @@ export class GameController {
     this.acc = 0;
   }
 
+  /** Player-made level being played (custom runs and build-room races). */
+  private level(): LevelContent | null {
+    return this.session?.opts.level ?? null;
+  }
+
+  /** Give the canvas to a scene (the editor) or back to the menu demo (null). */
+  setScene(scene: Scene | null): void {
+    if (scene === this.scene) return;
+    this.teardown();
+    this.scene = scene;
+    if (!scene) this.startAttract();
+  }
+
   private teardown(): void {
+    this.scene = null;
     for (const off of this.offs.splice(0)) off();
     for (const off of this.roomOff.splice(0)) off();
     clearTimeout(this.finishTimer);
     if (this.room) {
-      this.room.leave();
+      if (!this.keepRoom) this.room.leave();
       this.room = null;
     }
+    this.keepRoom = false;
     this.session = null;
     this.kind = null;
     this.phase = 'idle';
@@ -288,10 +327,18 @@ export class GameController {
     this.input.split = false;
   }
 
-  /** Leave the game and go back to the main menu. */
+  /** Leave the game and go back to the main menu (or wherever the run came from). */
   quitToMenu(): void {
     ui.closeAllModals();
+    const req = this.req;
+    const exit = req && (req.mode === 'custom' || req.mode === 'online') ? req.exit : undefined;
+    // Leaving a build-room race early: tell the host so nobody waits for us.
+    if (this.keepRoom && this.room && this.phase !== 'results') this.room.sendQuit();
     this.teardown();
+    if (exit) {
+      exit();
+      return;
+    }
     this.startAttract();
     nav.go('menu');
   }
@@ -401,6 +448,11 @@ export class GameController {
     const raw = Math.min(0.1, (now - (this.last || now)) / 1000);
     this.last = now;
     this.trackPerf(raw);
+    if (this.scene) {
+      this.time += raw;
+      this.scene.frame(this.renderer, raw, this.time);
+      return;
+    }
     const s = this.session;
     if (!s) return;
     this.time += raw;
@@ -453,7 +505,8 @@ export class GameController {
       ];
     } else {
       const focus = s.racers.find((r) => r.kind === 'human') ?? s.racers[0];
-      views = [{ racer: focus, rect: rects[0] }];
+      // The menu demo runs in the open space right of the hero preview.
+      views = [{ racer: focus, rect: rects[0], focus: this.kind === 'attract' ? 0.62 : undefined }];
     }
     const fxDt = this.phase === 'paused' || this.phase === 'dying' ? 0 : dt * this.timeScale;
     for (const r of s.racers) if (!r.dead) this.renderer.fx.racerTick(r, fxDt, r.kind === 'human');
@@ -461,6 +514,9 @@ export class GameController {
     if (this.kind === 'endless') {
       const best = store.data.best[this.bestKey()] ?? 0;
       if (best > 30) markers.push({ x: START_X + best, label: 'BEST', color: '#ffd23f' });
+    } else if (this.kind === 'custom' && this.req?.mode === 'custom') {
+      const best = this.req.level.best;
+      if (best > 0.05 && best < 1) markers.push({ x: START_X + best * (s.finishX - START_X), label: 'BEST', color: '#ffd23f' });
     }
     this.renderer.render(s, views, fxDt, this.time, {
       palette: (x) => this.paletteFor(x),
@@ -473,6 +529,8 @@ export class GameController {
     for (const v of views) {
       if (this.kind === 'endless') {
         drawEndlessHud(ctx, v.rect, v.racer, store.data.best[this.bestKey()] ?? 0, this.renderer.dpr);
+      } else if (this.kind === 'custom' && this.req?.mode === 'custom') {
+        drawLevelHud(ctx, v.rect, s, v.racer, this.renderer.dpr, levelName(this.req.level), this.req.level.best);
       } else {
         drawRaceHud(ctx, v.rect, s, v.racer, this.renderer.dpr, v.label, v.labelColor);
       }
@@ -481,6 +539,8 @@ export class GameController {
 
   private paletteFor(x: number): Palette {
     const s = this.session;
+    const level = this.level();
+    if (level) return BIOMES[level.theme % BIOMES.length];
     if (s && s.raceLike) return BIOMES[(s.opts.seed >>> 0) % BIOMES.length];
     return paletteAt(Math.max(0, x - START_X), this.biomeOffset).palette;
   }
@@ -525,9 +585,11 @@ export class GameController {
       const biome = Math.floor(me.distance / BIOME_LENGTH) % WORLD_SONGS;
       if (biome !== this.songBiome && this.phase === 'running') {
         this.songBiome = biome;
-        audio.playSong(biome);
+        music.world(biome);
       }
       audio.intensity = Math.min(1, 0.35 + me.distance / 3000);
+    } else if (this.kind === 'custom') {
+      audio.intensity = Math.min(1, 0.55 + me.distance / 600);
     } else if (this.kind !== 'attract') {
       audio.intensity = 0.8;
     }
@@ -567,12 +629,13 @@ export class GameController {
       },
       onRestart: online || this.kind === 'race' ? undefined : () => this.req && this.play(this.req),
       onQuit: () => this.quitToMenu(),
+      quitLabel: this.req?.mode === 'custom' ? (this.req.test ? 'Edit' : 'Back') : this.keepRoom ? 'Leave race' : undefined,
     });
   }
 
   // ================================================================== endless death / results
   private bestKey(): string {
-    return store.settings.kidMode ? 'endless_kid' : 'endless';
+    return endlessBestKey(store.settings);
   }
 
   private async onDeath(r: Racer): Promise<void> {
@@ -582,6 +645,10 @@ export class GameController {
     haptics.heavy();
     await new Promise((res) => setTimeout(res, 650));
     if (!this.session || this.session !== s) return;
+    if (this.kind === 'custom') {
+      this.endLevel(r, false);
+      return;
+    }
     if (!this.revived && r.distance > 60) {
       audio.duck(true);
       const choice = await openRevive(6);
@@ -642,6 +709,61 @@ export class GameController {
     });
   }
 
+  /** A player-made level ended: report back, update missions and show the results. */
+  private endLevel(r: Racer, completed: boolean): void {
+    const s = this.session;
+    const req = this.req;
+    if (!s || !req || req.mode !== 'custom' || this.phase === 'results') return;
+    clearTimeout(this.finishTimer);
+    this.phase = 'results';
+    s.running = false;
+    this.input.enabled = false;
+    const level = req.level;
+    const total = Math.max(1, s.finishX - r.startX);
+    const progress = completed ? 1 : Math.max(0, Math.min(0.99, (r.x - r.startX) / total));
+    const fromStart = req.startX === undefined;
+    const prevBest = level.best;
+    const result: LevelRunResult = { completed, progress, fromStart, gems: r.gems, hits: r.hits, time: s.time };
+    const verifiedNow = Boolean(req.test && completed && fromStart && !level.verified);
+    req.onResult?.(result);
+    const missions: string[] = [];
+    const d = store.data;
+    const report = (e: MissionEvent) => {
+      for (const m of reportMission(d, e, 1)) missions.push(describe(m));
+    };
+    if (completed && fromStart) {
+      if (req.test && verifiedNow) report('level_verify');
+      else if (!req.test && level.origin !== 'mine' && level.length >= 60) report('custom_clear');
+    }
+    if (missions.length) {
+      ui.sfx('reward');
+      haptics.success();
+    }
+    store.commit();
+    audio.play(completed ? 'win' : 'lose');
+    const screen = new LevelResultsScreen(
+      {
+        title: levelName(level),
+        completed,
+        progress,
+        best: Math.max(prevBest, progress),
+        newBest: fromStart && progress > prevBest,
+        gems: r.gems,
+        time: s.time,
+        hits: r.hits,
+        verifiedNow,
+        missionsDone: missions,
+      },
+      {
+        onRetry: () => this.play(req),
+        onBack: () => this.quitToMenu(),
+        backLabel: req.test ? 'Edit' : 'Back',
+        backIcon: req.test ? 'edit' : 'back',
+      },
+    );
+    ui.show(screen);
+  }
+
   /** Update shared stats and missions for any run; returns completed mission texts. */
   private reportRun(r: Racer, extra: [MissionEvent, number][]): string[] {
     const d = store.data;
@@ -692,6 +814,13 @@ export class GameController {
       haptics.success();
       if (this.kind === 'online') this.room?.sendFinish(r.finishTime);
       if (this.kind !== 'duel') this.hud?.showHint(place === 1 ? 'You win!' : 'Finished!', '', 1600, '30%');
+    }
+    if (this.kind === 'custom') {
+      if (r.kind === 'human' && this.phase === 'running') {
+        this.phase = 'finishing';
+        this.finishTimer = window.setTimeout(() => this.endLevel(r, true), 1400);
+      }
+      return;
     }
     const humans = s.racers.filter((x) => x.kind === 'human');
     if (this.kind === 'online') {
@@ -781,11 +910,12 @@ export class GameController {
     void store.flush();
     if (this.kind !== 'duel') audio.play(myPlace === 1 ? 'win' : 'finish');
 
-    const title = this.kind === 'duel' ? (list[0].id === 'p1' ? 'Player 1 wins!' : 'Player 2 wins!') : this.kind === 'online' ? 'Friends Race' : 'Race Results';
+    const title = this.kind === 'duel' ? (list[0].id === 'p1' ? 'Player 1 wins!' : 'Player 2 wins!') : this.kind === 'online' ? (this.keepRoom ? 'Build Room Race' : 'Friends Race') : 'Race Results';
     const req = this.req;
     void ads.afterRun().then(() => {
       const screen = new RaceResultsScreen(title, list, reward, {
         onHome: () => this.quitToMenu(),
+        homeLabel: this.keepRoom ? 'Back to building' : undefined,
         onAgain:
           this.kind === 'online'
             ? undefined

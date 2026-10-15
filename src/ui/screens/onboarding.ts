@@ -1,4 +1,5 @@
-import { ageGroupFor } from '../../state/save';
+import { ageGroupFor, DIFFICULTY_NAMES } from '../../state/save';
+import { DIFFICULTIES, type Difficulty } from '../../game/constants';
 import { store } from '../../state/store';
 import { randomName } from '../../meta/names';
 import { ads } from '../../services/ads';
@@ -108,7 +109,7 @@ export class NameScreen extends BaseScreen {
             onClick: () => {
               store.data.profile.name = name;
               store.commit();
-              nav.go('menu');
+              nav.go(first ? 'difficulty' : 'menu', first ? { first: true } : undefined);
             },
           }),
           first ? null : button({ label: 'Cancel', cls: 'ghost sm', onClick: () => nav.go('settings'), sfx: 'back' }),
@@ -119,6 +120,73 @@ export class NameScreen extends BaseScreen {
 
   override back(): boolean {
     if (store.data.profile.name) nav.go('settings');
+    return true;
+  }
+}
+
+const DIFFICULTY_INFO: Record<Difficulty, { blurb: string; detail: string; color: string }> = {
+  easy: { blurb: 'Take it easy', detail: 'Slower start, gentle ramp and 4 hearts.', color: 'mint' },
+  medium: { blurb: 'The classic rush', detail: 'Speeds up as you go. Gets tricky after a few worlds.', color: 'yellow' },
+  hard: { blurb: 'Bring it on!', detail: 'Fast from the start with tough combos right away.', color: 'red' },
+};
+
+/** Difficulty cards (first launch and Settings). */
+export function difficultyPicker(value: Difficulty, onPick: (d: Difficulty) => void): HTMLElement {
+  const cards = DIFFICULTIES.map((d) => {
+    const info = DIFFICULTY_INFO[d];
+    const b = h(
+      `button.diff-card.${info.color}${d === value ? '.on' : ''}`,
+      { 'aria-pressed': String(d === value), 'data-diff': d },
+      h('b', null, DIFFICULTY_NAMES[d]),
+      h('span.diff-blurb', null, info.blurb),
+      h('span.diff-detail', null, info.detail),
+    );
+    b.addEventListener('click', () => {
+      for (const c of cards) {
+        const on = c === b;
+        c.classList.toggle('on', on);
+        c.setAttribute('aria-pressed', String(on));
+      }
+      onPick(d);
+    });
+    return b;
+  });
+  return h('div.diff-cards', null, cards);
+}
+
+/** First launch: pick Easy / Medium / Hard (Medium is preselected). */
+export class DifficultyScreen extends BaseScreen {
+  constructor(params?: Record<string, unknown>) {
+    super('.solid');
+    const first = Boolean(params?.first);
+    let pick: Difficulty = store.settings.difficulty;
+    this.el.append(
+      h(
+        'div.grow.center',
+        null,
+        h(
+          'div.panel.col',
+          { style: 'width:min(40rem,94vw);gap:0.9rem;align-items:center;text-align:center' },
+          h('h2', null, 'How tough do you like it?'),
+          difficultyPicker(pick, (d) => (pick = d)),
+          h('p.muted.small', null, 'You can change this any time in Settings. Each difficulty keeps its own best score.'),
+          button({
+            label: first ? "Let's Rush!" : 'Save',
+            icon: first ? 'play' : 'check',
+            cls: 'mint lg',
+            onClick: () => {
+              store.setSetting('difficulty', pick);
+              store.data.tutorial.difficulty_pick = true;
+              store.commit();
+              nav.go('menu');
+            },
+          }),
+        ),
+      ),
+    );
+  }
+
+  override back(): boolean {
     return true;
   }
 }

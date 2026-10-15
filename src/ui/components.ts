@@ -101,8 +101,8 @@ export function levelChip(): HTMLElement {
   const need = xpForLevel(d.level);
   const pct = Math.min(100, (d.xp / need) * 100);
   return h(
-    'div.level-chip',
-    { title: `${d.xp} / ${need} XP` },
+    'button.level-chip',
+    { title: `${d.xp} / ${need} XP · Profile`, 'aria-label': 'Your profile', onclick: () => nav.go('profile') },
     h('div.lvl', null, h('span', null, String(d.level))),
     h('div.meta', null, h('div.name', null, d.profile.name || 'Rusher'), h('div.bar', null, h('i', { style: `width:${pct}%` }))),
   );

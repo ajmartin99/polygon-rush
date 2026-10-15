@@ -1,10 +1,17 @@
 import { store } from '../../state/store';
-import { CODE_ALPHABET, CODE_LENGTH, NetRoom, isValidCode, type NetPlayer } from '../../services/net';
+import { NetRoom, type NetPlayer } from '../../services/net';
+import { EditorSession, setActiveEditor } from '../../editor/session';
+import { ChatLog } from '../../services/chatlog';
+import { quickLine } from '../../meta/quickchat';
+import { ChatPanel } from '../chat-panel';
+import { RoomFreeChat } from '../free-chat';
+import { codeEntry } from '../code-entry';
 import { CONFIG } from '../../config';
 import { BaseScreen, button, titleBar } from '../components';
 import { h, clear } from '../dom';
 import { nav } from '../nav';
 import { previewCanvas } from '../preview';
+import { openPlayerCard } from '../profile';
 import { ui } from '../ui';
 
 type View = 'choose' | 'join' | 'busy' | 'lobby';
@@ -14,17 +21,23 @@ export class FriendsScreen extends BaseScreen {
   private view: View = 'choose';
   private body = h('div.grow.col', { style: 'align-items:center;justify-content:center;gap:1rem;min-height:0' });
   private room: NetRoom | null = null;
-  private code = '';
   private handedOff = false;
+  private chatLog = new ChatLog();
+  private chat: ChatPanel | null = null;
+  private free: RoomFreeChat | null = null;
 
-  constructor() {
+  constructor(params?: Record<string, unknown>) {
     super('.solid');
     this.el.append(titleBar('Play with Friends', 'globe', () => this.back()), this.body);
-    this.render();
+    const room = params?.room as NetRoom | undefined;
+    if (room) this.wireRoom(room);
+    else this.render();
   }
 
   override leave(): void {
     super.leave();
+    this.chat?.destroy();
+    this.free?.close();
     if (this.room && !this.handedOff) this.room.leave();
   }
 
@@ -58,7 +71,7 @@ export class FriendsScreen extends BaseScreen {
 
   private renderChoose(): void {
     this.body.append(
-      h('p', { style: 'text-align:center;max-width:32rem' }, 'Race up to 3 friends online. Make a room and share the code out loud — no chat, no strangers.'),
+      h('p', { style: 'text-align:center;max-width:32rem' }, 'Race up to 3 friends online. Make a room and share the code out loud — no strangers. Building a level together? Use Create → Build Together.'),
       h(
         'div.row',
         { style: 'gap:1.2rem' },
@@ -68,13 +81,12 @@ export class FriendsScreen extends BaseScreen {
           icon: 'globe',
           cls: 'cyan xl',
           onClick: () => {
-            this.code = '';
             this.view = 'join';
             this.render();
           },
         }),
       ),
-      h('p.muted.small', { style: 'text-align:center;max-width:34rem' }, 'Everyone needs an internet connection. Players see each other’s racer name and skin only.'),
+      h('p.muted.small', { style: 'text-align:center;max-width:34rem' }, 'Everyone needs an internet connection. Players see each other’s racer name and skin, plus Quick Chat if it’s on.'),
     );
   }
 
@@ -83,42 +95,7 @@ export class FriendsScreen extends BaseScreen {
   }
 
   private renderJoin(): void {
-    const display = h('div.code-display');
-    const paint = () => {
-      clear(display);
-      for (let i = 0; i < CODE_LENGTH; i++) display.appendChild(h(`span${this.code[i] ? '.filled' : ''}`, null, this.code[i] ?? ''));
-      joinBtn.disabled = !isValidCode(this.code);
-    };
-    const joinBtn = button({ label: 'Join', icon: 'play', cls: 'mint lg', disabled: true, onClick: () => void this.join() });
-    const keypad = h(
-      'div.keypad',
-      { style: 'width:min(30rem,90vw)' },
-      [...CODE_ALPHABET].map((c) =>
-        h(
-          'button',
-          {
-            onclick: () => {
-              if (this.code.length < CODE_LENGTH) this.code += c;
-              paint();
-            },
-          },
-          c,
-        ),
-      ),
-      h(
-        'button.wide',
-        {
-          'aria-label': 'Delete',
-          onclick: () => {
-            this.code = this.code.slice(0, -1);
-            paint();
-          },
-        },
-        '⌫',
-      ),
-    );
-    this.body.append(h('h3', null, 'Enter the room code'), display, keypad, joinBtn);
-    paint();
+    this.body.append(...codeEntry((code) => void this.join(code)));
   }
 
   private renderLobby(): void {
@@ -129,8 +106,8 @@ export class FriendsScreen extends BaseScreen {
       slots.push(
         p
           ? h(
-              'div.player-slot.filled',
-              p.id === room.localId ? { style: 'border-color:var(--yellow)' } : null,
+              'button.player-slot.filled',
+              { style: p.id === room.localId ? 'border-color:var(--yellow)' : '', 'aria-label': `${p.name} profile`, onclick: () => openPlayerCard(p) },
               previewCanvas({ skin: p.skin, animate: p.id === room.localId, scale: 0.6 }),
               h('div.nm', null, p.name),
               p.host ? h('span.tag', null, 'HOST') : p.id === room.localId ? h('span.tag.cpu', null, 'YOU') : null,
@@ -156,12 +133,43 @@ export class FriendsScreen extends BaseScreen {
   }
 
   private wireRoom(room: NetRoom): void {
+    if (room.kind === 'build') {
+      // A build-room code typed here: open the editor instead.
+      this.handedOff = true;
+      setActiveEditor(EditorSession.join(room));
+      nav.go('editor');
+      return;
+    }
     this.room = room;
+    room.on('quick', ({ id, n }) => {
+      const line = quickLine(n);
+      const p = room.player(id);
+      if (line && store.settings.quickChat) this.chatLog.push({ from: id, name: p?.name ?? 'Player', color: p?.color ?? 0, text: line.text, kind: 'quick', mine: id === room.localId });
+    });
+    if (!this.chat) {
+      this.chat = new ChatPanel({
+        where: 'race',
+        log: this.chatLog,
+        onQuick: (n) => {
+          room.sendQuick(n);
+          const line = quickLine(n);
+          if (!room.isHost && line) this.chatLog.push({ from: room.localId, name: 'You', color: room.player(room.localId)?.color ?? 0, text: line.text, kind: 'quick', mine: true });
+        },
+      });
+      this.chat.el.classList.add('lobby-chat');
+      this.el.append(this.chat.el);
+      this.free = new RoomFreeChat(room, this.chatLog);
+      this.free.bind(this.chat);
+    }
     room.on('lobby', () => this.view === 'lobby' && this.render());
     room.on('closed', ({ reason }) => {
       if (this.handedOff) return;
       ui.toast(reason, 'info', 3000);
       this.room = null;
+      this.chat?.destroy();
+      this.chat = null;
+      this.free?.close();
+      this.free = null;
       this.view = 'choose';
       this.render();
     });
@@ -186,8 +194,7 @@ export class FriendsScreen extends BaseScreen {
     }
   }
 
-  private async join(): Promise<void> {
-    const code = this.code;
+  private async join(code: string): Promise<void> {
     this.view = 'busy';
     this.render();
     try {
@@ -200,4 +207,3 @@ export class FriendsScreen extends BaseScreen {
     }
   }
 }
-

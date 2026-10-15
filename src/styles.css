@@ -2739,3 +2739,76 @@ button.player-slot {
   font-weight: 700;
   font-size: 0.75rem;
 }
+
+/* ------------------------------------------------------------------ game modes */
+.modes-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.mode-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  min-height: 8.6rem;
+  padding: 0.7rem 0.75rem;
+  border: 0;
+  border-radius: var(--radius-lg);
+  color: #fff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 0.3rem 0 rgba(0, 0, 0, 0.25);
+  transition: transform 0.1s;
+}
+
+.mode-card:active {
+  transform: translateY(0.2rem);
+  box-shadow: none;
+}
+
+.mode-card.yellow { background: linear-gradient(160deg, var(--yellow), var(--yellow-d)); color: #3a2400; }
+.mode-card.mint { background: linear-gradient(160deg, var(--mint), var(--mint-d)); color: #053b2a; }
+.mode-card.red { background: linear-gradient(160deg, var(--red), var(--red-d)); }
+.mode-card.cyan { background: linear-gradient(160deg, var(--cyan), var(--cyan-d)); color: #032b3d; }
+.mode-card.violet { background: linear-gradient(160deg, var(--violet), var(--violet-d)); }
+.mode-card.pink { background: linear-gradient(160deg, var(--pink), var(--pink-d)); }
+.mode-card.orange { background: linear-gradient(160deg, var(--orange), var(--orange-d)); }
+
+.mc-icon svg {
+  width: 1.7rem;
+  height: 1.7rem;
+}
+
+.mc-name {
+  font-size: 1.1rem;
+}
+
+.mc-blurb {
+  font-size: 0.7rem;
+  opacity: 0.88;
+  flex: 1;
+}
+
+.mc-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  font-size: 0.62rem;
+  font-weight: 700;
+}
+
+.mc-tag,
+.mc-stat {
+  padding: 0.1rem 0.45rem;
+  border-radius: 1rem;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+@media (max-aspect-ratio: 4/3) {
+  .modes-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

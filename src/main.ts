@@ -11,6 +11,7 @@ import { account } from './services/account';
 import { ui } from './ui/ui';
 import { nav } from './ui/nav';
 import { localCard, ProfileScreen } from './ui/profile';
+import { ModesScreen } from './ui/screens/modes';
 import { setLocalCard } from './services/net';
 import { AgeGateScreen, DifficultyScreen, NameScreen } from './ui/screens/onboarding';
 import { MenuScreen } from './ui/screens/menu';
@@ -32,6 +33,7 @@ function registerRoutes(): void {
   nav.register('name', (p) => new NameScreen(p));
   nav.register('difficulty', (p) => new DifficultyScreen(p));
   nav.register('profile', () => new ProfileScreen());
+  nav.register('modes', () => new ModesScreen());
   setLocalCard(localCard);
   nav.register('menu', () => new MenuScreen());
   nav.register('shop', (p) => new ShopScreen(p));

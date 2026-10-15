@@ -12,6 +12,10 @@ export interface GenOptions {
   kid?: boolean;
   /** Endless difficulty mode (speed and pattern curves). */
   diff?: Difficulty;
+  /** No heart pickups (One Heart). */
+  noHearts?: boolean;
+  /** Chance of a gem line in each gap (Gem Rush uses more). */
+  gemChance?: number;
   /** Add onboarding hints (first runs). */
   tutorial?: boolean;
   /** Race difficulty 0..1 (endless ramps with distance). */
@@ -149,14 +153,14 @@ export class LevelGen {
     const x0 = this.x;
     const midY = this.mode === 'square' ? 1.0 : this.mode === 'hexagon' ? (this.side < 0 ? 0.5 : CEIL - 0.5) : MID;
     if (x0 >= this.nextPickup && len >= 4) {
-      const types: PickupType[] = this.opts.kid ? ['shield', 'heart', 'magnet'] : ['shield', 'magnet', 'shield', 'heart', 'magnet'];
+      const types: PickupType[] = this.opts.noHearts ? ['shield', 'magnet'] : this.opts.kid ? ['shield', 'heart', 'magnet'] : ['shield', 'magnet', 'shield', 'heart', 'magnet'];
       const t = types[this.pickupCycle++ % types.length];
       this.pickup(x0 + len / 2, this.mode === 'square' ? 1.3 : midY, t);
       this.nextPickup = x0 + this.rng.range(230, 380);
     } else if (x0 >= this.nextBox && len >= 3.5) {
       this.box(x0 + len / 2, this.mode === 'square' ? 0.9 : midY);
       this.nextBox = x0 + this.rng.range(60, 85);
-    } else if (this.rng.chance(0.35)) {
+    } else if (this.rng.chance(this.opts.gemChance ?? 0.35)) {
       this.gemLine(x0 + 1, x0 + len - 1, midY, 1.2);
     }
     this.x += len;

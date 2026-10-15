@@ -79,13 +79,13 @@ export class MenuScreen extends BaseScreen {
           h(
             'div.mode-grid',
             null,
+            button({ label: 'Modes', icon: 'shapes', cls: 'pink stack', sub: '8 ways to play', onClick: () => nav.go('modes') }),
             button({ label: 'Race', icon: 'flag', cls: 'cyan stack', sub: league.name, onClick: () => nav.go('race') }),
-            button({ label: 'Duel', icon: 'duel', cls: 'pink stack', sub: '2 players', onClick: () => nav.go('duel') }),
             button({
-              label: 'Friends',
+              label: 'Online',
               icon: 'globe',
               cls: 'violet stack',
-              sub: 'Online',
+              sub: 'Quick Match',
               onClick: () => {
                 if (!store.data.settings.onlineAllowed) {
                   ui.toast('Online play is turned off in Parental Controls.', 'lock');

@@ -8,6 +8,9 @@ import { Racer, type RacerSpec } from './racer';
 import type { ShapeMode } from './shapes';
 import { World, type PickupType, type WorldObj } from './world';
 
+/** Gems lost per bump in timed (stun-only) Endless. */
+export const GEM_RUSH_BUMP_COST = 5;
+
 export type SessionKind = 'endless' | 'race' | 'duel' | 'online' | 'attract' | 'custom';
 export type BoxItem = 'boost' | 'shield' | 'snow' | 'magnet';
 
@@ -18,6 +21,14 @@ export interface SessionOptions {
   kid?: boolean;
   /** Endless difficulty mode. */
   diff?: Difficulty;
+  /** Endless: override the number of hearts. */
+  hearts?: number;
+  /** Endless: no heart pickups. */
+  noHearts?: boolean;
+  /** Endless: gem line chance per gap. */
+  gemChance?: number;
+  /** Endless: bumps stun instead of costing hearts (timed modes). */
+  stunOnly?: boolean;
   tutorial?: boolean;
   /** Race length (race/duel/online). */
   length?: number;
@@ -86,6 +97,8 @@ export class GameSession extends Emitter<GameEvents> {
         length: raceLike ? opts.length ?? 900 : undefined,
         kid: opts.kid,
         diff: opts.diff,
+        noHearts: opts.noHearts,
+        gemChance: opts.gemChance,
         tutorial: opts.tutorial,
         difficulty: raceLike ? opts.difficulty ?? 0.35 : undefined,
         startX: START_X,
@@ -95,7 +108,7 @@ export class GameSession extends Emitter<GameEvents> {
     opts.racers.forEach((spec, i) => {
       const r = new Racer(spec, startX, opts.seed + i * 101);
       if (opts.kind === 'endless') {
-        r.maxHearts = r.hearts = opts.kid ? 5 : ENDLESS_TUNING[opts.diff ?? 'medium'].hearts;
+        r.maxHearts = r.hearts = opts.stunOnly ? 0 : opts.hearts ?? (opts.kid ? 5 : ENDLESS_TUNING[opts.diff ?? 'medium'].hearts);
       } else if (opts.kind === 'custom' && opts.level) {
         r.maxHearts = r.hearts = opts.level.hearts;
       }
@@ -261,7 +274,7 @@ export class GameSession extends Emitter<GameEvents> {
   private takeDamage(r: Racer, fell: boolean): void {
     r.hits++;
     r.cleanFrom = r.x;
-    if (this.opts.kind === 'endless' || this.opts.kind === 'custom') {
+    if ((this.opts.kind === 'endless' && !this.opts.stunOnly) || this.opts.kind === 'custom') {
       r.hearts -= 1;
       if (r.hearts <= 0) {
         r.hearts = 0;
@@ -276,6 +289,8 @@ export class GameSession extends Emitter<GameEvents> {
     } else {
       r.stun = fell ? 0.9 : 0.7;
       r.invuln = 1.6;
+      // Gem Rush: a bump drops a few gems.
+      if (this.opts.stunOnly) r.gems = Math.max(0, r.gems - GEM_RUSH_BUMP_COST);
     }
     this.emit('hit', { racer: r, fell });
   }

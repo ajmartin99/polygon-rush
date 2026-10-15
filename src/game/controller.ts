@@ -18,7 +18,7 @@ import { EndlessResultsScreen, GameHud, LevelResultsScreen, RaceResultsScreen, o
 import { levelName, type LevelContent } from './level';
 import type { Scene } from './scene';
 import { DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED } from './constants';
-import { endlessBestKey } from '../state/save';
+import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, VARIANT_INFO, dailyRewardKey, dailySeed, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
 import { InputManager } from './input';
 import type { Racer, RacerSpec } from './racer';
 import { GameSession, type BoxItem, type SessionKind } from './session';
@@ -50,6 +50,7 @@ export class GameController {
   private phase: Phase = 'idle';
   private hud: GameHud | null = null;
   private req: PlayRequest | null = null;
+  private variant: EndlessVariant = 'classic';
   private acc = 0;
   private last = 0;
   private time = 0;
@@ -192,12 +193,19 @@ export class GameController {
       }
       case 'endless': {
         this.kind = 'endless';
+        const v = (this.variant = req.variant ?? 'classic');
+        // The Daily Run is the same course and rules for everyone.
+        const daily = v === 'daily';
         this.session = new GameSession({
           kind: 'endless',
-          seed: (Math.random() * 2 ** 31) >>> 0,
-          kid: d.settings.kidMode,
-          diff: d.settings.difficulty,
-          tutorial: d.stats.runs < 2,
+          seed: daily ? dailySeed() : (Math.random() * 2 ** 31) >>> 0,
+          kid: daily ? false : d.settings.kidMode,
+          diff: daily ? 'medium' : d.settings.difficulty,
+          tutorial: v === 'classic' && d.stats.runs < 2,
+          hearts: v === 'oneheart' ? 1 : undefined,
+          noHearts: v === 'oneheart',
+          stunOnly: v === 'gemrush',
+          gemChance: v === 'gemrush' ? 0.9 : undefined,
           racers: [me],
         });
         break;
@@ -479,6 +487,11 @@ export class GameController {
       this.frameSkip = !this.frameSkip;
       if (this.frameSkip) return;
     }
+    if (this.kind === 'endless' && this.variant === 'gemrush' && this.phase === 'running' && s.time >= GEM_RUSH_SECONDS) {
+      s.running = false;
+      audio.play('win');
+      this.endEndless(s.racers[0]);
+    }
     this.updateMusic();
     this.progressEvents();
     this.draw(this.kind === 'attract' ? raw * 2 : raw);
@@ -512,7 +525,7 @@ export class GameController {
     for (const r of s.racers) if (!r.dead) this.renderer.fx.racerTick(r, fxDt, r.kind === 'human');
     const markers: { x: number; label: string; color: string }[] = [];
     if (this.kind === 'endless') {
-      const best = store.data.best[this.bestKey()] ?? 0;
+      const best = this.variant === 'gemrush' ? 0 : store.data.best[this.bestKey()] ?? 0;
       if (best > 30) markers.push({ x: START_X + best, label: 'BEST', color: '#ffd23f' });
     } else if (this.kind === 'custom' && this.req?.mode === 'custom') {
       const best = this.req.level.best;
@@ -528,7 +541,7 @@ export class GameController {
     const ctx = this.renderer.ctx;
     for (const v of views) {
       if (this.kind === 'endless') {
-        drawEndlessHud(ctx, v.rect, v.racer, store.data.best[this.bestKey()] ?? 0, this.renderer.dpr);
+        drawEndlessHud(ctx, v.rect, v.racer, store.data.best[this.bestKey()] ?? 0, this.renderer.dpr, this.variant === 'gemrush' ? { timer: Math.max(0, GEM_RUSH_SECONDS - s.time) } : this.variant === 'classic' ? undefined : { label: VARIANT_INFO[this.variant].name });
       } else if (this.kind === 'custom' && this.req?.mode === 'custom') {
         drawLevelHud(ctx, v.rect, s, v.racer, this.renderer.dpr, levelName(this.req.level), this.req.level.best);
       } else {
@@ -635,7 +648,7 @@ export class GameController {
 
   // ================================================================== endless death / results
   private bestKey(): string {
-    return endlessBestKey(store.settings);
+    return variantBestKey(this.variant, store.settings);
   }
 
   private async onDeath(r: Racer): Promise<void> {
@@ -649,7 +662,7 @@ export class GameController {
       this.endLevel(r, false);
       return;
     }
-    if (!this.revived && r.distance > 60) {
+    if (this.variant === 'classic' && !this.revived && r.distance > 60) {
       audio.duck(true);
       const choice = await openRevive(6);
       audio.duck(false);
@@ -670,16 +683,27 @@ export class GameController {
 
   private endEndless(r: Racer): void {
     const d = store.data;
+    if (this.phase === 'results') return;
     this.phase = 'results';
     this.input.enabled = false;
+    const v = this.variant;
     const distance = Math.floor(r.distance);
+    // Gem Rush scores gems; every other variant scores metres.
+    const score = v === 'gemrush' ? r.gems : distance;
     const key = this.bestKey();
+    if (v === 'daily') pruneDaily(d.best);
     const prevBest = d.best[key] ?? 0;
-    const newBest = distance > prevBest;
-    if (newBest) d.best[key] = distance;
+    const newBest = score > prevBest;
+    if (newBest) d.best[key] = score;
     d.stats.runs += 1;
     d.stats.totalDistance += distance;
-    d.stats.bestDistance = Math.max(d.stats.bestDistance, distance);
+    if (v === 'classic' || v === 'oneheart') d.stats.bestDistance = Math.max(d.stats.bestDistance, distance);
+    const bonus: string[] = [];
+    if (v === 'daily' && distance >= DAILY_TARGET && !d.best[dailyRewardKey()]) {
+      d.best[dailyRewardKey()] = 1;
+      store.addGems(DAILY_REWARD);
+      bonus.push(`Daily Run: reached ${DAILY_TARGET} m! +${DAILY_REWARD} gems`);
+    }
     const xp = endlessXp(distance);
     const missions = this.reportRun(r, [
       ['run_distance', distance],
@@ -687,20 +711,36 @@ export class GameController {
       ['gems_run', r.gems],
       ['clean_distance', Math.floor(r.bestClean)],
     ]);
+    missions.unshift(...bonus);
     const ups = this.grantXp(xp);
-    store.addGems(r.gems);
+    // Gem Rush is all gems, so it pays out half of them (keeps the shop fair).
+    const payout = v === 'gemrush' ? Math.ceil(r.gems / 2) : r.gems;
+    store.addGems(payout);
     store.commit();
     void store.flush();
     audio.play(newBest ? 'newBest' : 'lose');
     void ads.afterRun().then(() => {
       const screen = new EndlessResultsScreen(
-        { distance, best: Math.max(prevBest, distance), newBest, gems: r.gems, jumps: r.jumps, portals: r.portals, xp, levelUps: ups, missionsDone: missions, kidMode: d.settings.kidMode },
         {
-          onAgain: () => this.play({ mode: 'endless' }),
+          distance: score,
+          best: Math.max(prevBest, score),
+          newBest,
+          gems: payout,
+          jumps: r.jumps,
+          portals: r.portals,
+          xp,
+          levelUps: ups,
+          missionsDone: missions,
+          kidMode: v === 'classic' && d.settings.kidMode,
+          label: v === 'classic' ? undefined : VARIANT_INFO[v].name,
+          unit: v === 'gemrush' ? 'gems' : 'm',
+        },
+        {
+          onAgain: () => this.play({ mode: 'endless', variant: v }),
           onHome: () => this.quitToMenu(),
           onDouble: async () => {
             const ok = await ads.showRewarded('double_run');
-            if (ok) store.addGems(r.gems);
+            if (ok) store.addGems(payout);
             return ok;
           },
         },

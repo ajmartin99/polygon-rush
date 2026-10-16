@@ -9,7 +9,11 @@ All notable changes to Polygon Rush are documented here.
 - **Podium and emotes:** top 3 on a podium after races, 16 emotes (4 free, 8 in the new Emotes shop tab, 4 Halloween), Quick Chat on the results screen.
 - **New music:** Arcade Sunrise (new main menu theme), Bass Drop Boulevard (dubstep), Neon Nights (EDM), Pixel Drop (chipstep), Skyline Keys (piano house) and Coin Combo (8-bit). EDM and dubstep songs build up and drop.
 
+- **Mid-air flips:** the Roller can flip gravity any time, even in the air (short cooldown so it can't hover).
+- **Swipe down to drop:** Jumper and Hopper slam to the ground, the Glider dives (Down arrow or S on keyboards).
+
 ### Changed
+- Bat Swarm trail: bats flap off in their own directions with a flutter.
 - Every new Endless level switches to a different song (shuffled, no repeats until all have played) instead of cycling the six world themes. Menu songs never play during runs.
 - Results: the HOST tag no longer cuts off names, and online races no longer show "+0" trophies.
 

@@ -10,10 +10,14 @@ export class InputManager {
   private readonly el: HTMLElement;
   /** Fired on every new press (used to unlock audio, dismiss hints...). */
   onPress: (player: 0 | 1) => void = () => {};
+  /** Fired on a quick downward swipe (or the Down key): drop faster. */
+  onSwipeDown: (player: 0 | 1) => void = () => {};
+  private starts = new Map<number, { y: number; t: number }>();
 
   constructor(el: HTMLElement) {
     this.el = el;
     el.addEventListener('pointerdown', this.down, { passive: false });
+    window.addEventListener('pointermove', this.move);
     window.addEventListener('pointerup', this.up);
     window.addEventListener('pointercancel', this.up);
     window.addEventListener('keydown', this.keydown);
@@ -24,6 +28,7 @@ export class InputManager {
 
   reset(): void {
     this.pointers.clear();
+    this.starts.clear();
     this.keys.clear();
   }
 
@@ -50,15 +55,40 @@ export class InputManager {
     e.preventDefault();
     const p = this.playerFor(e.clientY);
     this.pointers.set(e.pointerId, p);
+    this.starts.set(e.pointerId, { y: e.clientY, t: performance.now() });
     this.onPress(p);
+  };
+
+  /** A quick downward swipe: about 1/9 of the screen within a quarter second. */
+  private move = (e: PointerEvent): void => {
+    const s = this.starts.get(e.pointerId);
+    const p = this.pointers.get(e.pointerId);
+    if (!s || p === undefined || !this.enabled) return;
+    const dy = e.clientY - s.y;
+    if (performance.now() - s.t > 260) {
+      this.starts.delete(e.pointerId);
+      return;
+    }
+    if (dy > Math.max(28, window.innerHeight / 9)) {
+      this.starts.delete(e.pointerId);
+      // The swipe isn't a hold: release it so it doesn't keep jumping.
+      this.pointers.delete(e.pointerId);
+      this.onSwipeDown(p);
+    }
   };
 
   private up = (e: PointerEvent): void => {
     this.pointers.delete(e.pointerId);
+    this.starts.delete(e.pointerId);
   };
 
   private keydown = (e: KeyboardEvent): void => {
     if (!this.enabled || e.repeat) return;
+    if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+      e.preventDefault();
+      this.onSwipeDown(this.split && e.code === 'ArrowDown' ? 1 : 0);
+      return;
+    }
     const relevant = ['Space', 'KeyW', 'ArrowUp', 'Enter', 'NumpadEnter'];
     if (!relevant.includes(e.code)) return;
     e.preventDefault();

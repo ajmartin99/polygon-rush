@@ -19,6 +19,10 @@ export interface Body {
   held: boolean;
   usedOrb: number;
   usedPad: number;
+  /** Swipe-down "slam": drop fast toward the current gravity side until landing. */
+  slam: boolean;
+  /** Body time of the last Roller flip (mid-air flips have a short cooldown). */
+  lastFlip: number;
   /** Visual rotation (radians, world space, counter-clockwise). */
   rot: number;
 }
@@ -69,6 +73,8 @@ export function createBody(x: number, mode: ShapeMode = 'square'): Body {
     held: false,
     usedOrb: -1,
     usedPad: -1,
+    slam: false,
+    lastFlip: -10,
     rot: 0,
   };
 }
@@ -84,6 +90,10 @@ const topUp = (s: Solid, gdir: number) => (gdir < 0 ? s.y1 : -s.y0);
 const bottomUp = (s: Solid, gdir: number) => (gdir < 0 ? s.y0 : -s.y1);
 
 const H = PLAYER_HALF;
+/** Seconds between mid-air Roller flips. */
+export const FLIP_COOLDOWN = 0.22;
+/** How much faster than a normal fall a slam drops. */
+export const SLAM_BOOST = 1.35;
 const scratchNear: WorldObj[] = [];
 
 function overlapsSolid(b: Body, s: Solid): boolean {
@@ -126,6 +136,7 @@ export function stepBody(b: Body, held: boolean, world: World, o: StepOpts, ev: 
             b.pressUsed = b.t;
             ev.orb = true;
             ev.jumped = true;
+            b.slam = false;
             break;
           }
         }
@@ -134,10 +145,15 @@ export function stepBody(b: Body, held: boolean, world: World, o: StepOpts, ev: 
       break;
     }
     case 'hexagon': {
-      const canFlip = b.grounded || b.t - b.lastGround <= COYOTE;
+      // Flip any time, even mid-air (a short cooldown stops hovering by mashing).
+      const onSurface = b.grounded || b.t - b.lastGround <= COYOTE;
+      const canFlip = onSurface || b.t - b.lastFlip >= FLIP_COOLDOWN;
       if (canFlip && buffered) {
         b.gdir = b.gdir < 0 ? 1 : -1;
-        b.vy = b.gdir * 3;
+        // Head for the other side straight away, keeping some momentum.
+        b.vy = b.gdir * Math.max(3, Math.abs(b.vy) * 0.5);
+        b.lastFlip = b.t;
+        b.slam = false;
         b.grounded = false;
         b.lastGround = -1e9;
         b.pressUsed = b.t;
@@ -154,18 +170,28 @@ export function stepBody(b: Body, held: boolean, world: World, o: StepOpts, ev: 
         b.pressUsed = b.t;
         ev.hopped = true;
         ev.jumped = true;
+        b.slam = false;
       }
       b.vy += b.gdir * P.gravity * dt;
       break;
     }
     case 'triangle': {
+      // Holding again ends a dive.
+      if (pressEdge) b.slam = false;
       b.vy += (held ? up : -up) * P.thrust * dt;
       break;
     }
   }
+  // Slam (swipe down): dive toward the ground side, faster than a normal fall.
+  if (b.slam) {
+    if (b.grounded) b.slam = false;
+    else if (b.mode === 'triangle') b.vy = -up * P.maxFall * SLAM_BOOST;
+    else b.vy = b.gdir * P.maxFall * SLAM_BOOST;
+  }
   const fall = b.vy * b.gdir;
-  if (fall > P.maxFall) b.vy = P.maxFall * b.gdir;
-  else if (-fall > P.maxRise) b.vy = -P.maxRise * b.gdir;
+  const maxFall = b.slam ? P.maxFall * SLAM_BOOST : P.maxFall;
+  if (fall > maxFall) b.vy = maxFall * b.gdir;
+  else if (-fall > P.maxRise && !(b.slam && b.mode === 'triangle')) b.vy = -P.maxRise * b.gdir;
 
   // ------------------------------------------------------------ move X
   const prevX = b.x;

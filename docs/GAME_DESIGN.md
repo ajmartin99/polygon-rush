@@ -17,6 +17,7 @@ Rush → collect gems → bump/fall (lose a heart) → revive or finish → rewa
 Shape **portals** switch modes mid-run. The first time a player meets a shape, the game shows a hint and briefly slows time.
 
 ## Physics (deterministic, 120 Hz)
+* **Mid-air controls:** the Roller can flip gravity at any time, including mid-air (0.22 s cooldown between air flips). A quick downward swipe (or Down/S) makes the Jumper and Hopper slam down at 1.35× fall speed and the Glider dive, until they land or press again; the swipe's touch never counts as a jump.
 * Track units are tiles. The floor is at y = 0 and the ceiling at y = 8 in non-Jumper sections.
 * Jumper: ~2.3-tile jump, 0.5 s airtime. Coyote time (0.08 s) and an input buffer (0.12 s) make it forgiving.
 * Hazard hitboxes are smaller than they look; block edges have a step-up tolerance and corner grazes become bonks, not crashes.

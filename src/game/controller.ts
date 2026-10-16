@@ -84,6 +84,13 @@ export class GameController {
     this.renderer = new Renderer(canvas);
     this.input = new InputManager(canvas);
     this.input.onPress = () => audio.unlock();
+    this.input.onSwipeDown = (player) => {
+      const s = this.session;
+      if (!s || this.phase !== 'running') return;
+      const humans = s.racers.filter((r) => r.kind === 'human');
+      const r = this.kind === 'duel' ? humans[player] : humans[0];
+      if (r) r.slamReq = true;
+    };
     window.addEventListener('resize', () => this.renderer.resize());
     // The canvas also changes size when the menu banner ad appears or goes.
     if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => this.renderer.resize()).observe(canvas);

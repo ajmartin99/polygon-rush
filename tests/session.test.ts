@@ -154,3 +154,60 @@ describe('race session', () => {
     expect(s.racer('r')!.x).toBeCloseTo(10.5, 3);
   });
 });
+
+import { createBody as mkBody, newEvents as mkEv, stepBody as step, FLIP_COOLDOWN } from '../src/game/physics';
+import { World as W, type WorldObj } from '../src/game/world';
+import { DT as STEP } from '../src/game/constants';
+
+describe('mid-air controls', () => {
+  const flat = () => {
+    const w = new W();
+    // Pieces are at most 8 tiles wide (MAX_OBJ_W).
+    const objs: WorldObj[] = [];
+    let id = 1;
+    for (let x = -8; x < 16; x += 8) {
+      objs.push({ id: id++, kind: 'solid', role: 'ground', x0: x, x1: x + 8, y0: -4, y1: 0 });
+      objs.push({ id: id++, kind: 'solid', role: 'ceil', x0: x, x1: x + 8, y0: 8, y1: 12 });
+    }
+    w.appendSorted(objs.sort((a, b) => a.x0 - b.x0));
+    w.generatedTo = 16;
+    return w;
+  };
+  const run = (b: ReturnType<typeof mkBody>, w: W, steps: number, held = false) => {
+    const ev = mkEv();
+    for (let i = 0; i < steps; i++) step(b, held, w, { speed: 0, ghost: false }, ev);
+  };
+
+  it('the Roller can flip again in mid-air', () => {
+    const w = flat();
+    const b = mkBody(2, 'hexagon');
+    run(b, w, 1, true); // flip up from the floor
+    expect(b.gdir).toBe(1);
+    run(b, w, Math.ceil(FLIP_COOLDOWN / STEP) + 2, false);
+    expect(b.grounded).toBe(false);
+    run(b, w, 1, true); // second tap while still in the air
+    expect(b.gdir).toBe(-1);
+    expect(b.vy).toBeLessThan(0);
+  });
+
+  it('a slam drops faster than a normal fall', () => {
+    const w = flat();
+    const normal = mkBody(2, 'square');
+    const slam = mkBody(2, 'square');
+    run(normal, w, 1, true);
+    run(slam, w, 1, true);
+    run(normal, w, 10);
+    run(slam, w, 10);
+    slam.slam = true;
+    let tn = 0;
+    let ts = 0;
+    for (let i = 0; i < 200 && !(normal.grounded && slam.grounded); i++) {
+      if (!normal.grounded) tn++;
+      if (!slam.grounded) ts++;
+      run(normal, w, 1);
+      run(slam, w, 1);
+    }
+    expect(ts).toBeLessThan(tn);
+    expect(slam.slam).toBe(false);
+  });
+});

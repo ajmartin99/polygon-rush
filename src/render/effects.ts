@@ -22,6 +22,10 @@ interface Particle {
   vr: number;
   /** Draw behind racers (trails) or in front (bursts). */
   back: boolean;
+  /** Fluttery side-to-side drift (tiles/s), its speed and phase. */
+  wob: number;
+  wf: number;
+  ph: number;
 }
 
 interface FloatText {
@@ -77,6 +81,9 @@ export class Effects {
     o.rot = p.rot ?? Math.random() * Math.PI * 2;
     o.vr = p.vr ?? 0;
     o.back = p.back ?? false;
+    o.wob = p.wob ?? 0;
+    o.wf = p.wf ?? 0;
+    o.ph = p.ph ?? 0;
     this.live.push(o);
   }
 
@@ -108,6 +115,11 @@ export class Effects {
       }
       p.x += p.vx * dt;
       p.y += p.vy * dt;
+      if (p.wob) {
+        const a = (p.max - p.life) * p.wf + p.ph;
+        p.x += Math.cos(a * 0.7) * p.wob * 0.5 * dt;
+        p.y += Math.sin(a) * p.wob * dt;
+      }
       p.rot += p.vr * dt;
     }
     for (let i = this.floats.length - 1; i >= 0; i--) {
@@ -184,7 +196,7 @@ export class Effects {
     const trail = trailById(r.trail);
     const behind = b.x - 0.35;
     if (trail.style !== 'none' && (isLocal || this.quality > 0.7)) {
-      const rate = trail.style === 'rainbow' || trail.style === 'comet' ? 60 : trail.style === 'lines' ? 14 : 22;
+      const rate = trail.style === 'rainbow' || trail.style === 'comet' ? 60 : trail.style === 'lines' ? 14 : trail.style === 'bats' ? 12 : 22;
       let acc = (this.trailAcc.get(r.id) ?? 0) + dt * rate * this.quality;
       while (acc >= 1) {
         acc -= 1;
@@ -210,9 +222,30 @@ export class Effects {
           case 'notes':
             this.spawn({ x: behind, y: b.y + jitter, vy: 1.4, size: 0.16, grow: 1, max: 0.9, color: c, style: 'notes', back: true });
             break;
-          case 'bats':
-            this.spawn({ x: behind, y: b.y + jitter, vx: -1.5, vy: 1.6 + Math.random(), size: 0.17, grow: 1, max: 1.0, color: c, style: 'bats', vr: 6, back: true });
+          case 'bats': {
+            // Each bat flaps off its own way: up, down, back or ahead, with a flutter.
+            const ang = Math.random() * Math.PI * 2;
+            const sp = 1.2 + Math.random() * 2.6;
+            this.spawn({
+              x: behind,
+              y: b.y + jitter,
+              vx: Math.cos(ang) * sp - 1,
+              vy: Math.sin(ang) * sp + 0.6,
+              drag: 0.4,
+              size: 0.12 + Math.random() * 0.08,
+              grow: 1,
+              max: 0.9 + Math.random() * 0.6,
+              color: c,
+              style: 'bats',
+              rot: Math.random() * 6,
+              vr: 5 + Math.random() * 5,
+              wob: 1.5 + Math.random() * 2,
+              wf: 7 + Math.random() * 5,
+              ph: Math.random() * Math.PI * 2,
+              back: true,
+            });
             break;
+          }
           case 'mist':
             this.spawn({ x: behind, y: b.y + jitter * 0.6, vy: 0.6, size: 0.2, grow: 1.6, max: 0.9, color: c, style: 'mist', back: true });
             break;

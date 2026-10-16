@@ -745,9 +745,11 @@ export function drawCharacter(
 /** A static trail sample for shop previews. */
 export function drawTrailPreview(ctx: CanvasRenderingContext2D, style: string, colors: string[], x: number, y: number, size: number, t: number): void {
   if (style === 'none' || !colors.length) return;
+  const bats = style === 'bats';
   for (let i = 1; i <= 7; i++) {
-    const px = x - i * size * 0.32;
-    const py = y + Math.sin(t * 6 + i * 0.9) * size * 0.08;
+    // Bats scatter and flutter; everything else follows a gentle wave.
+    const px = x - i * size * 0.32 + (bats ? Math.cos(t * 2.3 + i * 2.1) * size * 0.08 : 0);
+    const py = y + (bats ? Math.sin(t * 3 + i * 1.7) * size * (0.1 + i * 0.05) : Math.sin(t * 6 + i * 0.9) * size * 0.08);
     const a = 1 - i / 8;
     const c = colors[i % colors.length];
     ctx.save();

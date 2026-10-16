@@ -193,6 +193,14 @@ export class GameSession extends Emitter<GameEvents> {
       held = r.bot.update(r.body, this.world, (x) => this.baseSpeed(x) * mult);
     }
     const prevX = r.x;
+    if (r.slamReq) {
+      r.slamReq = false;
+      // The swipe's touch shouldn't also count as a jump/hop.
+      if (!r.body.grounded && r.body.mode !== 'hexagon') {
+        r.body.slam = true;
+        r.body.pressUsed = r.body.t;
+      }
+    }
     const ev = stepBody(r.body, held, this.world, { speed, ghost: r.ghost }, this.ev);
 
     if (ev.jumped) {

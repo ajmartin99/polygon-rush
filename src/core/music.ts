@@ -1,6 +1,6 @@
 import { store } from '../state/store';
 import { audio } from './audio';
-import { MENU_SONG, RACE_SONG, SONGS, songsFor, WORLD_SONGS } from './songs';
+import { menuTheme, RACE_SONG, SONGS, songsFor, WORLD_SONGS } from './songs';
 import { Emitter } from './emitter';
 
 /**
@@ -36,7 +36,7 @@ class MusicDirector extends Emitter<{ song: number }> {
 
   /** Main menu: always opens with the theme (if it is in rotation). */
   menu(): void {
-    this.start('menu', MENU_SONG);
+    this.start('menu', menuTheme());
   }
 
   /** Endless run starting in a world. */

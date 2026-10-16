@@ -33,8 +33,8 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
     body: 'Sharing a level creates a code containing only the level itself and the generated names of the players who built it.',
   },
   {
-    title: 'Public build rooms (13+)',
-    body: 'A host aged 13+ can list a build room publicly. The list shows the room code, the level’s name and colours, the host’s generated name and the number of builders. If someone reports a public room, a snapshot of the level is sent to our safety team.',
+    title: 'Public rooms and Quick Match (13+)',
+    body: 'A host aged 13+ can list a race or build room publicly, and Quick Match joins one at random. The list shows the room code, a generated room name and colours, the host’s generated name and the number of players. Race rooms leave the list when the race starts. If someone reports a public build room, a snapshot of the level is sent to our safety team.',
   },
   {
     title: 'Free Chat (13+, optional)',

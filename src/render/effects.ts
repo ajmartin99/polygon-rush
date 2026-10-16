@@ -210,6 +210,12 @@ export class Effects {
           case 'notes':
             this.spawn({ x: behind, y: b.y + jitter, vy: 1.4, size: 0.16, grow: 1, max: 0.9, color: c, style: 'notes', back: true });
             break;
+          case 'bats':
+            this.spawn({ x: behind, y: b.y + jitter, vx: -1.5, vy: 1.6 + Math.random(), size: 0.17, grow: 1, max: 1.0, color: c, style: 'bats', vr: 6, back: true });
+            break;
+          case 'mist':
+            this.spawn({ x: behind, y: b.y + jitter * 0.6, vy: 0.6, size: 0.2, grow: 1.6, max: 0.9, color: c, style: 'mist', back: true });
+            break;
           default:
             this.spawn({ x: behind, y: b.y + jitter, vy: (Math.random() - 0.5) * 0.6, size: trail.style === 'lines' ? 0.08 : 0.13, grow: 0.2, max: 0.6, color: c, style: trail.style, vr: 3, back: true });
         }

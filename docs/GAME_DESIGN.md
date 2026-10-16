@@ -41,7 +41,9 @@ Shape **portals** switch modes mid-run. The first time a player meets a shape, t
 * **Endless:** 3 hearts (5 in Kid Mode). Hearts, shields and magnets appear as pickups. One revive per run (rewarded video or 100 gems).
 * **Race:** 900 m vs 3 CPU rivals on a seeded track. Bumps stun instead of killing. Mystery boxes give Boost, Shield, Snowball or Magnet, weighted towards whoever is behind. Gentle rubber-banding keeps races close. Trophies (which never decrease) unlock leagues and stronger rivals.
 * **Duel:** 2 players, one device, split screen (top half / bottom half taps). 650 m.
-* **Friends (online):** up to 4 players via a 4-character room code. Peer-to-peer (PeerJS/WebRTC) with the host relaying state at 15 Hz; remote racers are interpolated 100 ms in the past. Quick Chat in the lobby; no public matchmaking.
+* **Levels:** Endless is cut into levels of 500 m (one world each, cycling). Reaching a level's start on a difficulty unlocks it there (up to 40). A run can start from any unlocked level, at that point's speed and pattern difficulty, with distance counted from 0 m, so records and missions still add up. The run gets a fresh runway, no tutorial, and that world's song. Bot tests cover starts at levels 4, 6 and 9.
+* **Endless variants** (Home → Modes): **Daily Run** (one seeded course per day for everyone, Medium, no revive, 100 gems once for reaching 500 m), **One Heart** (one heart, no heart pickups, no revive), **Gem Rush** (60 s, extra gems, bumps stun and drop 5 gems, scores gems and pays out half). Each keeps its own record.
+* **Online:** **Quick Match** joins a random open public race (fullest first) or hosts one; public rooms start on their own 20 s after a second racer joins. Rooms can be private (code only) or public (13+, parent toggle). Up to 4 players via a 4-character room code. Peer-to-peer (PeerJS/WebRTC) with the host relaying state at 15 Hz; remote racers are interpolated 100 ms in the past. Quick Chat in the lobby; public rooms can be reported.
 
 ## Create mode (level maker)
 * **Grid levels** (`src/game/level.ts`): rows 0–7 between floor and roof, 30–1200 tiles long. Pieces: block, ledge, spike (up/down), saw (small/big), gem (normal/big), pad (up/down), orb, power-up (heart/shield/magnet), shape portals and pits. Tapping a placed piece again flips or changes it.
@@ -71,6 +73,11 @@ Shape **portals** switch modes mid-run. The first time a player meets a shape, t
 * Tap your level chip to open **Profile**: a card with your racer, title, level and league, best run, trophies, race wins and badge count.
 * 16 **badges** are earned from play (distance, Hard mode, gems, wins, leagues, online races, building, jumps, skins, play time). Each badge unlocks a **title**; pin up to 3 badges to the card. Banner colours unlock with your level.
 * Other players see the card when they tap you in a room. It is built only from ids and numbers: nothing typed and nothing personal. The receiving game drops unknown ids and clamps every number (`safeCard`).
+
+## Seasonal events
+* `src/meta/events.ts` defines date windows. **Spooky Season** runs Oct 1 – Nov 7 (local time; `?event=halloween` / `?event=none` force it for testing).
+* While on: Halloween skins (Wicked Witch free gift, Boo, Mummy, Jack-o'-Lantern, Count Polygon, Rattle Bones) and trails (Candy Corn, Bat Swarm, Ghostly Mist) lead the shop; the menu and Daily Run use the Haunted Hollow palette; **Haunted Hop** becomes the menu theme and joins the mix; a menu chip offers the gift. Items bought or claimed stay owned; unowned event items hide from the shop afterwards.
+* Profiles gain the **Trick or Treat** badge (3 Halloween items, title *Pumpkin King*) and a Halloween banner.
 
 ## Economy
 * Gems: collected in runs, from race placings, missions, the daily gift, level-ups and optional videos.

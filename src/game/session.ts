@@ -8,6 +8,9 @@ import { Racer, type RacerSpec } from './racer';
 import type { ShapeMode } from './shapes';
 import { World, type PickupType, type WorldObj } from './world';
 
+/** Gems lost per bump in timed (stun-only) Endless. */
+export const GEM_RUSH_BUMP_COST = 5;
+
 export type SessionKind = 'endless' | 'race' | 'duel' | 'online' | 'attract' | 'custom';
 export type BoxItem = 'boost' | 'shield' | 'snow' | 'magnet';
 
@@ -18,6 +21,16 @@ export interface SessionOptions {
   kid?: boolean;
   /** Endless difficulty mode. */
   diff?: Difficulty;
+  /** Endless: override the number of hearts. */
+  hearts?: number;
+  /** Endless: no heart pickups. */
+  noHearts?: boolean;
+  /** Endless: gem line chance per gap. */
+  gemChance?: number;
+  /** Endless: bumps stun instead of costing hearts (timed modes). */
+  stunOnly?: boolean;
+  /** Endless: start this many metres in (a later level); distance counts from 0. */
+  startDistance?: number;
   tutorial?: boolean;
   /** Race length (race/duel/online). */
   length?: number;
@@ -74,6 +87,7 @@ export class GameSession extends Emitter<GameEvents> {
     this.rng = new Rng(opts.seed ^ 0x9e3779b9);
     const raceLike = opts.kind === 'race' || opts.kind === 'duel' || opts.kind === 'online';
     let startX = START_X;
+    const offset = opts.kind === 'endless' ? Math.max(0, Math.floor(opts.startDistance ?? 0)) : 0;
     if (opts.level) {
       buildWorld(opts.level, this.world);
       this.gen = null;
@@ -86,19 +100,25 @@ export class GameSession extends Emitter<GameEvents> {
         length: raceLike ? opts.length ?? 900 : undefined,
         kid: opts.kid,
         diff: opts.diff,
+        noHearts: opts.noHearts,
+        gemChance: opts.gemChance,
         tutorial: opts.tutorial,
         difficulty: raceLike ? opts.difficulty ?? 0.35 : undefined,
-        startX: START_X,
+        startX: START_X + offset,
+        offset,
       });
+      startX = START_X + offset;
       this.fixedSpeed = raceLike ? RACE_SPEED : null;
     }
     opts.racers.forEach((spec, i) => {
       const r = new Racer(spec, startX, opts.seed + i * 101);
       if (opts.kind === 'endless') {
-        r.maxHearts = r.hearts = opts.kid ? 5 : ENDLESS_TUNING[opts.diff ?? 'medium'].hearts;
+        r.maxHearts = r.hearts = opts.stunOnly ? 0 : opts.hearts ?? (opts.kid ? 5 : ENDLESS_TUNING[opts.diff ?? 'medium'].hearts);
       } else if (opts.kind === 'custom' && opts.level) {
         r.maxHearts = r.hearts = opts.level.hearts;
       }
+      // Distance always counts from the very start, so a later level begins at its own metres.
+      if (offset) r.startX = START_X;
       if (opts.level) {
         r.body.mode = modeAt(opts.level, startX);
         // Measure progress from the level start even when testing from the middle.
@@ -107,7 +127,7 @@ export class GameSession extends Emitter<GameEvents> {
       }
       this.racers.push(r);
     });
-    this.gen?.ensure(START_X + 80);
+    this.gen?.ensure(startX + 80);
   }
 
 
@@ -261,7 +281,7 @@ export class GameSession extends Emitter<GameEvents> {
   private takeDamage(r: Racer, fell: boolean): void {
     r.hits++;
     r.cleanFrom = r.x;
-    if (this.opts.kind === 'endless' || this.opts.kind === 'custom') {
+    if ((this.opts.kind === 'endless' && !this.opts.stunOnly) || this.opts.kind === 'custom') {
       r.hearts -= 1;
       if (r.hearts <= 0) {
         r.hearts = 0;
@@ -276,6 +296,8 @@ export class GameSession extends Emitter<GameEvents> {
     } else {
       r.stun = fell ? 0.9 : 0.7;
       r.invuln = 1.6;
+      // Gem Rush: a bump drops a few gems.
+      if (this.opts.stunOnly) r.gems = Math.max(0, r.gems - GEM_RUSH_BUMP_COST);
     }
     this.emit('hit', { racer: r, fell });
   }

@@ -19,7 +19,9 @@ FEATURES
 • Endless Rush: infinite levels that are never the same twice, getting faster as you go
 • Race mode: dash against 3 CPU rivals, grab ? boxes for boosts, shields and snowballs, and climb from Bronze to Polygon Legend
 • 2-Player Duel: split-screen racing on one device. Perfect for siblings and friends
-• Play with Friends: private online races with a 4-letter room code
+• Play Online: Quick Match with random racers (13+), or private rooms with a 4-letter code
+• Game Modes: Daily Run, One Heart, Gem Rush and more
+• Spooky Season: Halloween skins, bat and candy-corn trails and a haunted Daily Run (Oct 1 – Nov 7)
 • CREATE: build your own levels with spikes, saws, pads, portals and gems, test them, then share a level code
 • Build Together: up to 4 friends edit the same level live, then race it
 • Quick Chat: friendly preset phrases and emotes for every age

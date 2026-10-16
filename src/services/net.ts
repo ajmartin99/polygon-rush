@@ -43,8 +43,8 @@ export type NetState = [string, number, number, number, number, number, number];
 
 export type NetMsg =
   | { t: 'hello'; v: number; name: string; skin: string; card?: ProfileCard }
-  | { t: 'welcome'; you: string; players: NetPlayer[]; kind: RoomKind; chat: string; lock: boolean; level?: string; rev?: number; authors?: string[] }
-  | { t: 'lobby'; players: NetPlayer[]; racing: boolean }
+  | { t: 'welcome'; you: string; players: NetPlayer[]; kind: RoomKind; chat: string; lock: boolean; pub?: boolean; level?: string; rev?: number; authors?: string[] }
+  | { t: 'lobby'; players: NetPlayer[]; racing: boolean; pub?: boolean }
   | { t: 'reject'; reason: 'full' | 'version' | 'started' | 'closed' }
   | { t: 'chatkey'; key: string }
   | { t: 'start'; seed: number; players: NetPlayer[]; delay: number; level?: string }
@@ -205,6 +205,8 @@ export class NetRoom extends Emitter<RoomEvents> {
   players: NetPlayer[] = [];
   /** A race is running (race rooms never go back to the lobby). */
   racing = false;
+  /** Listed for strangers (Quick Match / public build rooms). Shown to everyone in the room. */
+  publicRoom = false;
   /** Build rooms: only the host may edit. */
   locked = false;
   /** Shared secret naming this room's free-chat channel on the community server. */
@@ -299,6 +301,7 @@ export class NetRoom extends Emitter<RoomEvents> {
           room.kind = msg.kind === 'build' ? 'build' : 'race';
           room.chatKey = typeof msg.chat === 'string' ? msg.chat.slice(0, 64) : '';
           room.locked = Boolean(msg.lock);
+          room.publicRoom = msg.pub === true;
           if (room.kind === 'build' && typeof msg.level === 'string') room.joinLevel = { code: msg.level, rev: msg.rev ?? 0, authors: safeAuthors(msg.authors) };
           room.wireClient();
           resolve();
@@ -365,7 +368,7 @@ export class NetRoom extends Emitter<RoomEvents> {
         const used = new Set(this.players.map((p) => p.color));
         const color = [0, 1, 2, 3].find((c) => !used.has(c)) ?? 0;
         this.players.push({ id: from, name: safeName(msg.name), skin: safeSkin(msg.skin), host: false, color, card: safeCard(msg.card) });
-        const welcome: NetMsg = { t: 'welcome', you: from, players: this.players, kind: this.kind, chat: this.chatKey, lock: this.locked };
+        const welcome: NetMsg = { t: 'welcome', you: from, players: this.players, kind: this.kind, chat: this.chatKey, lock: this.locked, pub: this.publicRoom };
         if (this.kind === 'build' && this.snapshot) {
           const snap = this.snapshot();
           welcome.level = snap.code;
@@ -445,7 +448,7 @@ export class NetRoom extends Emitter<RoomEvents> {
   }
 
   private broadcastLobby(): void {
-    this.broadcast({ t: 'lobby', players: this.players, racing: this.racing });
+    this.broadcast({ t: 'lobby', players: this.players, racing: this.racing, pub: this.publicRoom });
     this.emit('lobby', this.players);
   }
 
@@ -461,6 +464,13 @@ export class NetRoom extends Emitter<RoomEvents> {
   }
 
   /** Host: start a race for everyone (build rooms pass the level code). */
+  /** Host: mark the room public or private (tells everyone in it). */
+  setPublic(pub: boolean): void {
+    if (!this.isHost || this.publicRoom === pub) return;
+    this.publicRoom = pub;
+    this.broadcastLobby();
+  }
+
   startRace(level?: string): void {
     if (!this.isHost || this.racing) return;
     this.racing = true;
@@ -578,6 +588,7 @@ export class NetRoom extends Emitter<RoomEvents> {
         const wasRacing = this.racing;
         this.players = safePlayers(msg.players);
         this.racing = Boolean(msg.racing);
+        this.publicRoom = msg.pub === true;
         this.emit('lobby', this.players);
         if (wasRacing && !this.racing && this.kind === 'build') this.emit('raceOver', undefined);
         break;

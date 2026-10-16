@@ -288,6 +288,17 @@ describe('public build rooms', () => {
     assert.ok(!list.json.rooms.some((r: any) => r.code === 'BXQZ'));
   });
 
+  test('race rooms list separately and drop off once the race starts', async () => {
+    const reg = await api('POST', '/api/rooms/RTVW', { ...room, kind: 'race' });
+    assert.equal(reg.status, 200);
+    assert.ok(!(await api('GET', '/api/rooms')).json.rooms.some((r: any) => r.code === 'RTVW'));
+    const races = (await api('GET', '/api/rooms?kind=race')).json.rooms;
+    assert.ok(races.some((r: any) => r.code === 'RTVW' && r.kind === 'race'));
+    assert.equal((await api('POST', '/api/rooms/RTVW/beat', { secret: reg.json.secret, players: 2, open: false })).status, 200);
+    assert.ok(!(await api('GET', '/api/rooms?kind=race')).json.rooms.some((r: any) => r.code === 'RTVW'));
+    await api('DELETE', '/api/rooms/RTVW', { secret: reg.json.secret });
+  });
+
   test('typed names and bad codes are refused', async () => {
     assert.equal((await api('POST', '/api/rooms/BXQA', room)).status, 400);
     assert.equal((await api('POST', '/api/rooms/BXQW', { ...room, host: 'my real name' })).status, 400);

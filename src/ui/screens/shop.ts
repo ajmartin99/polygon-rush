@@ -18,6 +18,7 @@ import { h, ic, fmt, clear } from '../dom';
 import { nav } from '../nav';
 import { previewCanvas, updatePreview } from '../preview';
 import { ui } from '../ui';
+import { activeEvent, eventEndLabel } from '../../meta/events';
 
 type Tab = 'skins' | 'trails' | 'gems';
 
@@ -149,7 +150,12 @@ export class ShopScreen extends BaseScreen {
   // ---------------------------------------------------------------- skins / trails
   private renderCosmetics(kind: 'skins' | 'trails'): void {
     const isSkin = kind === 'skins';
-    const items: (SkinDef | TrailDef)[] = isSkin ? SKINS : TRAILS;
+    const ev = activeEvent();
+    const all: (SkinDef | TrailDef)[] = isSkin ? SKINS : TRAILS;
+    const isEvent = (i: SkinDef | TrailDef) => i.unlock.kind === 'event';
+    const ownsItem = (i: SkinDef | TrailDef) => (isSkin ? store.ownsSkin(i.id) : store.ownsTrail(i.id));
+    // Seasonal items lead the list while their event is on; afterwards only owned ones show.
+    const items = ev ? [...all.filter(isEvent), ...all.filter((i) => !isEvent(i))] : all.filter((i) => !isEvent(i) || ownsItem(i));
     let selected = isSkin ? store.data.skins.equipped : store.data.trails.equipped;
 
     const preview = previewCanvas(
@@ -186,14 +192,14 @@ export class ShopScreen extends BaseScreen {
         const card = h(
           'div.item',
           { 'data-id': item.id, style: `--rc:${RARITY_COLORS[item.rarity]}` },
-          equipped ? h('span.equipped-tag', null, 'EQUIPPED') : null,
+          equipped ? h('span.equipped-tag', null, 'EQUIPPED') : isEvent(item) && ev && !owned ? h('span.equipped-tag.spooky', null, 'HALLOWEEN') : null,
           isSkin
             ? previewCanvas({ skin: item.id, scale: 0.62 })
             : previewCanvas({ skin: store.data.skins.equipped, scale: 0.5, trail: item.id, animate: true }),
           h('div.nm', null, item.name),
           owned
             ? h('div.state', null, equipped ? 'In use' : 'Owned')
-            : item.unlock.kind === 'gems'
+            : item.unlock.kind === 'gems' || (item.unlock.kind === 'event' && item.unlock.price > 0)
               ? h('div.price', null, ic('gem'), fmt(item.unlock.price))
               : h('div.price', { style: 'color:var(--ink-dim)' }, unlockLabel(item.unlock)),
           !owned ? h('span.lock', null, ic('lock')) : null,
@@ -292,6 +298,49 @@ export class ShopScreen extends BaseScreen {
         info.textContent = 'Part of the Legend Pack.';
         wrap.appendChild(button({ label: 'See Legend Pack', icon: 'crown', cls: 'yellow', onClick: () => this.goGems() }));
         break;
+      case 'event': {
+        const ev = activeEvent();
+        if (!ev) {
+          info.textContent = 'A Spooky Season item. It comes back next Halloween!';
+          wrap.appendChild(button({ label: 'Halloween only', icon: 'lock', cls: 'ghost', disabled: true }));
+          break;
+        }
+        const grant = () => {
+          if (isSkin) {
+            store.grantSkin(item.id);
+            store.equipSkin(item.id);
+          } else {
+            store.grantTrail(item.id);
+            store.equipTrail(item.id);
+          }
+          ui.sfx('reward');
+          ui.toast(`${item.name} unlocked!`, 'sparkle');
+          refresh();
+        };
+        if (u.price === 0) {
+          info.textContent = `Free during ${ev.name} (${eventEndLabel(ev)}). Yours to keep!`;
+          wrap.appendChild(button({ label: 'Claim free', icon: 'gift', cls: 'orange lg', onClick: grant }));
+          break;
+        }
+        const afford = store.canAfford(u.price);
+        info.textContent = afford ? `${ev.name} only, ${eventEndLabel(ev)}. Yours to keep!` : `You need ${fmt(u.price - store.data.gems)} more gems. ${ev.name} ${eventEndLabel(ev)}.`;
+        wrap.appendChild(
+          button({
+            label: fmt(u.price),
+            icon: 'gem',
+            cls: `${afford ? 'orange' : 'ghost'} lg`,
+            onClick: () => {
+              if (!store.spendGems(u.price)) {
+                ui.sfx('error');
+                ui.toast('Not enough gems — rush for more or visit the gem shop!', 'gem');
+                return;
+              }
+              grant();
+            },
+          }),
+        );
+        break;
+      }
       default:
         break;
     }

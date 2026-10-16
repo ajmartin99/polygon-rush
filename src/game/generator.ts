@@ -12,12 +12,18 @@ export interface GenOptions {
   kid?: boolean;
   /** Endless difficulty mode (speed and pattern curves). */
   diff?: Difficulty;
+  /** No heart pickups (One Heart). */
+  noHearts?: boolean;
+  /** Chance of a gem line in each gap (Gem Rush uses more). */
+  gemChance?: number;
   /** Add onboarding hints (first runs). */
   tutorial?: boolean;
   /** Race difficulty 0..1 (endless ramps with distance). */
   difficulty?: number;
   /** Player start x. */
   startX?: number;
+  /** Endless: distance already covered at the start (starting from a later level). */
+  offset?: number;
 }
 
 interface Pattern {
@@ -62,10 +68,12 @@ export class LevelGen {
     this.opts = opts;
     this.rng = new Rng(opts.seed);
     const start = opts.startX ?? 0;
-    this.groundFrom = start - 12;
+    // Later-level starts get extra floor behind the player (the camera can see it).
+    this.groundFrom = start - (opts.offset ? 40 : 12);
     this.x = start + (opts.kind === 'race' ? 18 : 14);
-    this.sectionEnd = opts.kind === 'race' ? this.x + this.rng.range(150, 200) : 240 + this.rng.range(0, 60);
-    this.nextPickup = opts.kind === 'endless' ? 160 + this.rng.range(0, 80) : Infinity;
+    const off = opts.offset ?? 0;
+    this.sectionEnd = opts.kind === 'race' ? this.x + this.rng.range(150, 200) : off + 240 + this.rng.range(0, 60);
+    this.nextPickup = opts.kind === 'endless' ? off + 160 + this.rng.range(0, 80) : Infinity;
     this.nextBox = opts.kind === 'race' ? this.x + 30 : Infinity;
     world.sections.push({ x0: -Infinity, x1: Infinity, mode: 'square', ceiling: false });
     if (opts.kind === 'race' && opts.length) world.finishX = opts.length;
@@ -149,14 +157,14 @@ export class LevelGen {
     const x0 = this.x;
     const midY = this.mode === 'square' ? 1.0 : this.mode === 'hexagon' ? (this.side < 0 ? 0.5 : CEIL - 0.5) : MID;
     if (x0 >= this.nextPickup && len >= 4) {
-      const types: PickupType[] = this.opts.kid ? ['shield', 'heart', 'magnet'] : ['shield', 'magnet', 'shield', 'heart', 'magnet'];
+      const types: PickupType[] = this.opts.noHearts ? ['shield', 'magnet'] : this.opts.kid ? ['shield', 'heart', 'magnet'] : ['shield', 'magnet', 'shield', 'heart', 'magnet'];
       const t = types[this.pickupCycle++ % types.length];
       this.pickup(x0 + len / 2, this.mode === 'square' ? 1.3 : midY, t);
       this.nextPickup = x0 + this.rng.range(230, 380);
     } else if (x0 >= this.nextBox && len >= 3.5) {
       this.box(x0 + len / 2, this.mode === 'square' ? 0.9 : midY);
       this.nextBox = x0 + this.rng.range(60, 85);
-    } else if (this.rng.chance(0.35)) {
+    } else if (this.rng.chance(this.opts.gemChance ?? 0.35)) {
       this.gemLine(x0 + 1, x0 + len - 1, midY, 1.2);
     }
     this.x += len;

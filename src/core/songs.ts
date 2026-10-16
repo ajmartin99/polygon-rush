@@ -13,6 +13,8 @@
  * Form: 2-bar intro, then A (4 bars) → B (4 bars) → A → B (+fill), looping.
  */
 
+import { activeEvent, type EventId } from '../meta/events';
+
 export type Scale = 'major' | 'minor' | 'dorian' | 'mixolydian';
 
 /** Drum sounds: punchy (default), chip (8-bit), rock, 808 (booming), lofi (soft and dusty), breaks (crisp, fast). */
@@ -57,6 +59,8 @@ export interface SongDef {
   voice?: Voice;
   bassTone?: BassTone;
   padTone?: PadTone;
+  /** Seasonal song: only in rotation while its event is on. */
+  event?: EventId;
 }
 
 export const SCALES: Record<Scale, number[]> = {
@@ -467,17 +471,56 @@ export const SONGS: SongDef[] = [
     bassTone: 'sub',
     padTone: 'strings',
   },
+  // 17 — Haunted Hop (Halloween)
+  {
+    title: 'Haunted Hop',
+    genre: 'Spooky swing',
+    role: 'mix',
+    event: 'halloween',
+    bpm: 116,
+    root: 50,
+    scale: 'minor',
+    swing: 0.14,
+    progA: [1, 4, 6, 5],
+    progB: [6, 7, 1, 5],
+    melA: "1 - 3 - 5 - 4# - 5 - 3 - 1 - . . | 7, - 2 - 4 - 3 - 2 - 7, - 5, - . . | 1 - 3 - 5 - 1' - 7 - 5 - 6 - 5 - | 4# - 5 - 3 - 2 - 1 - - - . . . .",
+    melB: "5 - 5 - 6 - 5 - 4# - 5 - 6 - 7 - | 1' - - - 7 - 6 - 5 - - - 3 - - - | 4 - 4 - 5 - 4 - 3 - 4 - 5 - 6 - | 5 - - - 2 - - - 1 - - - . . . .",
+    bass: 'r . . r . . f . r . . r . o . .',
+    arp: '0 . 1 . 2 . 1 . 0 . 1 . 2 . 3 .',
+    grooveA: { kick: 'x.....x...x.....', snare: '....x.......x...', hat: '..x...x...x...x.' },
+    grooveB: { kick: 'x.....x.x.x.....', snare: '....x.......x..g', hat: 'x.x.x.x.x.x.x.x.' },
+    lead: 'triangle',
+    kit: 'punchy',
+    voice: 'mallet',
+    bassTone: 'sub',
+    padTone: 'organ',
+  },
 ];
 
 export const MENU_SONG = 6;
+export const HAUNTED_SONG = 17;
+
+/** Is a seasonal song in season? (Songs without an event always are.) */
+export function inSeason(index: number, now = new Date()): boolean {
+  const e = SONGS[index]?.event;
+  return !e || activeEvent(now)?.id === e;
+}
+
+/** The menu opens with this: the Halloween theme during Spooky Season. */
+export function menuTheme(now = new Date()): number {
+  return activeEvent(now)?.id === 'halloween' ? HAUNTED_SONG : MENU_SONG;
+}
 export const RACE_SONG = 7;
 export const WORLD_SONGS = 6;
 
 /** Songs for a context, in catalogue order. */
-export function songsFor(context: 'menu' | 'run' | 'race'): number[] {
-  return SONGS.map((s, i) => ({ s, i }))
-    .filter(({ s }) => (context === 'menu' ? s.role === 'menu' : context === 'race' ? s.fast === true : s.role !== 'menu'))
+export function songsFor(context: 'menu' | 'run' | 'race', now = new Date()): number[] {
+  const out = SONGS.map((s, i) => ({ s, i }))
+    .filter(({ s, i }) => inSeason(i, now) && (context === 'menu' ? s.role === 'menu' : context === 'race' ? s.fast === true : s.role !== 'menu'))
     .map(({ i }) => i);
+  // In season, the seasonal theme plays in the menus too.
+  if (context === 'menu' && menuTheme(now) !== MENU_SONG) out.unshift(menuTheme(now));
+  return out;
 }
 
 /** Short description of where a song plays (for the Soundtrack picker). */
@@ -485,6 +528,7 @@ export function songRole(index: number): string {
   const s = SONGS[index];
   if (!s) return '';
   if (s.role === 'world') return `World ${index + 1} theme`;
+  if (s.event) return 'Halloween special';
   if (s.role === 'menu') return index === MENU_SONG ? 'Main menu theme' : 'Menu & building';
   return s.fast ? 'Mix · races' : 'Mix';
 }

@@ -19,8 +19,11 @@ Think *Geometry Dash* rhythm and precision meets *Fun Run* racing chaos, wrapped
 * **2-Player Duel** on one device (split screen), plus **Play with Friends** online via private 4-character rooms (peer-to-peer).
 * **Create mode:** a touch level editor (blocks, ledges, spikes, saws, gems, pads, orbs, power-ups, shape portals, pits) with undo/redo, test-from-here, and beat-it-to-share verification. Levels travel as compact `PR1-…` codes. Four built-in Featured levels to play or remix.
 * **Build Together:** up to 4 players edit one level live (host-ordered edits with instant local preview, coloured cursors, lock and remove), then race it.
-* **Chat that fits the age:** Quick Chat (preset phrases & emotes) for everyone; optional typed **Free Chat** for verified 16+ players, or 13–15 with a parent's email approval, filtered, moderated and reportable. Public build rooms for 13+. Both need the optional [community server](server/README.md).
+* **Chat that fits the age:** Quick Chat (preset phrases & emotes) for everyone; optional typed **Free Chat** for verified 16+ players, or 13–15 with a parent's email approval, filtered, moderated and reportable. Public build rooms, public race rooms and **Quick Match** for 13+ (under-13s keep private code rooms). These need the optional [community server](server/README.md).
 * **Six worlds** with their own palettes, parallax scenery and an **original synthesised soundtrack**: 17 songs in 15 genres (chiptune, drum & bass, house, rock, lo-fi, electro swing…). The menu has its own theme, each world keeps its signature song, and playlists shuffle between them, with Skip and a Soundtrack picker in Settings.
+* **Level select:** start Endless from any 500 m level you've reached.
+* **Game Modes hub:** Endless, a **Daily Run** (same course for everyone, daily reward), **One Heart**, **Gem Rush** (60 s), Race, Online, Duel and Player Levels.
+* **Seasonal events:** Spooky Season (Oct 1 – Nov 7) brings Halloween skins and trails, a free Wicked Witch skin, a haunted menu and Daily Run, and the Haunted Hop theme.
 * **Easy / Medium / Hard**, chosen on first launch: separate speed and pattern curves and best scores, plus harder combo patterns as runs heat up.
 * **Player profiles:** badges, titles, banners and stats to show off in rooms. Only game facts are shared, never free text.
 * **23 skins** (patterns and silly faces: shades, kitty, dino, robot, galaxy, gold…), **11 trails**, missions, daily gifts, levels, Kid Mode.

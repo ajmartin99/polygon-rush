@@ -66,13 +66,28 @@ function powerPill(ctx: CanvasRenderingContext2D, x: number, y: number, h: numbe
   return w;
 }
 
-export function drawEndlessHud(ctx: CanvasRenderingContext2D, rect: ViewRect, r: Racer, best: number, dpr: number): void {
+export function drawEndlessHud(ctx: CanvasRenderingContext2D, rect: ViewRect, r: Racer, best: number, dpr: number, extra?: { timer?: number; label?: string }): void {
   const u = Math.min(rect.h, rect.w / 1.45) / 22; // HUD unit
   const pad = u * 1.1 + 6 * dpr;
   let x = rect.x + pad;
   const y = rect.y + pad;
   const dist = Math.floor(r.distance);
+  if (extra?.timer !== undefined) {
+    // Gem Rush: the clock and the gem count are the score.
+    const t = Math.ceil(extra.timer);
+    const clock = `0:${String(t).padStart(2, '0')}`;
+    ctx.save();
+    ctx.font = `800 ${u * 2}px Fredoka, sans-serif`;
+    const cw = ctx.measureText(clock).width;
+    ctx.restore();
+    outlinedText(ctx, clock, rect.x + (rect.w - cw) / 2, y, u * 2, t <= 10 ? '#ff5f5f' : '#ffffff');
+    gemIcon(ctx, x, y + u * 0.8, u * 1.4);
+    outlinedText(ctx, String(r.gems), x + u * 1.6, y, u * 1.7, '#ffffff');
+    if (best > 0) outlinedText(ctx, r.gems > best ? 'NEW BEST!' : `BEST ${best}`, x, y + u * 1.85, u * 0.75, r.gems > best ? '#ffd23f' : 'rgba(255,255,255,0.75)');
+    return;
+  }
   outlinedText(ctx, `${dist.toLocaleString('en-US')} m`, x, y, u * 1.7, '#ffffff');
+  if (extra?.label) outlinedText(ctx, extra.label.toUpperCase(), x, y - u * 0.95, u * 0.7, '#ffd23f');
   if (best > 0) {
     const nb = dist > best;
     outlinedText(ctx, nb ? 'NEW BEST!' : `BEST ${best.toLocaleString('en-US')}`, x, y + u * 1.85, u * 0.75, nb ? '#ffd23f' : 'rgba(255,255,255,0.75)');

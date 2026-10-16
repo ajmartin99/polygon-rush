@@ -105,7 +105,7 @@ export function createApp(d: AppDeps): express.Express {
     }),
   );
 
-  app.get('/api/rooms', route(() => ({ rooms: rooms.list() })));
+  app.get('/api/rooms', route((req) => ({ rooms: rooms.list(Date.now(), req.query.kind === 'race' ? 'race' : 'build') })));
   app.post('/api/rooms/:code', route((req) => rooms.register(req.params.code, req.body ?? {}, ipKey(req))));
   app.post(
     '/api/rooms/:code/beat',

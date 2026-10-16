@@ -17,8 +17,15 @@ export type Pattern =
   | 'gold'
   | 'neon'
   | 'ice'
-  | 'lava';
-export type Face = 'cute' | 'happy' | 'cool' | 'cat' | 'robot' | 'star' | 'sleepy' | 'wink' | 'dino';
+  | 'lava'
+  | 'pumpkin'
+  | 'wisp'
+  | 'bandage'
+  | 'cape'
+  | 'bones';
+export type Face = 'cute' | 'happy' | 'cool' | 'cat' | 'robot' | 'star' | 'sleepy' | 'wink' | 'dino' | 'jack' | 'ghost' | 'mummy' | 'vampire' | 'skull';
+/** Something worn on top (drawn behind the body outline). */
+export type Topper = 'stem' | 'witch' | 'bat';
 
 export type Unlock =
   | { kind: 'free' }
@@ -26,7 +33,9 @@ export type Unlock =
   | { kind: 'level'; level: number }
   | { kind: 'daily' }
   | { kind: 'starter' }
-  | { kind: 'legend' };
+  | { kind: 'legend' }
+  /** Seasonal: buyable (or the free gift) only while the event is on; owned forever. */
+  | { kind: 'event'; event: 'halloween'; price: number };
 
 export interface SkinDef {
   id: string;
@@ -41,6 +50,7 @@ export interface SkinDef {
   outline: string;
   pattern: Pattern;
   face: Face;
+  topper?: Topper;
 }
 
 export interface TrailDef {
@@ -49,7 +59,7 @@ export interface TrailDef {
   rarity: Rarity;
   unlock: Unlock;
   colors: string[];
-  style: 'none' | 'lines' | 'sparkle' | 'bubbles' | 'hearts' | 'stars' | 'notes' | 'pixels' | 'rainbow' | 'comet' | 'confetti';
+  style: 'none' | 'lines' | 'sparkle' | 'bubbles' | 'hearts' | 'stars' | 'notes' | 'pixels' | 'rainbow' | 'comet' | 'confetti' | 'bats' | 'candycorn' | 'mist';
 }
 
 export const RARITY_COLORS: Record<Rarity, string> = {
@@ -67,6 +77,7 @@ export const RARITY_LABEL: Record<Rarity, string> = {
 };
 
 const gems = (price: number): Unlock => ({ kind: 'gems', price });
+const spooky = (price: number): Unlock => ({ kind: 'event', event: 'halloween', price });
 
 export const SKINS: SkinDef[] = [
   { id: 'classic', name: 'Classic', rarity: 'common', unlock: { kind: 'free' }, body: '#ffd23f', accent: '#ff9f1c', outline: '#3b2a00', pattern: 'solid', face: 'cute' },
@@ -92,6 +103,13 @@ export const SKINS: SkinDef[] = [
   { id: 'neon', name: 'Neon Glow', rarity: 'legendary', unlock: gems(3500), body: '#18122e', accent: '#39ffe1', outline: '#39ffe1', pattern: 'neon', face: 'cool' },
   { id: 'magma', name: 'Magma', rarity: 'legendary', unlock: { kind: 'legend' }, body: '#ff6a2b', accent: '#ffd23f', outline: '#3d0a00', pattern: 'lava', face: 'happy' },
   { id: 'golden', name: 'Golden', rarity: 'legendary', unlock: { kind: 'starter' }, body: '#ffd84a', accent: '#ffb300', outline: '#5a3b00', pattern: 'gold', face: 'cool' },
+  // Halloween (Spooky Season)
+  { id: 'witch', name: 'Wicked Witch', rarity: 'epic', unlock: spooky(0), body: '#7b3fd1', accent: '#3ee6b0', outline: '#1d0b4a', pattern: 'dots', face: 'wink', topper: 'witch' },
+  { id: 'boo', name: 'Boo', rarity: 'rare', unlock: spooky(700), body: '#f4f1ff', accent: '#c9c2ff', outline: '#3a3260', pattern: 'wisp', face: 'ghost' },
+  { id: 'mummy', name: 'Mummy', rarity: 'rare', unlock: spooky(900), body: '#efe3c2', accent: '#c8b48a', outline: '#4a3b1c', pattern: 'bandage', face: 'mummy' },
+  { id: 'jack', name: 'Jack-o’-Lantern', rarity: 'epic', unlock: spooky(1200), body: '#ff8a1f', accent: '#d95f00', outline: '#4a1d00', pattern: 'pumpkin', face: 'jack', topper: 'stem' },
+  { id: 'vampire', name: 'Count Polygon', rarity: 'epic', unlock: spooky(1500), body: '#2e1438', accent: '#c4183a', outline: '#0e0410', pattern: 'cape', face: 'vampire', topper: 'bat' },
+  { id: 'bones', name: 'Rattle Bones', rarity: 'legendary', unlock: spooky(2500), body: '#1c1a26', accent: '#f2f0e6', outline: '#000000', pattern: 'bones', face: 'skull' },
 ];
 
 export const TRAILS: TrailDef[] = [
@@ -106,6 +124,10 @@ export const TRAILS: TrailDef[] = [
   { id: 'confetti', name: 'Confetti', rarity: 'epic', unlock: { kind: 'daily' }, colors: ['#ff5f5f', '#ffd23f', '#3ee6b0', '#4dc9ff', '#c27bff'], style: 'confetti' },
   { id: 'rainbow', name: 'Rainbow Road', rarity: 'legendary', unlock: { kind: 'legend' }, colors: ['#ff5f5f', '#ff9f1c', '#ffd23f', '#3ee6b0', '#4dc9ff', '#9b6bff'], style: 'rainbow' },
   { id: 'comet', name: 'Comet', rarity: 'legendary', unlock: { kind: 'legend' }, colors: ['#ffffff', '#8fe9ff', '#5f8bff'], style: 'comet' },
+  // Halloween (Spooky Season)
+  { id: 'candycorn', name: 'Candy Corn', rarity: 'rare', unlock: spooky(500), colors: ['#ffd23f', '#ff8a1f', '#ffffff'], style: 'candycorn' },
+  { id: 'bats', name: 'Bat Swarm', rarity: 'epic', unlock: spooky(1000), colors: ['#1c1030', '#3a1f5a'], style: 'bats' },
+  { id: 'mist', name: 'Ghostly Mist', rarity: 'epic', unlock: spooky(1000), colors: ['#c9ffd9', '#b9a8ff', '#ffffff'], style: 'mist' },
 ];
 
 export const skinById = (id: string): SkinDef => SKINS.find((s) => s.id === id) ?? SKINS[0];
@@ -125,6 +147,8 @@ export function unlockLabel(u: Unlock): string {
       return 'Starter Pack';
     case 'legend':
       return 'Legend Pack';
+    case 'event':
+      return u.price ? `🎃 ${u.price}` : '🎃 Free gift';
   }
 }
 

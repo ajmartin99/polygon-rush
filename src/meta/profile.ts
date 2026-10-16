@@ -1,6 +1,8 @@
 import type { SaveData } from '../state/save';
 import type { IconName } from '../ui/icons';
-import { SKINS } from './catalog';
+import { SKINS, TRAILS } from './catalog';
+
+const HALLOWEEN_IDS = new Set([...SKINS, ...TRAILS].filter((i) => i.unlock.kind === 'event').map((i) => i.id));
 import { leagueFor } from './economy';
 
 /**
@@ -47,6 +49,15 @@ export const BADGES: Badge[] = [
   { id: 'architect', name: 'Architect', title: 'Architect', how: 'Beat 5 of your own levels', icon: 'build', color: '#3ee6b0', earned: (c) => c.levelsVerified >= 5 },
   { id: 'bouncy', name: 'Bouncy', title: 'Bouncer', how: 'Jump 10,000 times', icon: 'shapes', color: '#ff5fa2', earned: (c) => c.save.stats.jumps >= 10000 },
   { id: 'collector', name: 'Collector', title: 'Collector', how: 'Own 8 skins', icon: 'sparkle', color: '#c27bff', earned: (c) => c.save.skins.owned.length >= 8 },
+  {
+    id: 'spooky',
+    name: 'Trick or Treat',
+    title: 'Pumpkin King',
+    how: 'Collect 3 Halloween skins or trails',
+    icon: 'sparkle',
+    color: '#ff7a2f',
+    earned: (c) => [...c.save.skins.owned, ...c.save.trails.owned].filter((id) => HALLOWEEN_IDS.has(id)).length >= 3,
+  },
   { id: 'veteran', name: 'Veteran', title: 'Veteran', how: 'Play for 5 hours', icon: 'star', color: '#ffd23f', earned: (c) => c.save.stats.playSeconds >= 5 * 3600 },
 ];
 
@@ -63,8 +74,9 @@ export const BANNERS: [string, string][] = [
   ['#ffd23f', '#e09a00'],
   ['#2b2b52', '#0f0828'],
   ['#ff7af0', '#3ad7ff'],
+  ['#ff7a2f', '#2a0f4f'],
 ];
-export const BANNER_LEVELS = [1, 3, 6, 10, 15, 20, 25, 30];
+export const BANNER_LEVELS = [1, 3, 6, 10, 15, 20, 25, 30, 5];
 
 export function badgeById(id: string): Badge | undefined {
   return BADGES.find((b) => b.id === id);

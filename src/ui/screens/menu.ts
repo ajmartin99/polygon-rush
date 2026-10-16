@@ -12,9 +12,13 @@ import { previewCanvas } from '../preview';
 import { ui } from '../ui';
 import { openDailyGift } from './missions';
 import { DIFFICULTY_NAMES, endlessBestKey } from '../../state/save';
+import { activeEvent } from '../../meta/events';
+import { unlockedLevels } from '../../meta/modes';
+import { eventChip, giftClaimed, openEventModal } from '../event';
 import { openNoAdsOffer } from './shop';
 
 let dailyPromptShown = false;
+let eventPromptShown = false;
 
 export class MenuScreen extends BaseScreen {
   constructor() {
@@ -50,6 +54,12 @@ export class MenuScreen extends BaseScreen {
       sub: kid ? 'Endless · Kid Mode' : `Endless · ${DIFFICULTY_NAMES[d.settings.difficulty]}`,
       onClick: () => nav.play({ mode: 'endless' }),
     });
+    const unlocked = unlockedLevels(best);
+    // Level select sits on the PLAY button once there's more than one level to pick.
+    const playArea =
+      unlocked > 1
+        ? h('div.play-wrap', null, playBtn, button({ label: `Levels 1–${unlocked}`, icon: 'target', cls: 'violet sm level-pick', onClick: () => nav.go('levels') }))
+        : playBtn;
 
     this.el.append(
       h(
@@ -57,6 +67,7 @@ export class MenuScreen extends BaseScreen {
         null,
         levelChip(),
         h('div.chip', { title: 'Trophies' }, ic('trophy'), h('span', null, fmt(d.trophies))),
+        eventChip(),
         h('div.spacer'),
         gemChip(this),
         button({ icon: 'cart', cls: 'icon mint', aria: 'Shop', onClick: () => nav.go('shop') }),
@@ -75,17 +86,17 @@ export class MenuScreen extends BaseScreen {
         h(
           'div.menu-right',
           null,
-          playBtn,
+          playArea,
           h(
             'div.mode-grid',
             null,
+            button({ label: 'Modes', icon: 'shapes', cls: 'pink stack', sub: '9 ways to play', onClick: () => nav.go('modes') }),
             button({ label: 'Race', icon: 'flag', cls: 'cyan stack', sub: league.name, onClick: () => nav.go('race') }),
-            button({ label: 'Duel', icon: 'duel', cls: 'pink stack', sub: '2 players', onClick: () => nav.go('duel') }),
             button({
-              label: 'Friends',
+              label: 'Online',
               icon: 'globe',
               cls: 'violet stack',
-              sub: 'Online',
+              sub: 'Quick Match',
               onClick: () => {
                 if (!store.data.settings.onlineAllowed) {
                   ui.toast('Online play is turned off in Parental Controls.', 'lock');
@@ -120,6 +131,14 @@ export class MenuScreen extends BaseScreen {
 
   override enter(): void {
     void ads.showBanner();
+    // Spooky Season: offer the free gift once (after onboarding).
+    if (!eventPromptShown && activeEvent() && !giftClaimed() && store.data.stats.runs > 0) {
+      eventPromptShown = true;
+      setTimeout(() => {
+        if (nav.route === 'menu' && !ui.hasModal) openEventModal();
+      }, 700);
+      return;
+    }
     if (!dailyPromptShown && dailyAvailable(store.data) && store.data.stats.runs > 0) {
       dailyPromptShown = true;
       setTimeout(() => {

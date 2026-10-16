@@ -38,6 +38,17 @@ export interface Message {
   created_at: number;
 }
 
+export interface NameRow {
+  name_lc: string;
+  name: string;
+  key_hash: string;
+  created_at: number;
+  last_seen: number;
+  /** 0 = fine, -1 = forever, otherwise ms timestamp. */
+  banned_until: number;
+  reason: string | null;
+}
+
 export interface Report {
   id: string;
   kind: 'message' | 'room';
@@ -123,6 +134,16 @@ CREATE TABLE IF NOT EXISTS reports (
 );
 CREATE INDEX IF NOT EXISTS reports_status ON reports (status, created_at);
 CREATE INDEX IF NOT EXISTS reports_target ON reports (target_account, created_at);
+CREATE TABLE IF NOT EXISTS names (
+  name_lc TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  key_hash TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  last_seen INTEGER NOT NULL,
+  banned_until INTEGER NOT NULL DEFAULT 0,
+  reason TEXT
+);
+CREATE INDEX IF NOT EXISTS names_key ON names (key_hash);
 CREATE TABLE IF NOT EXISTS banned_emails (
   email_hash TEXT PRIMARY KEY,
   until INTEGER NOT NULL,
@@ -174,6 +195,43 @@ export class Db {
 
   private run(query: string, ...args: (string | number | null)[]): number {
     return Number(this.sql.prepare(query).run(...args).changes);
+  }
+
+  // ------------------------------------------------------------ typed racer names
+  nameRow(nameLc: string): NameRow | undefined {
+    return this.one<NameRow>('SELECT * FROM names WHERE name_lc = ?', nameLc);
+  }
+
+  /** One name per device key: claiming a new one releases the old (unless it was banned). */
+  claimName(name: string, keyHash: string, now: number): void {
+    this.run('DELETE FROM names WHERE key_hash = ? AND name_lc != ? AND banned_until = 0', keyHash, name.toLowerCase());
+    this.run(
+      `INSERT INTO names (name_lc, name, key_hash, created_at, last_seen) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(name_lc) DO UPDATE SET last_seen = excluded.last_seen, name = excluded.name`,
+      name.toLowerCase(),
+      name,
+      keyHash,
+      now,
+      now,
+    );
+  }
+
+  touchName(nameLc: string, now: number): void {
+    this.run('UPDATE names SET last_seen = ? WHERE name_lc = ?', now, nameLc);
+  }
+
+  banName(name: string, until: number, reason: string | null, now: number): void {
+    const lc = name.toLowerCase();
+    if (!this.nameRow(lc)) this.run('INSERT INTO names (name_lc, name, key_hash, created_at, last_seen) VALUES (?, ?, ?, ?, ?)', lc, name, '', now, now);
+    this.run('UPDATE names SET banned_until = ?, reason = ? WHERE name_lc = ?', until, reason, lc);
+  }
+
+  unbanName(name: string): void {
+    this.run('UPDATE names SET banned_until = 0, reason = NULL WHERE name_lc = ?', name.toLowerCase());
+  }
+
+  bannedNames(limit: number): NameRow[] {
+    return this.all<NameRow>('SELECT * FROM names WHERE banned_until != 0 ORDER BY last_seen DESC LIMIT ?', limit);
   }
 
   // ------------------------------------------------------------ accounts
@@ -425,6 +483,8 @@ export class Db {
       now,
     );
     out.audit = this.run('DELETE FROM audit WHERE at < ?', now - 2 * 365 * DAY);
+    // Typed names nobody has used for the inactivity period (banned ones stay until the ban ends).
+    out.names = this.run('DELETE FROM names WHERE last_seen < ? AND banned_until != -1 AND banned_until < ?', now - opts.inactiveDays * DAY, now);
     return out;
   }
 }

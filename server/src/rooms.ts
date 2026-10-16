@@ -1,8 +1,8 @@
-import { isGeneratedName } from '../../src/meta/names.ts';
 import type { Db } from './db.ts';
 import { RateLimiter } from './ratelimit.ts';
 import { ApiError } from './accounts.ts';
 import { randomId, safeEqual } from './util.ts';
+import type { NameRegistry } from './names.ts';
 
 const CODE_RE = /^[BCDFGHJKLMNPQRSTVWXZ23456789]{4}$/;
 const TTL = 45_000;
@@ -51,19 +51,22 @@ export class RoomDirectory {
   private readonly creates = new RateLimiter(10, 60 * 60 * 1000);
   private cooldowns = new Map<string, number>();
 
-  constructor(db: Db) {
+  private readonly names: NameRegistry;
+
+  constructor(db: Db, names: NameRegistry) {
     this.db = db;
+    this.names = names;
   }
 
   private parse(body: Record<string, unknown>): Omit<PublicRoom, 'code' | 'createdAt' | 'kind'> & { open: boolean } {
     const name = Array.isArray(body.name) ? body.name : [];
-    const a = int(name[0], 0, 31);
-    const n = int(name[1], 0, 31);
+    const a = int(name[0], 0, 255);
+    const n = int(name[1], 0, 255);
     const players = int(body.players, 1, 4);
     const max = int(body.max, 2, 4) ?? 4;
     const theme = int(body.theme, 0, 5);
     if (a === null || n === null || players === null || theme === null) throw new ApiError(400, 'bad_room', 'Room details are missing.');
-    if (typeof body.host !== 'string' || !isGeneratedName(body.host)) throw new ApiError(400, 'bad_room', 'Only generated racer names can host.');
+    if (!this.names.allowed(body.host)) throw new ApiError(400, 'bad_room', 'That racer name can’t host a public room.');
     // A race that has started can't be joined: it stays registered (reports still work) but unlisted.
     return { name: [a, n], host: body.host, players, max, theme, open: body.open !== false };
   }

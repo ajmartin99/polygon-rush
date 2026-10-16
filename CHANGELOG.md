@@ -12,11 +12,17 @@ All notable changes to Polygon Rush are documented here.
 - **Halloween body shapes:** Phantom (ghost), Pumpkin Patch, Tombstone, Bone Head (skull) and Candy Corn Kid change your racer's outline. Same hitbox, and the Glider keeps its arrow.
 - **Mid-air flips:** the Roller can flip gravity any time, even in the air (short cooldown so it can't hover).
 - **Swipe down to drop:** Jumper and Hopper slam to the ground, the Glider dives (Down arrow or S on keyboards).
+- **My Music:** add your own songs (MP3, WAV, OGG, M4A) in Settings → Soundtrack and play them Off, Mixed in, or Only mine. They stay on the device and are never shared.
+- **Your own racer name (13+):** type a name instead of a generated one. It's filtered like chat (plus stricter name rules) and unique with the community server; moderators can ban names. Under-13s keep generated names.
+- **Name your level (13+):** a pencil button in Level settings lets builders write their own level name; level codes carry it (and typed builder names).
+- **Recorded music support:** the game can now play licensed recorded tracks (with credits) alongside the synth songs, and custom levels can pick them. Level codes (v2) have room for the bigger music library; older codes still load.
 
 ### Changed
 - Bat Swarm trail: bats flap off in their own directions with a flutter.
 - Every new Endless level switches to a different song (shuffled, no repeats until all have played) instead of cycling the six world themes. Menu songs never play during runs.
 - Results: the HOST tag no longer cuts off names, and online races no longer show "+0" trophies.
+- The chat filter also catches stretched swears ("fuuuuck").
+- Level names: 12,500 generated combinations (was a few hundred), and twice as many words for generated racer names (100 × 100).
 
 ## [1.0.3] - 2026-10-15
 

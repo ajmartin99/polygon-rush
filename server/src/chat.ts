@@ -1,9 +1,9 @@
 import { filterChat } from '../../src/shared/chat-filter.ts';
-import { isGeneratedName } from '../../src/meta/names.ts';
 import { ApiError, publicAccount, type AccountService } from './accounts.ts';
 import type { Account, Db } from './db.ts';
 import { RateLimiter } from './ratelimit.ts';
 import { randomId } from './util.ts';
+import type { NameRegistry } from './names.ts';
 
 /** A room's chat channel id is a random key only room members know. */
 export const CHANNEL_RE = /^[A-Za-z0-9_-]{16,64}$/;
@@ -44,9 +44,12 @@ export class ChatHub {
   private readonly reportsPerAccount = new RateLimiter(20, 60 * 60 * 1000);
   private perIp = new Map<string, number>();
 
-  constructor(db: Db, accounts: AccountService) {
+  private readonly names: NameRegistry;
+
+  constructor(db: Db, accounts: AccountService, names: NameRegistry) {
     this.db = db;
     this.accounts = accounts;
+    this.names = names;
   }
 
   connect(conn: ChatConn): { message(raw: string): void; close(): void } {
@@ -156,7 +159,7 @@ export class ChatHub {
     if (!m.account) throw new ApiError(401, 'signed_out', 'Sign in first.');
     const me = this.live(m);
     if (typeof channel !== 'string' || !CHANNEL_RE.test(channel)) throw new ApiError(400, 'bad_channel', 'Bad room.');
-    if (typeof name !== 'string' || !isGeneratedName(name)) throw new ApiError(400, 'bad_name', 'Only generated racer names can chat.');
+    if (!this.names.allowed(name)) throw new ApiError(400, 'bad_name', 'That racer name can’t use Free Chat.');
     // Nobody can borrow the name of someone already in the room.
     for (const other of this.channels.get(channel) ?? []) {
       if (other !== m && other.name === name && other.account?.id !== me.id) throw new ApiError(409, 'name_taken', 'Someone in this room already uses that name.');

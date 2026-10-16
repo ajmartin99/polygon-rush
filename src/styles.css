@@ -3260,3 +3260,36 @@ button.player-slot {
 .results .podium-stage {
   margin-top: 1.4rem;
 }
+
+/* ------------------------------------------------------------------ typed names */
+.name-type {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.name-input {
+  width: min(20rem, 100%);
+  padding: 0.55rem 0.9rem;
+  border-radius: 0.9rem;
+  border: 0.13rem solid var(--stroke);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.name-input:focus {
+  outline: none;
+  border-color: var(--yellow);
+}
+
+.name-hint {
+  margin: -0.4rem 0 0;
+  color: var(--ink-dim);
+}
+
+.name-hint.bad {
+  color: #ff8a8a;
+}

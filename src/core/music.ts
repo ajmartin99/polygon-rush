@@ -1,6 +1,9 @@
 import { store } from '../state/store';
 import { audio } from './audio';
 import { menuTheme, RACE_SONG, SONGS, songsFor, WORLD_SONGS } from './songs';
+import { TRACK_BASE, USER_BASE, trackOf, tracksFor } from './tracks';
+import { myMusic } from '../services/mymusic';
+import { activeEvent } from '../meta/events';
 import { Emitter } from './emitter';
 
 /**
@@ -24,7 +27,16 @@ class MusicDirector extends Emitter<{ song: number }> {
     audio.onSongEnd = () => {
       if (this.context && this.context !== 'level') this.next();
     };
+    // A track that won't load (missing file, unsupported format): move on.
+    audio.onTrackError = (id) => {
+      this.broken.add(id);
+      if (this.context) this.next();
+    };
   }
+
+  private broken = new Set<number>();
+  /** The id most recently asked for (user files load asynchronously). */
+  private wanted = -1;
 
   get current(): number {
     return audio.targetSong;
@@ -36,12 +48,18 @@ class MusicDirector extends Emitter<{ song: number }> {
 
   /** Main menu: always opens with the theme (if it is in rotation). */
   menu(): void {
-    this.start('menu', menuTheme());
+    // Recorded menu music when we have it (the seasonal theme still leads in season).
+    const rec = this.recorded('menu');
+    this.start('menu', rec.length && !activeEvent() ? rec[0] : menuTheme());
   }
 
   /** Endless run starting in a world. */
   run(world: number): void {
-    this.start('run', world % WORLD_SONGS);
+    // With recorded music every run starts on a random song; otherwise the world's theme.
+    if (this.recorded('run').length >= 3 || this.mineOnly()) {
+      this.context = null;
+      this.start('run', -1);
+    } else this.start('run', world % WORLD_SONGS);
   }
 
   /** The run reached a new world: play its signature song. */
@@ -56,7 +74,7 @@ class MusicDirector extends Emitter<{ song: number }> {
   }
 
   race(first = RACE_SONG): void {
-    this.start('race', first);
+    this.start('race', this.recorded('race').length >= 3 || this.mineOnly() ? -1 : first);
   }
 
   build(theme: number): void {
@@ -65,7 +83,8 @@ class MusicDirector extends Emitter<{ song: number }> {
 
   /** A custom level's song (looped). `song < 0` means its world's theme. */
   level(song: number, theme: number): void {
-    this.start('level', song >= 0 && song < SONGS.length ? song : theme % WORLD_SONGS, true);
+    const ok = (song >= 0 && song < SONGS.length) || (trackOf(song) !== undefined && !this.broken.has(song));
+    this.start('level', ok ? song : theme % WORLD_SONGS, true);
   }
 
   /** Play a specific song now (Soundtrack picker), keeping the context's rotation afterwards. */
@@ -85,29 +104,52 @@ class MusicDirector extends Emitter<{ song: number }> {
     audio.stopMusic();
   }
 
-  /** Songs this context rotates through, honouring Settings → Soundtrack. */
+  /**
+   * Songs this context rotates through, honouring Settings → Soundtrack:
+   * recorded tracks, the classic synth songs (when switched on, or when
+   * there aren't enough tracks yet) and My Music.
+   */
   pool(context: MusicContext = this.context ?? 'menu'): number[] {
-    const base =
-      context === 'menu'
+    const mine = this.mine();
+    if (this.mineOnly()) return mine;
+    const rec = context === 'build' ? [...this.recorded('menu'), ...this.recorded('run')] : this.recorded(context === 'level' ? 'run' : context);
+    const synthCtx = context === 'level' ? 'run' : context;
+    const useSynth = store.settings.classicSongs || rec.length < 3;
+    const synth = !useSynth
+      ? []
+      : synthCtx === 'menu'
         ? songsFor('menu')
-        : context === 'race'
+        : synthCtx === 'race'
           ? songsFor('race')
-          : context === 'build'
+          : synthCtx === 'build'
             ? [...songsFor('menu'), ...songsFor('run').filter((i) => SONGS[i].role === 'world')]
             : songsFor('run');
+    const base = [...rec, ...synth, ...(context === 'menu' || context === 'build' ? [] : mine)];
     const on = base.filter((i) => this.allowed(i));
     return on.length ? on : base;
   }
 
+  private recorded(context: 'menu' | 'run' | 'race'): number[] {
+    return tracksFor(context).filter((id) => !this.broken.has(id));
+  }
+
+  private mine(): number[] {
+    return store.settings.myMusic === 'off' ? [] : myMusic.ids();
+  }
+
+  private mineOnly(): boolean {
+    return store.settings.myMusic === 'only' && myMusic.ids().length > 0;
+  }
+
   private allowed(song: number): boolean {
-    return !store.settings.musicOff.includes(song);
+    return !store.settings.musicOff.includes(song) && !this.broken.has(song);
   }
 
   private start(context: MusicContext, first: number, force = false): void {
     const changed = this.context !== context;
     this.context = context;
     if (changed) this.bag = [];
-    const song = force || this.allowed(first) ? first : this.draw();
+    const song = first >= 0 && (force || this.allowed(first)) ? first : this.draw();
     // Keep the current song if it already fits (e.g. back to menu from Settings).
     if (!changed && !force && this.pool().includes(audio.targetSong)) return;
     this.play(song);
@@ -136,9 +178,23 @@ class MusicDirector extends Emitter<{ song: number }> {
   }
 
   private play(song: number): void {
+    if (song === undefined || song < 0) return;
     this.last = audio.targetSong;
     this.bag = this.bag.filter((i) => i !== song);
-    audio.playSong(song);
+    this.wanted = song;
+    if (song < TRACK_BASE) {
+      audio.playSong(song);
+    } else if (song < USER_BASE) {
+      const t = trackOf(song);
+      if (!t) return;
+      audio.playTrack(song, `music/${t.file}`, t.bpm, t.offset, t.gain ?? 0);
+    } else {
+      void myMusic.url(song - USER_BASE).then((url) => {
+        if (this.wanted !== song) return;
+        if (url) audio.playTrack(song, url);
+        else this.next();
+      });
+    }
     this.emit('song', song);
   }
 }

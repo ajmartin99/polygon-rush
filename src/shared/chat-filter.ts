@@ -131,7 +131,10 @@ function hasPhoneLike(text: string): boolean {
 function tokenHits(token: string, words: string[], prefixes: string[]): boolean {
   if (!token) return false;
   if (words.includes(token)) return true;
-  return prefixes.some((p) => token.startsWith(p));
+  if (prefixes.some((p) => token.startsWith(p))) return true;
+  // Doubled letters squeezed out too ("fuuuuck" → "fuuck" → "fuck"), whole words only.
+  const tight = token.replace(/(.)\1+/g, '$1');
+  return tight !== token && words.includes(tight);
 }
 
 /** Clean and check one message. */
@@ -185,5 +188,59 @@ export function filterChat(input: string): FilterResult {
   if (letters.length > 8 && letters.replace(/[^A-Z]/g, '').length / letters.length > 0.7) text = text.toLowerCase();
   text = text.replace(/(.)\1{4,}/g, '$1$1$1');
   if (!text.replace(/[*\s]/g, '')) return { ok: false, text: '', reason: 'blocked_word' };
+  return { ok: true, text };
+}
+
+// ------------------------------------------------------------------ names & titles
+export type NameReason = FilterReason | 'too_short' | 'characters' | 'digits' | 'reserved';
+
+export const NAME_MESSAGES: Record<NameReason, string> = {
+  ...FILTER_MESSAGES,
+  empty: 'Type a name first.',
+  unsupported: 'Use English letters and numbers only.',
+  personal_info: 'Keep personal info out of names — no numbers, emails or addresses.',
+  link: 'Links can’t go in names.',
+  off_platform: 'No usernames from other apps, please.',
+  personal_question: 'That name isn’t allowed. Try something else!',
+  blocked_word: 'That name isn’t allowed. Try something friendlier!',
+  too_short: 'Use at least 3 characters.',
+  too_long: 'That’s too long.',
+  characters: 'Use letters, numbers and spaces only.',
+  digits: 'Too many numbers in a row (no phone numbers, ages or birthdays).',
+  reserved: 'That name is reserved.',
+};
+
+const RESERVED = ['admin', 'moderator', 'mod', 'official', 'staff', 'support', 'polygonrush', 'system', 'developer', 'dev'];
+
+/**
+ * Checks a typed racer name (13+) or level title. Names: 3-16 characters,
+ * letters, digits and single spaces, starting with a letter. Titles: 3-24
+ * characters, also allowing ! ? ' and -. Both go through the chat filter
+ * (nothing masked is allowed) and can't hide numbers.
+ */
+export function checkDisplayText(input: string, kind: 'name' | 'title'): { ok: boolean; text: string; reason?: NameReason } {
+  const text = String(input ?? '')
+    .normalize('NFKC')
+    .replace(INVISIBLE, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const max = kind === 'name' ? 16 : 24;
+  if (text.length < 3) return { ok: false, text: '', reason: text ? 'too_short' : 'empty' };
+  if (text.length > max) return { ok: false, text: '', reason: 'too_long' };
+  const allowed = kind === 'name' ? /^[A-Za-z][A-Za-z0-9 ]*$/ : /^[A-Za-z0-9][A-Za-z0-9 !?'-]*$/;
+  if (!allowed.test(text)) return { ok: false, text: '', reason: 'characters' };
+  // No phone numbers, ages or years hiding in names.
+  if (/\d{3,}/.test(text) || (text.match(/\d/g) ?? []).length > 3) return { ok: false, text: '', reason: 'digits' };
+  const squashed = text.toLowerCase().replace(/[^a-z]/g, '');
+  if (RESERVED.some((r) => squashed === r || squashed.startsWith(r + 'team') || (r.length > 4 && squashed.includes(r)))) return { ok: false, text: '', reason: 'reserved' };
+  // Check as written and with CamelCase split ("KillYourself" → "Kill Yourself").
+  for (const variant of [text, text.replace(/([a-z])([A-Z])/g, '$1 $2')]) {
+    const r = filterChat(variant);
+    if (!r.ok) return { ok: false, text: '', reason: r.reason };
+    if (r.text.includes('*')) return { ok: false, text: '', reason: 'blocked_word' };
+  }
+  // Words glued together: look for serious words anywhere inside.
+  const inner = unstretch(squash(text));
+  if (SEVERE_WORDS.some((w) => w.length >= 4 && inner.includes(w)) || MILD_WORDS.some((w) => w.length >= 4 && inner.includes(w))) return { ok: false, text: '', reason: 'blocked_word' };
   return { ok: true, text };
 }

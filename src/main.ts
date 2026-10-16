@@ -27,6 +27,8 @@ import { EditorScreen } from './ui/screens/editor';
 import { GameController } from './game/controller';
 import { audio } from './core/audio';
 import { music } from './core/music';
+import { myMusic } from './services/mymusic';
+import { verifyOwnName } from './services/names';
 import { SONGS } from './core/songs';
 
 function registerRoutes(): void {
@@ -69,6 +71,8 @@ async function boot(): Promise<void> {
     window.removeEventListener('pointerdown', unlock, true);
   };
   window.addEventListener('pointerdown', unlock, true);
+  void myMusic.load();
+  void verifyOwnName().then((msg) => msg && ui.toast(msg, 'info', 4000));
   game.startAttract();
   if (import.meta.env.DEV) {
     // Dev-only hooks for automated audio checks and store screenshots.

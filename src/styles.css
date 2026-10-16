@@ -1667,11 +1667,29 @@ input[type='range']::-moz-range-thumb {
 }
 
 .podium .who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   font-weight: 700;
   font-size: 0.95rem;
+}
+
+.podium .who-name {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.podium .who-tag {
+  align-self: flex-start;
+  margin-top: 0.1rem;
+  padding: 0 0.4rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.14);
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
 }
 
 .podium .when {
@@ -2950,4 +2968,295 @@ button.player-slot {
   font-size: 0.75rem;
   padding: 0.25rem 0.6rem;
   min-height: 0;
+}
+
+/* ------------------------------------------------------------------ podium & emotes */
+.stat-mid {
+  font-size: 2.2rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.podium-stage {
+  display: grid;
+  grid-template-columns: repeat(3, 5.6rem);
+  align-items: end;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 0.2rem 0;
+}
+
+.pod-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.pod-racer {
+  position: relative;
+  width: 4.4rem;
+  height: 3.6rem;
+}
+
+.pod-racer canvas {
+  width: 100%;
+  height: 100%;
+}
+
+.pod-name {
+  max-width: 100%;
+  font-size: 0.65rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.pod-col.me .pod-name {
+  color: var(--yellow);
+}
+
+.pod-block {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  margin-top: 0.15rem;
+  border-radius: 0.6rem 0.6rem 0.2rem 0.2rem;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
+  border: 0.12rem solid rgba(255, 255, 255, 0.25);
+}
+
+.pod-block b {
+  font-size: 1.3rem;
+}
+
+.pod-col.p1 .pod-block { height: 3.4rem; border-color: #ffd23f; }
+.pod-col.p2 .pod-block { height: 2.4rem; }
+.pod-col.p3 .pod-block { height: 1.7rem; }
+
+.emote-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.3rem;
+}
+
+.emote-bar.cool .emote-btn {
+  opacity: 0.45;
+}
+
+.emote-btn {
+  width: 2.3rem;
+  height: 2.3rem;
+  border: 0.12rem solid var(--stroke);
+  border-radius: 0.8rem;
+  background: var(--glass);
+  color: #fff;
+  font: inherit;
+  font-weight: 800;
+  font-size: 1.05rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: transform 0.1s, opacity 0.2s;
+}
+
+.emote-btn:active {
+  transform: scale(0.9);
+}
+
+.player-slot {
+  position: relative;
+}
+
+.emote-bubble {
+  position: absolute;
+  left: 50%;
+  top: -0.6rem;
+  transform: translate(-50%, -50%);
+  padding: 0.15rem 0.45rem;
+  border-radius: 1rem;
+  background: #fff;
+  color: #21125a;
+  font-weight: 800;
+  font-size: 1.1rem;
+  box-shadow: 0 0.2rem 0.5rem rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+  z-index: 3;
+  animation: emo-bubble 1.8s ease-out forwards;
+}
+
+@keyframes emo-bubble {
+  0% { opacity: 0; transform: translate(-50%, -20%) scale(0.4); }
+  15% { opacity: 1; transform: translate(-50%, -60%) scale(1.15); }
+  25% { transform: translate(-50%, -50%) scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -110%) scale(1); }
+}
+
+.emo-bounce canvas { animation: emo-bounce 0.45s ease-in-out 3; }
+.emo-spin canvas { animation: emo-spin 0.9s ease-in-out 2; }
+.emo-wave canvas { animation: emo-wave 0.4s ease-in-out 4; }
+.emo-shake canvas { animation: emo-shake 0.15s linear 8; }
+.emo-pop canvas { animation: emo-pop 0.6s ease-out 2; }
+.emo-float canvas { animation: emo-float 1.6s ease-in-out 1; }
+
+@keyframes emo-bounce { 50% { transform: translateY(-30%); } }
+@keyframes emo-spin { to { transform: rotate(360deg); } }
+@keyframes emo-wave { 25% { transform: rotate(-12deg); } 75% { transform: rotate(12deg); } }
+@keyframes emo-shake { 25% { transform: translateX(-6%); } 75% { transform: translateX(6%); } }
+@keyframes emo-pop { 40% { transform: scale(1.25); } }
+@keyframes emo-float { 50% { transform: translateY(-20%) scale(1.08); } }
+
+.reduced-motion .emote-bubble,
+.reduced-motion [class*='emo-'] canvas {
+  animation-duration: 0.01s;
+}
+
+.track-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.track-chip {
+  padding: 0.25rem 0.7rem;
+  border: 0.12rem solid var(--stroke);
+  border-radius: 1rem;
+  background: var(--glass);
+  color: inherit;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  max-width: 11rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-chip.on,
+.track-swatch.on {
+  border-color: var(--yellow);
+}
+
+.track-swatch {
+  width: 1.8rem;
+  height: 1.5rem;
+  border-radius: 0.45rem;
+  border: 0.15rem solid transparent;
+  cursor: pointer;
+}
+
+.track-line {
+  font-size: 0.85rem;
+}
+
+.emote-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7rem, 1fr));
+  gap: 0.55rem;
+}
+
+.emote-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.8rem 0.4rem 0.6rem;
+  border: 0.15rem solid var(--rc, var(--stroke));
+  border-radius: var(--radius);
+  background: var(--glass);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.emote-card.owned {
+  border-color: var(--mint);
+}
+
+.emote-card .emote-glyph {
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.emote-card b {
+  font-size: 0.8rem;
+}
+
+.emote-card .price,
+.emote-card .state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.emote-card .state {
+  color: var(--mint);
+}
+
+.emote-card .price svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.emote-card .equipped-tag {
+  position: absolute;
+  top: -0.6rem;
+}
+
+/* ------------------------------------------------------------------ online lobby */
+.lobby-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.lobby-head .code-display span {
+  width: 2.1rem;
+  height: 2.4rem;
+  font-size: 1.3rem;
+}
+
+.room-tag {
+  padding: 0.15rem 0.6rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.16);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.room-tag.pub {
+  background: var(--orange);
+  color: #2a1200;
+}
+
+.lobby-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  /* Leave room for the Quick Chat button in the corner. */
+  padding-right: 9rem;
+}
+
+.lobby-foot .emote-btn {
+  width: 2.1rem;
+  height: 2.1rem;
+  font-size: 0.95rem;
+}
+
+.results .podium-stage {
+  margin-top: 1.4rem;
 }

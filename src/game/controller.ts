@@ -14,8 +14,10 @@ import { BIOMES, paletteAt, type Palette } from '../render/biomes';
 import { drawEndlessHud, drawLevelHud, drawRaceHud } from '../render/hud';
 import { nav, type LevelRunResult, type PlayRequest, type Rival } from '../ui/nav';
 import { ui } from '../ui/ui';
-import { EndlessResultsScreen, GameHud, LevelResultsScreen, RaceResultsScreen, openPause, openRevive, type RacePlacement } from '../ui/screens/game-ui';
-import { levelName, type LevelContent } from './level';
+import { EndlessResultsScreen, GameHud, LevelResultsScreen, RaceResultsScreen, openPause, openRevive, type RacePlacement, type RaceResultsActions } from '../ui/screens/game-ui';
+import { roomChatPanel } from '../ui/room-chat';
+import { FREE_EMOTES, emoteIndex } from '../meta/emotes';
+import { decodeLevel, levelName, type LevelContent } from './level';
 import type { Scene } from './scene';
 import { DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED } from './constants';
 import { activeEvent, SPOOKY } from '../meta/events';
@@ -964,24 +966,60 @@ export class GameController {
     void store.flush();
     if (this.kind !== 'duel') audio.play(myPlace === 1 ? 'win' : 'finish');
 
-    const title = this.kind === 'duel' ? (list[0].id === 'p1' ? 'Player 1 wins!' : 'Player 2 wins!') : this.kind === 'online' ? (this.keepRoom ? 'Build Room Race' : 'Friends Race') : 'Race Results';
+    const raceRoom = this.kind === 'online' && this.room?.kind === 'race' ? this.room : null;
+    const title = this.kind === 'duel' ? (list[0].id === 'p1' ? 'Player 1 wins!' : 'Player 2 wins!') : this.kind === 'online' ? (raceRoom ? (raceRoom.publicRoom ? 'Online Race' : 'Friends Race') : 'Build Room Race') : 'Race Results';
     const req = this.req;
     void ads.afterRun().then(() => {
-      const screen = new RaceResultsScreen(title, list, reward, {
-        onHome: () => this.quitToMenu(),
-        homeLabel: this.keepRoom ? 'Back to building' : undefined,
-        onAgain:
-          this.kind === 'online'
-            ? undefined
-            : () => {
-                if (!req) return;
-                if (req.mode === 'race') this.play({ mode: 'race', seed: (Math.random() * 2 ** 31) >>> 0, rivals: req.rivals });
-                else if (req.mode === 'duel') this.play({ mode: 'duel', seed: (Math.random() * 2 ** 31) >>> 0, p2Skin: req.p2Skin });
-              },
-        againLabel: this.kind === 'duel' ? 'Rematch!' : 'Race again',
-      });
+      if (this.phase !== 'results' || this.session !== s) return;
+      const room = this.room;
+      let screen: RaceResultsScreen;
+      const chat = raceRoom ? roomChatPanel(raceRoom) : null;
+      const actions: RaceResultsActions = { onHome: () => this.quitToMenu() };
+      if (raceRoom) {
+        // Race rooms stay open: back to the lobby for a rematch, or leave.
+        actions.onAgain = () => this.quitToMenu();
+        actions.againLabel = 'Back to lobby';
+        actions.onHome = () => this.leaveRoom();
+        actions.homeLabel = 'Leave';
+        actions.homeIcon = 'back';
+      } else if (this.keepRoom) {
+        actions.homeLabel = 'Back to building';
+      } else if (this.kind !== 'online') {
+        actions.onAgain = () => {
+          if (!req) return;
+          if (req.mode === 'race') this.play({ mode: 'race', seed: (Math.random() * 2 ** 31) >>> 0, rivals: req.rivals });
+          else if (req.mode === 'duel') this.play({ mode: 'duel', seed: (Math.random() * 2 ** 31) >>> 0, p2Skin: req.p2Skin });
+        };
+        actions.againLabel = this.kind === 'duel' ? 'Rematch!' : 'Race again';
+      }
+      if (room && this.kind === 'online') {
+        actions.onEmote = (n) => room.sendEmote(n);
+        this.roomOff.push(room.on('emote', ({ id, n }) => screen?.emote(id, n)));
+      } else if (this.kind === 'race') {
+        // CPU rivals answer with a friendly emote now and then.
+        actions.onEmote = (n) => {
+          screen.emote(me.id, n);
+          const cpus = list.filter((p) => p.id !== me.id);
+          if (cpus.length && Math.random() < 0.7) {
+            const who = cpus[Math.floor(Math.random() * cpus.length)];
+            setTimeout(() => screen.emote(who.id, emoteIndex(FREE_EMOTES[Math.floor(Math.random() * FREE_EMOTES.length)])), 500 + Math.random() * 700);
+          }
+        };
+      }
+      if (chat) actions.chat = chat.panel.el;
+      screen = new RaceResultsScreen(title, list, reward, actions);
+      if (chat) screen.own(chat.close);
       ui.show(screen);
     });
+  }
+
+  /** Leave an online room from the results screen and go home. */
+  private leaveRoom(): void {
+    ui.closeAllModals();
+    this.keepRoom = false;
+    this.teardown();
+    this.startAttract();
+    nav.go('menu');
   }
 
   // ================================================================== online
@@ -1010,6 +1048,19 @@ export class GameController {
       room.on('results', (order) => {
         this.onlineResults = order;
         this.showRaceResults();
+      }),
+      // Host started a rematch while we were still on the podium: straight into it.
+      room.on('start', ({ seed, players, delay, level }) => {
+        if (room.kind !== 'race' || this.phase !== 'results') return;
+        const req = this.req;
+        let content: LevelContent | undefined;
+        try {
+          content = level ? decodeLevel(level) : undefined;
+        } catch {
+          content = undefined;
+        }
+        ui.closeAllModals();
+        this.play({ mode: 'online', room, seed, players, delay, level: content, exit: req && req.mode === 'online' ? req.exit : undefined });
       }),
       room.on('closed', ({ reason }) => {
         ui.toast(reason, 'wifi', 3000);

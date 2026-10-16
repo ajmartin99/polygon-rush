@@ -5,6 +5,8 @@ import { h, ic, fmt, formatTime, ordinal, clear } from '../dom';
 import { previewCanvas } from '../preview';
 import { ui, type ModalHandle } from '../ui';
 import { nowPlaying } from '../soundtrack';
+import { emoteBar, showEmote } from '../emotes';
+import type { IconName } from '../icons';
 import type { LevelUp } from '../../meta/economy';
 
 /** Transparent overlay during gameplay: pause button, hints, countdown. */
@@ -253,38 +255,66 @@ export interface RacePlacement {
   tag?: string;
 }
 
+export interface RaceResultsActions {
+  onAgain?: () => void;
+  onHome: () => void;
+  againLabel?: string;
+  homeLabel?: string;
+  homeIcon?: IconName;
+  /** Emotes: send one (online) or show it locally (CPU races). */
+  onEmote?: (n: number) => void;
+  /** Chat panel element (online rooms). */
+  chat?: HTMLElement;
+}
+
 export class RaceResultsScreen extends BaseScreen {
-  constructor(
-    title: string,
-    placements: RacePlacement[],
-    reward: { gems: number; trophies: number; xp: number } | null,
-    actions: { onAgain?: () => void; onHome: () => void; againLabel?: string; homeLabel?: string },
-  ) {
+  private stage = new Map<string, HTMLElement>();
+
+  constructor(title: string, placements: RacePlacement[], reward: { gems: number; trophies: number; xp: number } | null, actions: RaceResultsActions) {
     super('.dim');
     const myPlace = placements.findIndex((p) => p.me) + 1;
+    // Podium: 2nd, 1st, 3rd.
+    const top = [placements[1], placements[0], placements[2]];
+    const podium = h(
+      'div.podium-stage',
+      null,
+      top.map((p, k) => {
+        if (!p) return h('div.pod-col.empty');
+        const place = k === 1 ? 1 : k === 0 ? 2 : 3;
+        const racer = h('div.pod-racer', { 'data-pid': p.id }, previewCanvas({ skin: p.skin, animate: place === 1, scale: 0.62 }));
+        this.stage.set(p.id, racer);
+        return h(
+          `div.pod-col.p${place}${p.me ? '.me' : ''}`,
+          null,
+          racer,
+          h('span.pod-name', null, p.me ? 'You' : p.name),
+          h(`div.pod-block.medal-${place}`, null, h('b', null, String(place))),
+        );
+      }),
+    );
     this.el.append(
       h(
         'div.results',
         null,
         h(
           'div.col',
-          { style: 'align-items:center;gap:0.5rem;text-align:center' },
+          { style: 'align-items:center;gap:0.35rem;text-align:center;min-width:0' },
           h('span.stat-label', null, title),
-          h('div.stat-big', { class: myPlace > 0 && myPlace <= 3 ? `medal-${myPlace}` : '' }, myPlace > 0 ? ordinal(myPlace) : 'Finish!'),
-          myPlace === 1 ? h('span.new-best', null, 'WINNER!') : null,
+          h('div.row', { style: 'gap:0.6rem;align-items:baseline' }, h('div.stat-mid', { class: myPlace > 0 && myPlace <= 3 ? `medal-${myPlace}` : '' }, myPlace > 0 ? ordinal(myPlace) : 'Finish!'), myPlace === 1 ? h('span.new-best', null, 'WINNER!') : null),
+          podium,
           reward
             ? h(
                 'div.row',
-                { style: 'gap:1rem;font-weight:700;font-size:1.1rem' },
+                { style: 'gap:1rem;font-weight:700;font-size:1.05rem' },
                 h('span', { style: 'display:inline-flex;align-items:center;gap:0.3rem' }, ic('gem'), `+${reward.gems}`),
-                h('span', { style: 'display:inline-flex;align-items:center;gap:0.3rem' }, ic('trophy'), `+${reward.trophies}`),
+                reward.trophies > 0 ? h('span', { style: 'display:inline-flex;align-items:center;gap:0.3rem' }, ic('trophy'), `+${reward.trophies}`) : null,
                 h('span.muted', null, `+${reward.xp} XP`),
               )
             : null,
         ),
         h(
           'div.panel.col',
-          { style: 'gap:0.7rem' },
+          { style: 'gap:0.6rem;min-width:0' },
           h(
             'div.podium',
             null,
@@ -294,21 +324,32 @@ export class RaceResultsScreen extends BaseScreen {
                 null,
                 h(`span.pos.medal-${i + 1}`, null, String(i + 1)),
                 previewCanvas({ skin: p.skin, scale: 0.6 }),
-                h('span.who', null, p.name, p.tag ? h('span.muted.small', null, ` · ${p.tag}`) : null),
+                h('span.who', null, h('span.who-name', null, p.name), p.tag ? h('span.who-tag', null, p.tag) : null),
                 h('span.when', null, p.time === null ? 'DNF' : formatTime(p.time)),
               ),
             ),
           ),
+          actions.onEmote ? emoteBar((n) => actions.onEmote!(n)) : null,
           h(
             'div.row',
-            { style: 'justify-content:center' },
-            button({ label: actions.homeLabel ?? 'Home', icon: actions.homeLabel ? 'build' : 'home', cls: `${actions.homeLabel ? 'mint' : 'ghost'} lg`, onClick: actions.onHome, sfx: 'back' }),
+            { style: 'justify-content:center;flex-wrap:wrap;gap:0.5rem' },
+            button({ label: actions.homeLabel ?? 'Home', icon: actions.homeIcon ?? (actions.homeLabel ? 'build' : 'home'), cls: `${actions.homeLabel && !actions.onAgain ? 'mint' : 'ghost'} lg`, onClick: actions.onHome, sfx: 'back' }),
             actions.onAgain ? button({ label: actions.againLabel ?? 'Race again', icon: 'restart', cls: 'mint lg pulse', onClick: actions.onAgain }) : null,
           ),
         ),
       ),
     );
+    if (actions.chat) {
+      actions.chat.classList.add('lobby-chat');
+      this.el.append(actions.chat);
+    }
     this.home = actions.onHome;
+  }
+
+  /** Show an emote over a racer on the podium (if they're on it). */
+  emote(id: string, n: number): void {
+    const racer = this.stage.get(id);
+    if (racer) showEmote(racer, n);
   }
 
   private home: () => void = () => {};

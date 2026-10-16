@@ -1,5 +1,5 @@
 import { store } from '../state/store';
-import { lane, parseMelody, SCALES, SONGS, type Kit, type NoteEvent, type SongDef } from './songs';
+import { lane, parseMelody, SCALES, SONGS, type BassTone, type Kit, type NoteEvent, type SongDef } from './songs';
 
 export { MENU_SONG, RACE_SONG, SONGS, WORLD_SONGS } from './songs';
 
@@ -320,15 +320,25 @@ class AudioEngine {
     const tones = this.chord(barInSection, section);
     const root = s.def.root;
     const hi = this.intensity;
-    const fillBar = !intro && section === 'B' && barInSection === 3;
+    const drop = s.def.form === 'drop';
+    const fillBar = !intro && section === 'B' && barInSection === 3 && !drop;
+    // Drop songs: the last bar of A builds up, then a beat of silence before the drop.
+    const buildBar = drop && !intro && section === 'A' && barInSection === 3;
+    const gap = buildBar && i >= 14;
 
     if (i % 4 === 0) this.lastBeatTime = t;
+    if (buildBar && i === 0) this.riser(t, stepDur * 14);
+    if (drop && !intro && section === 'B' && barInSection === 0 && i === 0 && phrase % 2 === 1) this.impact(t);
+    if (gap) return;
 
     // ---- drums
     const kit: Kit = s.def.kit ?? 'punchy';
-    if (groove.kick[i] === 'x') this.kick(t, kit);
+    if (groove.kick[i] === 'x' && !(buildBar && i >= 8)) this.kick(t, kit);
     const sn = groove.snare[i];
-    if (fillBar && i >= 8) {
+    if (buildBar) {
+      // Snare roll that speeds up: quarters, eighths, then sixteenths.
+      if (i < 4 ? i % 4 === 0 : i < 8 ? i % 2 === 0 : true) this.snare(t, 0.12 + i * 0.022, kit);
+    } else if (fillBar && i >= 8) {
       if (i % 2 === 0 || i >= 12) this.snare(t, 0.18 + (i - 8) * 0.04, kit);
     } else if (sn === 'x' && !(intro && bar === 0)) {
       this.snare(t, 0.4, kit);
@@ -352,7 +362,9 @@ class AudioEngine {
       let len = 1;
       while (i + len < 16 && s.bass[i + len] === '-') len++;
       const semis = b === 'r' ? tones[0] : b === 't' ? tones[1] : b === 'f' ? tones[2] : tones[3];
-      this.bass(mtof(root + semis - 12 - (semis >= 12 ? 12 : 0)), t, stepDur * Math.max(1.6, len));
+      // Drop songs keep the big bass for the drop; the build-up gets a clean sub.
+      const tone = drop && section === 'A' ? 'sub' : undefined;
+      this.bass(mtof(root + semis - 12 - (semis >= 12 ? 12 : 0)), t, stepDur * Math.max(1.6, len), tone, bar);
     }
 
     // ---- pad chord each bar
@@ -433,6 +445,11 @@ class AudioEngine {
         this.tonePing(t, 'sine', 120, 45, 0.75, 0.2);
         this.noiseHit(t, 'lowpass', 1200, 0.7, 0.08, 0.02);
         break;
+      case 'edm':
+        // Big-room kick: long, punchy, with a bright click.
+        this.tonePing(t, 'sine', 180, 42, 1, 0.34);
+        this.noiseHit(t, 'highpass', 3000, 0.7, 0.2, 0.014);
+        break;
       default: {
         const decay = kit === 'rock' ? 0.3 : kit === 'breaks' ? 0.18 : 0.24;
         this.tonePing(t, 'sine', 165, 45, 0.95, decay);
@@ -455,6 +472,12 @@ class AudioEngine {
         break;
       case 'lofi':
         this.noiseHit(t, 'bandpass', 1500, 0.6, vol * 0.65, 0.14, true);
+        break;
+      case 'edm':
+        // Layered clap and snare body, big reverb.
+        for (const dt of [0, 0.009, 0.019]) this.noiseHit(t + dt, 'bandpass', 1700, 1.1, vol * 0.7, 0.12, true);
+        this.noiseHit(t, 'bandpass', 3500, 0.6, vol * 0.5, 0.2, true);
+        this.tonePing(t, 'triangle', 240, 170, vol * 0.4, 0.08);
         break;
       case 'rock':
         this.noiseHit(t, 'bandpass', 1800, 0.6, vol * 1.05, 0.22, true);
@@ -492,9 +515,10 @@ class AudioEngine {
     n.stop(t + 1.4);
   }
 
-  private bass(freq: number, t: number, dur: number): void {
+  private bass(freq: number, t: number, dur: number, override?: BassTone, bar = 0): void {
     const c = this.ctx!;
-    const tone = this.song?.def.bassTone ?? 'saw';
+    const tone = override ?? this.song?.def.bassTone ?? 'saw';
+    if (tone === 'growl') return this.growl(freq, t, dur, bar);
     const g = c.createGain();
     const out = (node: AudioNode) => node.connect(g).connect(this.sidechain);
     if (tone === 'sub') {
@@ -550,6 +574,106 @@ class AudioEngine {
       sub.start(t);
       sub.stop(t + dur + 0.05);
     }
+  }
+
+  private driveCurve2: Float32Array<ArrayBuffer> | null = null;
+
+  /** Dubstep growl: detuned saws + square, driven, through a filter that wobbles at a rate that changes each bar. */
+  private growl(freq: number, t: number, dur: number, bar: number): void {
+    const c = this.ctx!;
+    const beat = (this.song ? this.song.def.bpm : 140) / 60;
+    const rates = [2, 4, 2, 3, 2, 4, 6, 8];
+    const rate = beat * rates[bar % rates.length];
+    if (!this.driveCurve2) {
+      this.driveCurve2 = new Float32Array(1024);
+      for (let k = 0; k < 1024; k++) {
+        const x = (k / 1023) * 2 - 1;
+        this.driveCurve2[k] = Math.tanh(x * 3);
+      }
+    }
+    const g = c.createGain();
+    this.env(g, t, 0.2, 0.004, dur);
+    g.gain.setValueAtTime(0.2, t + Math.max(0.01, dur - 0.03));
+    const pre = c.createGain();
+    pre.gain.value = 0.5;
+    const ws = c.createWaveShaper();
+    ws.curve = this.driveCurve2;
+    const f = c.createBiquadFilter();
+    f.type = 'lowpass';
+    f.Q.value = 9;
+    f.frequency.value = 900;
+    const lfo = c.createOscillator();
+    lfo.type = 'sine';
+    lfo.frequency.value = rate;
+    const depth = c.createGain();
+    depth.gain.value = 800;
+    lfo.connect(depth).connect(f.frequency);
+    pre.connect(ws).connect(f).connect(g).connect(this.sidechain);
+    const parts: [OscillatorType, number, number][] = [
+      ['sawtooth', 1, -12],
+      ['sawtooth', 1, 12],
+      ['square', 0.5, 0],
+    ];
+    for (const [type, mult, det] of parts) {
+      const o = c.createOscillator();
+      o.type = type;
+      o.frequency.value = freq * mult;
+      o.detune.value = det;
+      o.connect(pre);
+      o.start(t);
+      o.stop(t + dur + 0.05);
+    }
+    lfo.start(t);
+    lfo.stop(t + dur + 0.05);
+    // Clean sub underneath so it still thumps on phone speakers.
+    const sub = c.createOscillator();
+    sub.type = 'sine';
+    sub.frequency.value = freq / 2;
+    const sg = c.createGain();
+    this.env(sg, t, 0.24, 0.005, dur);
+    sub.connect(sg).connect(this.sidechain);
+    sub.start(t);
+    sub.stop(t + dur + 0.05);
+  }
+
+  /** Build-up riser: filtered noise sweeping up plus a rising tone. */
+  private riser(t: number, dur: number): void {
+    const c = this.ctx!;
+    const n = c.createBufferSource();
+    n.buffer = this.noise;
+    n.loop = true;
+    const f = c.createBiquadFilter();
+    f.type = 'bandpass';
+    f.Q.value = 1.2;
+    f.frequency.setValueAtTime(400, t);
+    f.frequency.exponentialRampToValueAtTime(9000, t + dur);
+    const g = c.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(0.16, t + dur);
+    g.gain.linearRampToValueAtTime(0, t + dur + 0.02);
+    n.connect(f).connect(g);
+    g.connect(this.musicBus);
+    g.connect(this.reverbSend);
+    n.start(t);
+    n.stop(t + dur + 0.05);
+    const o = c.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(220, t);
+    o.frequency.exponentialRampToValueAtTime(1760, t + dur);
+    const og = c.createGain();
+    og.gain.setValueAtTime(0.0001, t);
+    og.gain.exponentialRampToValueAtTime(0.03, t + dur);
+    og.gain.linearRampToValueAtTime(0, t + dur + 0.02);
+    o.connect(og).connect(this.musicBus);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  }
+
+  /** The drop lands: a deep boom and a crash. */
+  private impact(t: number): void {
+    this.tonePing(t, 'sine', 110, 32, 0.9, 0.9);
+    this.noiseHit(t, 'lowpass', 900, 0.7, 0.35, 0.5, true);
+    this.crash(t, 0.7);
   }
 
   private pluck(freq: number, t: number, dur: number, hi: number): void {
@@ -618,6 +742,30 @@ class AudioEngine {
     g.connect(this.musicBus);
     g.connect(this.delaySend);
     switch (voice) {
+      case 'supersaw': {
+        // EDM lead: a stack of detuned saws, bright and wide.
+        const f = c.createBiquadFilter();
+        f.type = 'lowpass';
+        f.frequency.setValueAtTime(6500, t);
+        f.frequency.exponentialRampToValueAtTime(3200, t + dur + 0.1);
+        const release = Math.min(0.14, dur * 0.5);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.055, t + 0.01);
+        g.gain.setValueAtTime(0.045, t + Math.max(0.02, dur - release));
+        g.gain.exponentialRampToValueAtTime(0.0001, t + dur + release);
+        f.connect(g);
+        g.connect(this.reverbSend);
+        for (const [mult, det] of [[1, -22], [1, -11], [1, 0], [1, 11], [1, 22], [2, 6]] as const) {
+          const o = c.createOscillator();
+          o.type = 'sawtooth';
+          o.frequency.value = freq * mult;
+          o.detune.value = det;
+          o.connect(f);
+          o.start(t);
+          o.stop(t + dur + release + 0.05);
+        }
+        break;
+      }
       case 'chip': {
         // Pure square, no detune: classic handheld console.
         const o = c.createOscillator();

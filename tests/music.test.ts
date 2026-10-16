@@ -32,10 +32,18 @@ describe('music director', () => {
     expect(new Set(played).size).toBe(pool.length);
   });
 
-  it('switches to a world song when the run reaches a new world', () => {
+  it('plays a different song on every new level, never a menu song', () => {
+    music.menu();
+    const menuSong = played.at(-1)!;
     music.run(0);
-    music.world(3);
-    expect(played.at(-1)).toBe(3);
+    const pool = songsFor('run');
+    for (let lv = 1; lv < pool.length; lv++) music.world(lv % 6);
+    const runSongs = played.slice(1);
+    expect(runSongs).not.toContain(menuSong);
+    for (const i of runSongs) expect(songsFor('menu')).not.toContain(i);
+    // A full bag: every run song once, no repeats.
+    expect(new Set(runSongs).size).toBe(runSongs.length);
+    expect(runSongs.length).toBe(pool.length);
   });
 
   it('skips songs switched off in settings', () => {

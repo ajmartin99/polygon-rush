@@ -18,10 +18,10 @@ import { activeEvent, type EventId } from '../meta/events';
 export type Scale = 'major' | 'minor' | 'dorian' | 'mixolydian';
 
 /** Drum sounds: punchy (default), chip (8-bit), rock, 808 (booming), lofi (soft and dusty), breaks (crisp, fast). */
-export type Kit = 'punchy' | 'chip' | 'rock' | '808' | 'lofi' | 'breaks';
+export type Kit = 'punchy' | 'chip' | 'rock' | '808' | 'lofi' | 'breaks' | 'edm';
 /** Lead instrument. */
-export type Voice = 'synth' | 'chip' | 'guitar' | 'brass' | 'mallet' | 'keys';
-export type BassTone = 'saw' | 'square' | 'sub' | 'wobble' | 'slap';
+export type Voice = 'synth' | 'chip' | 'guitar' | 'brass' | 'mallet' | 'keys' | 'supersaw';
+export type BassTone = 'saw' | 'square' | 'sub' | 'wobble' | 'slap' | 'growl';
 export type PadTone = 'saw' | 'strings' | 'organ' | 'none';
 /** Where a song plays: a world's signature theme, the menus, or the general mix. */
 export type SongRole = 'world' | 'menu' | 'mix';
@@ -61,6 +61,11 @@ export interface SongDef {
   padTone?: PadTone;
   /** Seasonal song: only in rotation while its event is on. */
   event?: EventId;
+  /**
+   * 'drop' (EDM/dubstep): A is the build-up (riser, snare roll, a beat of
+   * silence) and B is the drop (impact, full bass). Default: verse/chorus.
+   */
+  form?: 'standard' | 'drop';
 }
 
 export const SCALES: Record<Scale, number[]> = {
@@ -475,7 +480,7 @@ export const SONGS: SongDef[] = [
   {
     title: 'Haunted Hop',
     genre: 'Spooky swing',
-    role: 'mix',
+    role: 'menu',
     event: 'halloween',
     bpm: 116,
     root: 50,
@@ -495,9 +500,154 @@ export const SONGS: SongDef[] = [
     bassTone: 'sub',
     padTone: 'organ',
   },
+  // 18 — Menu: Arcade Sunrise (synth-pop main theme)
+  {
+    title: 'Arcade Sunrise',
+    genre: 'Synth-pop',
+    role: 'menu',
+    bpm: 112,
+    root: 53,
+    scale: 'major',
+    swing: 0.08,
+    progA: [1, 5, 6, 4],
+    progB: [6, 4, 1, 5],
+    melA: "5 - 3 - 5 - 6 - 5 - 3 - 1 - 2 - | 3 - 2 - 1 - 2 - 3 - - - . . . . | 5 - 3 - 5 - 6 - 1' - 7 - 6 - 5 - | 4 - 3 - 2 - 3 - 1 - - - . . . .",
+    melB: "1' - - 7 6 - 5 - 6 - - 5 4 - 3 - | 4 - - 3 2 - 1 - 2 - 3 - 4 - 5 - | 1' - - 7 6 - 5 - 6 - - 5 4 - 3 - | 2 - 3 - 4 - 7, - 1 - - - . . . .",
+    bass: 'r . . r . . f . r . . r . o . .',
+    arp: '0 . 2 . 1 . 3 . 0 . 2 . 1 . 3 .',
+    grooveA: { kick: 'x.....x...x.....', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.' },
+    grooveB: { kick: 'x.....x.x.x.....', snare: '....x.......x..g', hat: 'x.xox.x.x.xox.x.' },
+    lead: 'square',
+    kit: 'punchy',
+    voice: 'synth',
+    bassTone: 'square',
+    padTone: 'saw',
+  },
+  // 19 — Bass Drop Boulevard (dubstep)
+  {
+    title: 'Bass Drop Boulevard',
+    genre: 'Dubstep',
+    role: 'mix',
+    fast: true,
+    form: 'drop',
+    bpm: 140,
+    root: 53,
+    scale: 'minor',
+    swing: 0,
+    progA: [1, 6, 3, 7],
+    progB: [1, 6, 4, 5],
+    melA: "1' - . 1' . . 7 - 5 - . . 4 - 5 - | 6 - . 6 . . 5 - 3 - . . 2 - 3 - | 4 - . 4 . . 3 - 1 - . . 7, - 1 - | 5 - - - - - - - 5 - 6 - 7 - 1' -",
+    melB: "1' . . 1' . . 1' . 7 . 5 . . . . . | 6 . . 6 . . 6 . 5 . 3 . . . . . | 4 . . 4 . . 4 . 5 . 6 . . . . . | 5 . . 5 . . 7 . 1' - - - . . . .",
+    bass: 'r - - - r - r - - - f - - - o -',
+    arp: '0 . 2 . 3 . 2 . 0 . 2 . 3 . 1 .',
+    grooveA: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...x.' },
+    grooveB: { kick: 'x.........x.....', snare: '........x.......', hat: 'x.x.x.x.x.x.r.x.' },
+    lead: 'sawtooth',
+    kit: 'edm',
+    voice: 'supersaw',
+    bassTone: 'growl',
+    padTone: 'saw',
+  },
+  // 20 — Neon Nights (big-room EDM)
+  {
+    title: 'Neon Nights',
+    genre: 'EDM',
+    role: 'mix',
+    fast: true,
+    form: 'drop',
+    bpm: 128,
+    root: 60,
+    scale: 'major',
+    swing: 0,
+    progA: [6, 4, 1, 5],
+    progB: [6, 4, 1, 5],
+    melA: "3 - 3 - 3 - 2 - 1 - 1 - 2 - 3 - | 4 - 4 - 4 - 3 - 2 - 2 - 3 - 4 - | 5 - 5 - 5 - 4 - 3 - 3 - 4 - 5 - | 6 - 5 - 4 - 3 - 2 - - - 5, - - -",
+    melB: "1' . 1' . 7 . 1' . . 3' . 2' . 1' 7 . | 6 . 6 . 5 . 6 . . 1' . 7 . 6 5 . | 1' . 1' . 7 . 1' . . 3' . 2' . 1' 7 . | 5 . 5 . 6 . 7 . 1' - - - . . . .",
+    bass: '. . r . . . r . . . r . . . r .',
+    arp: '0 1 2 3 2 1 0 1 2 3 2 1 0 1 2 3',
+    grooveA: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...x.' },
+    grooveB: { kick: 'x...x...x...x...', snare: '....x.......x..g', hat: 'xxoxxxoxxxoxxxox' },
+    lead: 'sawtooth',
+    kit: 'edm',
+    voice: 'supersaw',
+    bassTone: 'saw',
+    padTone: 'saw',
+  },
+  // 21 — Pixel Drop (chipstep: 8-bit meets dubstep)
+  {
+    title: 'Pixel Drop',
+    genre: 'Chipstep',
+    role: 'mix',
+    fast: true,
+    form: 'drop',
+    bpm: 140,
+    root: 52,
+    scale: 'minor',
+    swing: 0,
+    progA: [1, 7, 6, 7],
+    progB: [1, 6, 3, 7],
+    melA: "1 - 3 - 5 - 1' - 7 - 5 - 3 - 5 - | 6 - 1' - 6 - 5 - 3 - 2 - 3 - 5 - | 1 - 3 - 5 - 1' - 2' - 1' - 7 - 5 - | 6 - 7 - 1' - 2' - 3' - - - . . . .",
+    melB: "1' 1' . 1' . . 5 . 1' 1' . 1' . . 7 . | 6 6 . 6 . . 3 . 6 6 . 6 . . 5 . | 1' 1' . 1' . . 5 . 1' 1' . 3' . . 2' . | 1' - - - 7 - - - 5 - - - . . . .",
+    bass: 'r - - - r - - - f - - - r - o -',
+    arp: '0 2 3 2 0 2 3 2 0 2 3 2 0 2 3 2',
+    grooveA: { kick: 'x.......x.......', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.' },
+    grooveB: { kick: 'x.........x.....', snare: '........x.......', hat: 'x.xrx.x.x.xrx.x.' },
+    lead: 'square',
+    kit: 'chip',
+    voice: 'chip',
+    bassTone: 'growl',
+    padTone: 'none',
+  },
+  // 22 — Skyline Keys (piano house)
+  {
+    title: 'Skyline Keys',
+    genre: 'Piano house',
+    role: 'mix',
+    bpm: 124,
+    root: 62,
+    scale: 'major',
+    swing: 0,
+    progA: [1, 5, 6, 4],
+    progB: [4, 5, 3, 6],
+    melA: "3 - 5 - 5 - 3 - 2 - 1 - 2 - 3 - | 2 - 5 - 5 - 2 - 7, - 5, - 7, - 2 - | 3 - 5 - 5 - 3 - 6 - 5 - 3 - 1 - | 4 - 3 - 2 - 1 - 1 - - - . . . .",
+    melB: "6 . 6 . 5 . 6 . 1' - . . 6 . 5 . | 5 . 5 . 4 . 5 . 7 - . . 5 . 4 . | 3 . 3 . 2 . 3 . 6 - . . 5 . 3 . | 4 - - - 5 - - - 1 - - - . . . .",
+    bass: '. . r . . . r . . . r . . . f .',
+    arp: '0 . 1 2 . 1 0 . 2 . 1 . 3 . 2 .',
+    grooveA: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: '..x...x...x...x.' },
+    grooveB: { kick: 'x...x...x...x...', snare: '....x..g....x...', hat: 'x.xox.xox.xox.xo' },
+    lead: 'triangle',
+    kit: 'edm',
+    voice: 'keys',
+    bassTone: 'saw',
+    padTone: 'organ',
+  },
+  // 23 — Coin Combo (fast 8-bit)
+  {
+    title: 'Coin Combo',
+    genre: '8-bit',
+    role: 'mix',
+    fast: true,
+    bpm: 156,
+    root: 60,
+    scale: 'major',
+    swing: 0,
+    progA: [1, 4, 5, 1],
+    progB: [6, 4, 5, 5],
+    melA: "1 3 5 1' 5 3 1 3 5 - 3 - 1 - . . | 4 6 1' 4' 1' 6 4 6 1' - 6 - 4 - . . | 5 7 2' 5' 2' 7 5 7 2' - 7 - 5 - . . | 1' - 7 - 6 - 5 - 1' - - - . . . .",
+    melB: "5 - 6 - 5 - 3 - 1' - 7 - 5 - . . | 4 - 5 - 4 - 2 - 7 - 6 - 5 - . . | 5 - 6 - 5 - 3 - 1' - 2' - 3' - . . | 2' - 1' - 7 - 5 - 1' - - - . . . .",
+    bass: 'r . o . f . o . r . o . f . o .',
+    arp: '0 1 2 3 0 1 2 3 0 1 2 3 0 1 2 3',
+    grooveA: { kick: 'x...x...x...x...', snare: '....x.......x...', hat: 'x.x.x.x.x.x.x.x.' },
+    grooveB: { kick: 'x...x...x.x.x...', snare: '....x.......x.xx', hat: 'xxxxxxxxxxxxxxxx' },
+    lead: 'square',
+    kit: 'chip',
+    voice: 'chip',
+    bassTone: 'square',
+    padTone: 'none',
+  },
 ];
 
-export const MENU_SONG = 6;
+export const MENU_SONG = 18;
 export const HAUNTED_SONG = 17;
 
 /** Is a seasonal song in season? (Songs without an event always are.) */
@@ -519,7 +669,8 @@ export function songsFor(context: 'menu' | 'run' | 'race', now = new Date()): nu
     .filter(({ s, i }) => inSeason(i, now) && (context === 'menu' ? s.role === 'menu' : context === 'race' ? s.fast === true : s.role !== 'menu'))
     .map(({ i }) => i);
   // In season, the seasonal theme plays in the menus too.
-  if (context === 'menu' && menuTheme(now) !== MENU_SONG) out.unshift(menuTheme(now));
+  // The current menu theme leads the menu pool.
+  if (context === 'menu') return [menuTheme(now), ...out.filter((i) => i !== menuTheme(now))];
   return out;
 }
 

@@ -89,7 +89,7 @@ Shape **portals** switch modes mid-run. The first time a player meets a shape, t
 ## Soundtrack & audio
 All sound is synthesised live in Web Audio. There are no audio files to license and nothing to download.
 
-**Original soundtrack: 17 composed songs in 15 genres** (`src/core/songs.ts`), written as data: melody, chords, bass, arpeggio, drum grooves, plus the kit, lead voice, bass and pad tone.
+**Original soundtrack: 24 composed songs in 20 genres** (`src/core/songs.ts`), written as data: melody, chords, bass, arpeggio, drum grooves, plus the kit, lead voice, bass and pad tone.
 
 | # | Song | Genre | Where |
 | --- | --- | --- | --- |
@@ -110,15 +110,23 @@ All sound is synthesised live in Web Audio. There are no audio files to license 
 | 15 | Neon Bounce | Future bass, 140 BPM | Mix |
 | 16 | Swing Square | Electro swing, 128 BPM | Mix |
 | 17 | Hero Ascent | Epic, 112 BPM | Mix |
+| 18 | Haunted Hop | Spooky swing, 116 BPM | Menu theme in Spooky Season only |
+| 19 | Arcade Sunrise | Synth-pop, 112 BPM | **Main menu theme** |
+| 20 | Bass Drop Boulevard | Dubstep, 140 BPM (build-up → drop) | Mix · races |
+| 21 | Neon Nights | Big-room EDM, 128 BPM (build-up → drop) | Mix · races |
+| 22 | Pixel Drop | Chipstep (8-bit + dubstep), 140 BPM | Mix · races |
+| 23 | Skyline Keys | Piano house, 124 BPM | Mix |
+| 24 | Coin Combo | 8-bit, 156 BPM | Mix · races |
 
 **Playlists** (`src/core/music.ts`). Nothing loops forever: after about 2 minutes the next song starts on a phrase boundary.
 * The main menu always opens with its theme, then rotates through the menu songs.
-* An Endless run plays each world's theme when you reach that world, with a shuffled mix (every song once before any repeats) in between.
+* An Endless run starts with its world's theme, then **every new 500 m level switches to the next song in a shuffled bag** of all run songs (world themes and the mix): every song once before any repeats. Menu songs never play in runs.
 * Races use the fast songs. The editor plays calm songs plus the world themes. Player-made levels loop the song their builders picked (or their world's theme); the song is stored in the level code.
 * **Skip** is in the pause menu and Settings. **Settings → Soundtrack** lists every song with its genre, a play button, and a switch to take it out of rotation.
 
 * Song form: 2-bar intro → A (verse) → B (chorus, with a snare-roll fill) → repeat, with crash cymbals on section changes.
-* Instruments: drum kits (punchy, chip, rock, 808, lo-fi, breaks) with ghost notes and hat rolls; saw, square, sub, wobble and slap basses; synth, chip, overdriven guitar, brass, mallet and electric-piano leads; arpeggio plucks; string, organ and saw pads.
+* **Drop form** (EDM/dubstep): section A is the build-up (riser sweep, accelerating snare roll, half a beat of silence), section B is the drop (impact boom + crash, full bass).
+* Instruments: drum kits (punchy, chip, rock, 808, lo-fi, breaks, EDM) with ghost notes and hat rolls; saw, square, sub, wobble, slap and dubstep growl basses; synth, chip, overdriven guitar, brass, mallet, electric-piano and supersaw leads; arpeggio plucks; string, organ and saw pads.
 * Mixing: side-chain "pump" from the kick, echo (dotted-8th) and reverb sends, a bus compressor and a final limiter. Tuned for phone speakers (bright mids, no mud), around −16 dBFS RMS.
 * **Dynamic intensity:** the arpeggio, 16th-note hats and a doubled lead fade in as an Endless run speeds up. Each new world crossfades to its theme on the next bar line.
 * `tests/songs.test.ts` validates every song. `audio.renderOffline()` renders any song for previews and level checks.

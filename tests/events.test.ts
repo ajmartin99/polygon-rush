@@ -18,7 +18,8 @@ describe('Spooky Season', () => {
     expect(menuTheme(oct)).toBe(HAUNTED_SONG);
     expect(menuTheme(may)).toBe(MENU_SONG);
     expect(songsFor('menu', oct)[0]).toBe(HAUNTED_SONG);
-    expect(songsFor('run', oct)).toContain(HAUNTED_SONG);
+    // Menu songs (the Halloween theme included) never play during runs.
+    expect(songsFor('run', oct)).not.toContain(HAUNTED_SONG);
     for (const c of ['menu', 'run', 'race'] as const) expect(songsFor(c, may)).not.toContain(HAUNTED_SONG);
   });
 

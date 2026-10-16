@@ -320,13 +320,14 @@ export class ShopScreen extends BaseScreen {
           ui.toast(`${item.name} unlocked!`, 'sparkle');
           refresh();
         };
+        const shapeNote = isSkin && (item as SkinDef).silhouette ? 'New body shape, same hitbox. ' : '';
         if (u.price === 0) {
-          info.textContent = `Free during ${ev.name} (${eventEndLabel(ev)}). Yours to keep!`;
+          info.textContent = `${shapeNote}Free during ${ev.name} (${eventEndLabel(ev)}). Yours to keep!`;
           wrap.appendChild(button({ label: 'Claim free', icon: 'gift', cls: 'orange lg', onClick: grant }));
           break;
         }
         const afford = store.canAfford(u.price);
-        info.textContent = afford ? `${ev.name} only, ${eventEndLabel(ev)}. Yours to keep!` : `You need ${fmt(u.price - store.data.gems)} more gems. ${ev.name} ${eventEndLabel(ev)}.`;
+        info.textContent = shapeNote + (afford ? `${ev.name} only, ${eventEndLabel(ev)}. Yours to keep!` : `You need ${fmt(u.price - store.data.gems)} more gems. ${ev.name} ${eventEndLabel(ev)}.`);
         wrap.appendChild(
           button({
             label: fmt(u.price),

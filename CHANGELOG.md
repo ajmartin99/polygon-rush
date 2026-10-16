@@ -9,6 +9,7 @@ All notable changes to Polygon Rush are documented here.
 - **Podium and emotes:** top 3 on a podium after races, 16 emotes (4 free, 8 in the new Emotes shop tab, 4 Halloween), Quick Chat on the results screen.
 - **New music:** Arcade Sunrise (new main menu theme), Bass Drop Boulevard (dubstep), Neon Nights (EDM), Pixel Drop (chipstep), Skyline Keys (piano house) and Coin Combo (8-bit). EDM and dubstep songs build up and drop.
 
+- **Halloween body shapes:** Phantom (ghost), Pumpkin Patch, Tombstone, Bone Head (skull) and Candy Corn Kid change your racer's outline. Same hitbox, and the Glider keeps its arrow.
 - **Mid-air flips:** the Roller can flip gravity any time, even in the air (short cooldown so it can't hover).
 - **Swipe down to drop:** Jumper and Hopper slam to the ground, the Glider dives (Down arrow or S on keyboards).
 

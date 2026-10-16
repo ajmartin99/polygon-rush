@@ -78,6 +78,7 @@ Shape **portals** switch modes mid-run. The first time a player meets a shape, t
 ## Seasonal events
 * `src/meta/events.ts` defines date windows. **Spooky Season** runs Oct 1 – Nov 7 (local time; `?event=halloween` / `?event=none` force it for testing).
 * While on: Halloween skins (Wicked Witch free gift, Boo, Mummy, Jack-o'-Lantern, Count Polygon, Rattle Bones) and trails (Candy Corn, Bat Swarm, Ghostly Mist) lead the shop; the menu and Daily Run use the Haunted Hollow palette; **Haunted Hop** becomes the menu theme and joins the mix; a menu chip offers the gift. Items bought or claimed stay owned; unowned event items hide from the shop afterwards.
+* **Body shapes** (silhouette skins): Phantom, Pumpkin Patch, Tombstone, Bone Head and Candy Corn Kid swap the racer's outline in Jumper, Roller and Hopper modes; the Glider keeps its arrow. Collision boxes never change.
 * Profiles gain the **Trick or Treat** badge (3 Halloween items, title *Pumpkin King*) and a Halloween banner.
 
 ## Economy

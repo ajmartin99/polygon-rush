@@ -1,10 +1,12 @@
 import { store } from '../../state/store';
 import { NetRoom, type NetPlayer } from '../../services/net';
 import { EditorSession, setActiveEditor } from '../../editor/session';
-import { ChatLog } from '../../services/chatlog';
-import { quickLine } from '../../meta/quickchat';
-import { ChatPanel } from '../chat-panel';
-import { RoomFreeChat } from '../free-chat';
+import { roomChatPanel } from '../room-chat';
+import { emoteBar, showEmote } from '../emotes';
+import { BIOMES } from '../../render/biomes';
+import { decodeLevel, encodeLevel, levelName, type LevelContent } from '../../game/level';
+import { FEATURED } from '../../meta/featured';
+import { levels } from '../../state/levels';
 import { codeEntry } from '../code-entry';
 import { CONFIG } from '../../config';
 import { BaseScreen, button, segmented, titleBar } from '../components';
@@ -20,6 +22,9 @@ import { ServerError } from '../../services/server';
 
 type View = 'choose' | 'join' | 'busy' | 'lobby';
 
+/** The level code the host picked for the next race (kept per room across screens). */
+const trackCodes = new WeakMap<NetRoom, string>();
+
 /** Seconds before a public room with 2+ racers starts on its own. */
 const AUTO_START = 20;
 
@@ -32,9 +37,8 @@ export class FriendsScreen extends BaseScreen {
   private body = h('div.grow.col', { style: 'align-items:center;justify-content:center;gap:1rem;min-height:0' });
   private room: NetRoom | null = null;
   private handedOff = false;
-  private chatLog = new ChatLog();
-  private chat: ChatPanel | null = null;
-  private free: RoomFreeChat | null = null;
+  private chat: ReturnType<typeof roomChatPanel> | null = null;
+  private roomOffs: (() => void)[] = [];
   private listing: PublicListing | null = null;
   private wantPublic = false;
   private autoAt = 0;
@@ -45,16 +49,19 @@ export class FriendsScreen extends BaseScreen {
     super('.solid');
     this.el.append(titleBar('Play Online', 'globe', () => this.back()), this.body);
     const room = params?.room as NetRoom | undefined;
-    if (room) this.wireRoom(room);
-    else this.render();
+    if (room && room.open) {
+      this.wireRoom(room);
+      // Back from a race in a public room: list it again for new racers.
+      if (room.isHost && room.publicRoom) void this.setPublic(true);
+    } else this.render();
   }
 
   override leave(): void {
     super.leave();
     this.stopListing();
     clearInterval(this.autoTimer);
-    this.chat?.destroy();
-    this.free?.close();
+    for (const off of this.roomOffs.splice(0)) off();
+    this.chat?.close();
     if (this.room && !this.handedOff) this.room.leave();
   }
 
@@ -75,6 +82,7 @@ export class FriendsScreen extends BaseScreen {
 
   private render(): void {
     clear(this.body);
+    this.body.style.gap = this.view === 'lobby' ? '0.6rem' : '1rem';
     switch (this.view) {
       case 'choose':
         return this.renderChoose();
@@ -157,7 +165,7 @@ export class FriendsScreen extends BaseScreen {
         p
           ? h(
               'button.player-slot.filled',
-              { style: p.id === room.localId ? 'border-color:var(--yellow)' : '', 'aria-label': `${p.name} profile`, onclick: () => openPlayerCard(p) },
+              { 'data-pid': p.id, style: p.id === room.localId ? 'border-color:var(--yellow)' : '', 'aria-label': `${p.name} profile`, onclick: () => openPlayerCard(p) },
               previewCanvas({ skin: p.skin, animate: p.id === room.localId, scale: 0.6 }),
               h('div.nm', null, p.name),
               p.host ? h('span.tag', null, 'HOST') : p.id === room.localId ? h('span.tag.cpu', null, 'YOU') : null,
@@ -169,24 +177,31 @@ export class FriendsScreen extends BaseScreen {
     const auto = this.autoAt ? Math.max(0, Math.ceil((this.autoAt - performance.now()) / 1000)) : 0;
     append(this.body, [
       h(
-        'div.row',
-        { style: 'gap:0.5rem;align-items:center' },
-        h(`span.tag${room.publicRoom ? '.pub' : ''}`, null, room.publicRoom ? 'PUBLIC · 13+' : 'PRIVATE'),
+        'div.lobby-head',
+        null,
+        h(`span.room-tag${room.publicRoom ? '.pub' : ''}`, null, room.publicRoom ? 'PUBLIC · 13+' : 'PRIVATE'),
         room.isHost && canUsePublicRooms(store.data) ? button({ label: room.publicRoom ? 'Make private' : 'Make public', icon: room.publicRoom ? 'lock' : 'public', cls: 'ghost sm', onClick: () => void this.setPublic(!room.publicRoom) }) : null,
         !room.isHost && room.publicRoom ? button({ icon: 'report', cls: 'icon red', aria: 'Report this room', onClick: () => this.report() }) : null,
+        h('span.muted.small', null, room.isHost ? (room.publicRoom ? 'Racers can find you · code:' : 'Room code:') : 'Room code:'),
+        h('div.code-display', null, [...room.code].map((c) => h('span', null, c))),
+        button({ label: 'Leave', icon: 'back', cls: 'ghost sm', onClick: () => this.back(), sfx: 'back' }),
       ),
-      h('p.muted', null, room.isHost ? (room.publicRoom ? 'Racers can find your room. Friends can also use the code:' : 'Tell your friends this code:') : 'You’re in! Room code:'),
-      h('div.code-display.big', null, [...room.code].map((c) => h('span', null, c))),
       h('div.players', { style: 'width:min(36rem,92vw)' }, slots),
-      room.isHost
-        ? button({
-            label: canStart ? (auto ? `Start Race! (${auto})` : 'Start Race!') : room.publicRoom ? 'Waiting for racers…' : 'Waiting for friends…',
-            icon: 'flag',
-            cls: `${canStart ? 'yellow pulse' : 'ghost'} lg`,
-            disabled: !canStart,
-            onClick: () => room.startRace(),
-          })
-        : h('p', null, room.publicRoom && room.players.length >= 2 ? 'Starting soon…' : 'Waiting for the host to start…'),
+      this.trackRow(room),
+      h(
+        'div.lobby-foot',
+        null,
+        emoteBar((n) => room.sendEmote(n)),
+        room.isHost
+          ? button({
+              label: canStart ? (auto ? `Start Race! (${auto})` : 'Start Race!') : room.publicRoom ? 'Waiting for racers…' : 'Waiting for friends…',
+              icon: 'flag',
+              cls: `${canStart ? 'yellow pulse' : 'ghost'} lg`,
+              disabled: !canStart,
+              onClick: () => this.start(room),
+            })
+          : h('p', null, room.publicRoom && room.players.length >= 2 ? 'Starting soon…' : 'Waiting for the host to start…'),
+      ),
     ]);
   }
 
@@ -199,52 +214,48 @@ export class FriendsScreen extends BaseScreen {
       return;
     }
     this.room = room;
-    room.on('quick', ({ id, n }) => {
-      const line = quickLine(n);
-      const p = room.player(id);
-      if (line && store.settings.quickChat) this.chatLog.push({ from: id, name: p?.name ?? 'Player', color: p?.color ?? 0, text: line.text, kind: 'quick', mine: id === room.localId });
-    });
     if (!this.chat) {
-      this.chat = new ChatPanel({
-        where: 'race',
-        log: this.chatLog,
-        onQuick: (n) => {
-          room.sendQuick(n);
-          const line = quickLine(n);
-          if (!room.isHost && line) this.chatLog.push({ from: room.localId, name: 'You', color: room.player(room.localId)?.color ?? 0, text: line.text, kind: 'quick', mine: true });
-        },
-      });
-      this.chat.el.classList.add('lobby-chat');
-      this.el.append(this.chat.el);
-      this.free = new RoomFreeChat(room, this.chatLog);
-      this.free.bind(this.chat);
+      this.chat = roomChatPanel(room);
+      this.chat.panel.el.classList.add('lobby-chat');
+      this.el.append(this.chat.panel.el);
     }
-    room.on('lobby', () => {
-      this.listing?.update();
-      this.scheduleAutoStart();
-      if (this.view === 'lobby') this.render();
-    });
-    room.on('closed', ({ reason }) => {
-      if (this.handedOff) return;
-      ui.toast(reason, 'info', 3000);
-      this.room = null;
-      this.stopListing();
-      clearInterval(this.autoTimer);
-      this.autoAt = 0;
-      this.chat?.destroy();
-      this.chat = null;
-      this.free?.close();
-      this.free = null;
-      this.view = 'choose';
-      this.render();
-    });
-    room.on('start', ({ seed, players, delay }) => {
-      this.handedOff = true;
-      clearInterval(this.autoTimer);
-      // Started races can't be joined: take the room off the public list.
-      this.stopListing();
-      nav.play({ mode: 'online', room, seed, players, delay });
-    });
+    this.roomOffs.push(
+      room.on('lobby', () => {
+        this.listing?.update();
+        this.scheduleAutoStart();
+        if (this.view === 'lobby') this.render();
+      }),
+      room.on('emote', ({ id, n }) => {
+        const slot = this.body.querySelector<HTMLElement>(`[data-pid="${CSS.escape(id)}"]`);
+        if (slot) showEmote(slot, n);
+      }),
+      room.on('closed', ({ reason }) => {
+        if (this.handedOff) return;
+        ui.toast(reason, 'info', 3000);
+        this.room = null;
+        this.stopListing();
+        clearInterval(this.autoTimer);
+        this.autoAt = 0;
+        this.chat?.close();
+        this.chat = null;
+        this.view = 'choose';
+        this.render();
+      }),
+      room.on('start', ({ seed, players, delay, level }) => {
+        this.handedOff = true;
+        clearInterval(this.autoTimer);
+        // Started races can't be joined: take the room off the public list.
+        this.stopListing();
+        let content: LevelContent | undefined;
+        try {
+          content = level ? decodeLevel(level) : undefined;
+        } catch {
+          content = undefined;
+        }
+        // After the race everyone comes back to this lobby for a rematch.
+        nav.play({ mode: 'online', room, seed, players, delay, level: content, exit: () => nav.go('friends', { room }) });
+      }),
+    );
     this.view = 'lobby';
     this.render();
   }
@@ -278,6 +289,67 @@ export class FriendsScreen extends BaseScreen {
       this.view = 'join';
       this.render();
     }
+  }
+
+  // ------------------------------------------------------------ track
+  private start(room: NetRoom): void {
+    const t = room.track;
+    room.startRace(t.w === 6 ? trackCodes.get(room) : undefined, t.w >= 0 && t.w < 6 ? t.w : -1);
+  }
+
+  private trackLabel(room: NetRoom): string {
+    const t = room.track;
+    if (t.w === 6 && t.name) return levelName({ name: t.name });
+    if (t.w >= 0 && t.w < 6) return BIOMES[t.w].name;
+    return 'Random world';
+  }
+
+  /** Host picks the next track; everyone sees it. */
+  private trackRow(room: NetRoom): HTMLElement {
+    if (!room.isHost) return h('p.track-line', null, 'Track: ', h('b', null, this.trackLabel(room)));
+    const t = room.track;
+    const pick = (track: { w: number; name?: [number, number] }, code?: string) => {
+      if (code) trackCodes.set(room, code);
+      room.setTrack(track);
+      this.render();
+    };
+    return h(
+      'div.track-row',
+      null,
+      h('span.muted.small', null, 'Track'),
+      h(`button.track-chip${t.w === -1 ? '.on' : ''}`, { onclick: () => pick({ w: -1 }) }, 'Random'),
+      BIOMES.slice(0, 6).map((pal, i) =>
+        h(`button.track-swatch${t.w === i ? '.on' : ''}`, { title: pal.name, 'aria-label': pal.name, style: `background:linear-gradient(180deg, ${pal.skyTop}, ${pal.skyBottom})`, onclick: () => pick({ w: i }) }),
+      ),
+      h(`button.track-chip${t.w === 6 ? '.on' : ''}`, { onclick: () => this.pickLevel(pick) }, t.w === 6 ? this.trackLabel(room) : 'Level…'),
+    );
+  }
+
+  private pickLevel(pick: (t: { w: number; name?: [number, number] }, code?: string) => void): void {
+    const mine = levels.list().filter((l) => l.verified);
+    const entry = (l: LevelContent, sub: string) =>
+      button({
+        label: h('span.col', { style: 'align-items:flex-start' }, h('b', null, levelName(l)), h('span.muted.small', null, sub)),
+        cls: 'ghost',
+        onClick: () => {
+          m.close();
+          pick({ w: 6, name: [l.name[0], l.name[1]] }, encodeLevel(l));
+        },
+      });
+    const m = ui.modal(
+      [
+        h('h2', null, 'Pick a level'),
+        h(
+          'div.col.body-scroll',
+          { style: 'gap:0.4rem' },
+          h('h3', null, 'Featured'),
+          FEATURED.map((l) => entry(l, l.difficulty)),
+          h('h3', null, 'My levels'),
+          mine.length ? mine.map((l) => entry(l, l.authors.length ? `by ${l.authors.join(', ')}` : 'Beaten')) : h('p.muted.small', null, 'Beat one of your own levels in Create to race it here.'),
+        ),
+      ],
+      { showClose: true },
+    );
   }
 
   // ------------------------------------------------------------ public rooms

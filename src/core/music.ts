@@ -45,10 +45,14 @@ class MusicDirector extends Emitter<{ song: number }> {
   }
 
   /** The run reached a new world: play its signature song. */
+  /**
+   * The run reached a new level: switch to the next song in the shuffled
+   * bag (every run song plays once before any repeats), so each level sounds
+   * different instead of cycling the six world themes.
+   */
   world(world: number): void {
     if (this.context !== 'run') return this.run(world);
-    const song = world % WORLD_SONGS;
-    if (this.allowed(song) && audio.targetSong !== song) this.play(song);
+    this.next();
   }
 
   race(first = RACE_SONG): void {

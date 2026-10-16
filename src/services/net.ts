@@ -3,6 +3,7 @@ import { CONFIG } from '../config';
 import { Emitter } from '../core/emitter';
 import type { EditOp } from '../editor/doc';
 import { quickLine } from '../meta/quickchat';
+import { validEmote } from '../meta/emotes';
 import { isGeneratedName } from '../meta/names';
 import { safeCard, type ProfileCard } from '../meta/profile';
 import { SKINS } from '../meta/catalog';
@@ -15,7 +16,7 @@ import { SKINS } from '../meta/catalog';
  * Only generated names, skins, positions, level edits and Quick Chat indexes
  * travel peer-to-peer; free-text chat never does (see services/chat.ts).
  */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 export const CODE_ALPHABET = 'BCDFGHJKLMNPQRSTVWXZ23456789';
 export const CODE_LENGTH = 4;
 
@@ -41,10 +42,26 @@ export function setLocalCard(fn: () => ProfileCard | undefined): void {
 /** Compact racer state: [id, x, y, rot, modeIndex, flags, speed]. */
 export type NetState = [string, number, number, number, number, number, number];
 
+/** What the host picked for the next race (shown to everyone in the lobby). */
+export interface TrackInfo {
+  /** -1 random world, 0-5 a world, 6 a player-made level. */
+  w: number;
+  /** Level name indexes when w = 6. */
+  name?: [number, number];
+}
+
+export function safeTrack(t: unknown): TrackInfo {
+  if (!t || typeof t !== 'object') return { w: -1 };
+  const r = t as Record<string, unknown>;
+  const w = typeof r.w === 'number' && Number.isInteger(r.w) && r.w >= -1 && r.w <= 6 ? r.w : -1;
+  const nm = Array.isArray(r.name) && r.name.length === 2 && r.name.every((n) => Number.isInteger(n) && n >= 0 && n < 32) ? ([r.name[0], r.name[1]] as [number, number]) : undefined;
+  return w === 6 && nm ? { w, name: nm } : { w: w === 6 ? -1 : w };
+}
+
 export type NetMsg =
   | { t: 'hello'; v: number; name: string; skin: string; card?: ProfileCard }
   | { t: 'welcome'; you: string; players: NetPlayer[]; kind: RoomKind; chat: string; lock: boolean; pub?: boolean; level?: string; rev?: number; authors?: string[] }
-  | { t: 'lobby'; players: NetPlayer[]; racing: boolean; pub?: boolean }
+  | { t: 'lobby'; players: NetPlayer[]; racing: boolean; pub?: boolean; track?: TrackInfo }
   | { t: 'reject'; reason: 'full' | 'version' | 'started' | 'closed' }
   | { t: 'chatkey'; key: string }
   | { t: 'start'; seed: number; players: NetPlayer[]; delay: number; level?: string }
@@ -62,6 +79,7 @@ export type NetMsg =
   | { t: 'authors'; list: string[] }
   | { t: 'kick' }
   | { t: 'qc'; n: number; id?: string }
+  | { t: 'emo'; n: number; id?: string }
   | { t: 'bye' };
 
 export interface RoomEvents extends Record<string, unknown> {
@@ -72,7 +90,7 @@ export interface RoomEvents extends Record<string, unknown> {
   finish: { id: string; time: number };
   results: { id: string; time: number | null }[];
   closed: { reason: string };
-  /** Build rooms: the race ended, back to building. */
+  /** The race ended: back to building (build rooms) or to the lobby (race rooms). */
   raceOver: void;
   /** Ordered level edits (clients; the host gets `clientOps`). */
   ops: { by: string; seq: number; ops: EditOp[]; rev: number };
@@ -86,6 +104,7 @@ export interface RoomEvents extends Record<string, unknown> {
   lock: boolean;
   authors: string[];
   quick: { id: string; n: number };
+  emote: { id: string; n: number };
   /** The room's Free Chat channel moved (after someone was removed). */
   chatKey: string;
 }
@@ -207,6 +226,8 @@ export class NetRoom extends Emitter<RoomEvents> {
   racing = false;
   /** Listed for strangers (Quick Match / public build rooms). Shown to everyone in the room. */
   publicRoom = false;
+  /** Next race's track (host decides; everyone sees it). */
+  track: TrackInfo = { w: -1 };
   /** Build rooms: only the host may edit. */
   locked = false;
   /** Shared secret naming this room's free-chat channel on the community server. */
@@ -223,7 +244,7 @@ export class NetRoom extends Emitter<RoomEvents> {
   private closed = false;
   private rev = 0;
   private snapshot: HostOptions['snapshot'];
-  private buckets = new Map<string, { ops: Bucket; cur: Bucket; qc: Bucket; st: Bucket; fx: Bucket }>();
+  private buckets = new Map<string, { ops: Bucket; cur: Bucket; qc: Bucket; st: Bucket; fx: Bucket; em: Bucket }>();
   private joinBlockedUntil = 0;
   private kicked = new Set<string>();
 
@@ -346,7 +367,7 @@ export class NetRoom extends Emitter<RoomEvents> {
   private bucket(id: string) {
     let b = this.buckets.get(id);
     if (!b) {
-      b = { ops: new Bucket(80, 400), cur: new Bucket(25, 30), qc: new Bucket(1, 3), st: new Bucket(30, 40), fx: new Bucket(3, 5) };
+      b = { ops: new Bucket(80, 400), cur: new Bucket(25, 30), qc: new Bucket(1, 3), st: new Bucket(30, 40), fx: new Bucket(3, 5), em: new Bucket(1, 4) };
       this.buckets.set(id, b);
     }
     return b;
@@ -423,6 +444,12 @@ export class NetRoom extends Emitter<RoomEvents> {
         this.emit('quick', { id: from, n: msg.n });
         break;
       }
+      case 'emo': {
+        if (!member || !validEmote(msg.n) || !this.bucket(from).em.take()) return;
+        this.broadcast({ t: 'emo', n: msg.n, id: from }, from);
+        this.emit('emote', { id: from, n: msg.n });
+        break;
+      }
       case 'bye':
         this.dropPeer(from);
         break;
@@ -448,7 +475,7 @@ export class NetRoom extends Emitter<RoomEvents> {
   }
 
   private broadcastLobby(): void {
-    this.broadcast({ t: 'lobby', players: this.players, racing: this.racing, pub: this.publicRoom });
+    this.broadcast({ t: 'lobby', players: this.players, racing: this.racing, pub: this.publicRoom, track: this.track });
     this.emit('lobby', this.players);
   }
 
@@ -471,12 +498,21 @@ export class NetRoom extends Emitter<RoomEvents> {
     this.broadcastLobby();
   }
 
-  startRace(level?: string): void {
+  /** Host: choose the next race's track (shown in everyone's lobby). */
+  setTrack(track: TrackInfo): void {
+    if (!this.isHost) return;
+    this.track = safeTrack(track);
+    this.broadcastLobby();
+  }
+
+  startRace(level?: string, world = -1): void {
     if (!this.isHost || this.racing) return;
     this.racing = true;
     this.finishes.clear();
     this.states.clear();
-    const seed = (Math.random() * 2 ** 31) >>> 0;
+    let seed = (Math.random() * 2 ** 31) >>> 0;
+    // The track's colours come from seed % 6: pick a world by choosing the seed.
+    if (world >= 0 && world < 6) seed = seed - (seed % 6) + world;
     const msg: NetMsg = { t: 'start', seed, players: this.players, delay: 600, level };
     this.broadcast(msg);
     this.emit('start', { seed, players: this.players, delay: 600, level });
@@ -515,8 +551,8 @@ export class NetRoom extends Emitter<RoomEvents> {
     const order = this.players.map((p) => ({ id: p.id, time: time(p.id) })).sort((a, b) => (a.time ?? Infinity) - (b.time ?? Infinity));
     this.broadcast({ t: 'results', order });
     this.emit('results', order);
-    if (this.kind === 'build') {
-      // Back to building: the room stays open for more edits and races.
+    {
+      // Back to the lobby (or to building): the room stays open for rematches.
       this.racing = false;
       this.states.clear();
       this.players = this.players.filter((p) => p.host || this.conns.has(p.id));
@@ -589,8 +625,9 @@ export class NetRoom extends Emitter<RoomEvents> {
         this.players = safePlayers(msg.players);
         this.racing = Boolean(msg.racing);
         this.publicRoom = msg.pub === true;
+        this.track = safeTrack(msg.track);
         this.emit('lobby', this.players);
-        if (wasRacing && !this.racing && this.kind === 'build') this.emit('raceOver', undefined);
+        if (wasRacing && !this.racing) this.emit('raceOver', undefined);
         break;
       }
       case 'start':
@@ -634,6 +671,9 @@ export class NetRoom extends Emitter<RoomEvents> {
         break;
       case 'qc':
         if (msg.id && quickLine(msg.n)) this.emit('quick', { id: msg.id, n: msg.n });
+        break;
+      case 'emo':
+        if (typeof msg.id === 'string' && validEmote(msg.n)) this.emit('emote', { id: msg.id, n: msg.n });
         break;
       case 'kick':
         this.close('The host removed you from the room.');
@@ -692,6 +732,17 @@ export class NetRoom extends Emitter<RoomEvents> {
       this.emit('quick', { id: this.localId, n });
     } else if (this.hostConn?.open) {
       this.hostConn.send({ t: 'qc', n } satisfies NetMsg);
+    }
+  }
+
+  sendEmote(n: number): void {
+    if (!validEmote(n)) return;
+    if (this.isHost) {
+      this.broadcast({ t: 'emo', n, id: this.localId });
+      this.emit('emote', { id: this.localId, n });
+    } else if (this.hostConn?.open) {
+      this.hostConn.send({ t: 'emo', n } satisfies NetMsg);
+      this.emit('emote', { id: this.localId, n });
     }
   }
 

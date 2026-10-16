@@ -3,6 +3,7 @@
  * shape changes so existing players never lose progress.
  */
 import { DIFFICULTIES, type Difficulty } from '../game/constants';
+import { FREE_EMOTES } from '../meta/emotes';
 
 export const SAVE_VERSION = 1;
 
@@ -78,6 +79,8 @@ export interface SaveData {
   trophies: number;
   skins: { owned: string[]; equipped: string };
   trails: { owned: string[]; equipped: string };
+  /** Emotes for podiums and lobbies (free ones are always owned). */
+  emotes: { owned: string[] };
   best: Record<string, number>;
   stats: Stats;
   missions: { active: MissionState[]; completed: number; counter: number };
@@ -158,6 +161,7 @@ export function createSave(now = Date.now()): SaveData {
     trophies: 0,
     skins: { owned: ['classic'], equipped: 'classic' },
     trails: { owned: ['none'], equipped: 'none' },
+    emotes: { owned: [...FREE_EMOTES] },
     best: {},
     stats: emptyStats(),
     missions: { active: [], completed: 0, counter: 0 },
@@ -207,6 +211,7 @@ export function migrate(raw: unknown): SaveData {
   if (!save.skins.owned.includes(save.skins.equipped)) save.skins.equipped = 'classic';
   if (!save.trails.owned.includes('none')) save.trails.owned.unshift('none');
   if (!save.trails.owned.includes(save.trails.equipped)) save.trails.equipped = 'none';
+  save.emotes.owned = [...new Set([...FREE_EMOTES, ...save.emotes.owned.filter((e) => typeof e === 'string')])];
   save.gems = Math.max(0, Math.floor(save.gems));
   save.level = Math.max(1, Math.floor(save.level));
   if (save.account.consent !== 'self' && save.account.consent !== 'parent') save.account = { ...emptyAccount(), rules: save.account.rules };

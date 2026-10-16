@@ -49,6 +49,8 @@ export class Racer {
   bot: BotBrain | null = null;
   /** Input from the player (humans). */
   held = false;
+  /** Swipe-down requested (applied on the next physics step). */
+  slamReq = false;
 
   hearts = 3;
   maxHearts = 3;

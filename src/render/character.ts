@@ -1,5 +1,5 @@
 import { shapePoints, type ShapeMode } from '../game/shapes';
-import type { SkinDef } from '../meta/catalog';
+import type { Silhouette, SkinDef } from '../meta/catalog';
 import { darken, lighten, rgba } from './biomes';
 
 export interface CharacterPose {
@@ -41,6 +41,66 @@ function tracePath(ctx: CanvasRenderingContext2D, shape: ShapeMode, size: number
     if (i === 0) ctx.moveTo(a[0], a[1]);
     else ctx.lineTo(a[0], a[1]);
     ctx.quadraticCurveTo(p1[0], p1[1], b[0], b[1]);
+  }
+  ctx.closePath();
+}
+
+/** Body outline for silhouette skins (centred, about the same size as the shapes). */
+function traceSilhouette(ctx: CanvasRenderingContext2D, sil: Silhouette, s: number): void {
+  ctx.beginPath();
+  switch (sil) {
+    case 'ghost': {
+      // Dome on top, three wavy scallops at the bottom.
+      const w = s * 0.5;
+      ctx.moveTo(-w, s * 0.42);
+      ctx.lineTo(-w, -s * 0.05);
+      ctx.arc(0, -s * 0.05, w, Math.PI, 0);
+      ctx.lineTo(w, s * 0.42);
+      const n = 3;
+      for (let i = 0; i < n; i++) {
+        const x0 = w - (i * 2 * w) / n;
+        const x1 = w - ((i + 1) * 2 * w) / n;
+        ctx.quadraticCurveTo((x0 + x1) / 2, s * (i % 2 ? 0.66 : 0.3), x1, s * 0.42);
+      }
+      break;
+    }
+    case 'pumpkin': {
+      // Wide, lobed and a little squat.
+      for (let k = 0; k <= 72; k++) {
+        const a = (k / 72) * Math.PI * 2;
+        const r = s * 0.5 * (1 - 0.07 * Math.abs(Math.cos(a * 2.5)));
+        const x = Math.cos(a) * r * 1.1;
+        const y = Math.sin(a) * r * 0.92 + s * 0.03;
+        if (k === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      break;
+    }
+    case 'tombstone': {
+      const w = s * 0.44;
+      ctx.moveTo(-w, s * 0.5);
+      ctx.lineTo(-w, -s * 0.12);
+      ctx.arc(0, -s * 0.12, w, Math.PI, 0);
+      ctx.lineTo(w, s * 0.5);
+      break;
+    }
+    case 'skull': {
+      // Round cranium, narrower jaw.
+      ctx.arc(0, -s * 0.08, s * 0.47, Math.PI * 0.8, Math.PI * 0.2);
+      ctx.lineTo(s * 0.27, s * 0.5);
+      ctx.quadraticCurveTo(0, s * 0.58, -s * 0.27, s * 0.5);
+      break;
+    }
+    case 'candycorn': {
+      // A rounded triangle pointing up.
+      ctx.moveTo(0, -s * 0.58);
+      ctx.quadraticCurveTo(s * 0.12, -s * 0.5, s * 0.5, s * 0.36);
+      ctx.quadraticCurveTo(s * 0.56, s * 0.5, s * 0.36, s * 0.5);
+      ctx.lineTo(-s * 0.36, s * 0.5);
+      ctx.quadraticCurveTo(-s * 0.56, s * 0.5, -s * 0.5, s * 0.36);
+      ctx.quadraticCurveTo(-s * 0.12, -s * 0.5, 0, -s * 0.58);
+      break;
+    }
   }
   ctx.closePath();
 }
@@ -204,6 +264,30 @@ function fillPattern(ctx: CanvasRenderingContext2D, skin: SkinDef, s: number, t:
         ctx.fillStyle = g;
         ctx.fillRect(bx - s * 0.22, by - s * 0.22, s * 0.44, s * 0.44);
       }
+      break;
+    }
+    case 'rip': {
+      // Engraved R.I.P. and a crack.
+      ctx.fillStyle = rgba(acc, 0.9);
+      ctx.font = `800 ${s * 0.2}px Fredoka, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.fillText('RIP', 0, s * 0.42);
+      ctx.strokeStyle = rgba(acc, 0.8);
+      ctx.lineWidth = Math.max(1, s * 0.03);
+      ctx.beginPath();
+      ctx.moveTo(s * 0.3, -s * 0.45);
+      ctx.lineTo(s * 0.2, -s * 0.3);
+      ctx.lineTo(s * 0.28, -s * 0.2);
+      ctx.lineTo(s * 0.18, -s * 0.05);
+      ctx.stroke();
+      break;
+    }
+    case 'cornstripe': {
+      // White tip, orange middle, yellow base.
+      ctx.fillStyle = '#ff8a1f';
+      ctx.fillRect(-h, -s * 0.15, h * 2, s * 0.32);
+      ctx.fillStyle = '#ffd23f';
+      ctx.fillRect(-h, s * 0.17, h * 2, h);
       break;
     }
     case 'pumpkin': {
@@ -689,6 +773,8 @@ export function drawCharacter(
 ): void {
   const p = { ...DEFAULT_POSE, ...pose };
   const s = size;
+  // Silhouette skins swap the outline; the Glider keeps its arrow so direction stays clear.
+  const outline = () => (skin.silhouette && shape !== 'triangle' ? traceSilhouette(ctx, skin.silhouette, s) : tracePath(ctx, shape, s));
   ctx.save();
   ctx.globalAlpha *= p.alpha;
   ctx.translate(x, y);
@@ -700,7 +786,7 @@ export function drawCharacter(
 
   // Neon skins glow (two soft strokes instead of expensive shadowBlur).
   if (skin.pattern === 'neon') {
-    tracePath(ctx, shape, s);
+    outline();
     ctx.strokeStyle = rgba(skin.accent, 0.25);
     ctx.lineWidth = s * 0.3;
     ctx.stroke();
@@ -709,7 +795,7 @@ export function drawCharacter(
     ctx.stroke();
   }
 
-  tracePath(ctx, shape, s);
+  outline();
   ctx.save();
   ctx.clip();
   fillPattern(ctx, skin, s, p.time);
@@ -726,7 +812,7 @@ export function drawCharacter(
   ctx.fillRect(-s, s * 0.1, s * 2, s);
   ctx.restore();
 
-  tracePath(ctx, shape, s);
+  outline();
   ctx.lineWidth = Math.max(1.5, s * 0.075);
   ctx.lineJoin = 'round';
   ctx.strokeStyle = skin.outline;
@@ -745,9 +831,11 @@ export function drawCharacter(
 /** A static trail sample for shop previews. */
 export function drawTrailPreview(ctx: CanvasRenderingContext2D, style: string, colors: string[], x: number, y: number, size: number, t: number): void {
   if (style === 'none' || !colors.length) return;
+  const bats = style === 'bats';
   for (let i = 1; i <= 7; i++) {
-    const px = x - i * size * 0.32;
-    const py = y + Math.sin(t * 6 + i * 0.9) * size * 0.08;
+    // Bats scatter and flutter; everything else follows a gentle wave.
+    const px = x - i * size * 0.32 + (bats ? Math.cos(t * 2.3 + i * 2.1) * size * 0.08 : 0);
+    const py = y + (bats ? Math.sin(t * 3 + i * 1.7) * size * (0.1 + i * 0.05) : Math.sin(t * 6 + i * 0.9) * size * 0.08);
     const a = 1 - i / 8;
     const c = colors[i % colors.length];
     ctx.save();

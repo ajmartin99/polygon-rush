@@ -19,8 +19,9 @@ import { nav } from '../nav';
 import { previewCanvas, updatePreview } from '../preview';
 import { ui } from '../ui';
 import { activeEvent, eventEndLabel } from '../../meta/events';
+import { EMOTES } from '../../meta/emotes';
 
-type Tab = 'skins' | 'trails' | 'gems';
+type Tab = 'skins' | 'trails' | 'emotes' | 'gems';
 
 const SHAPES: ShapeMode[] = ['square', 'triangle', 'hexagon', 'diamond'];
 
@@ -127,6 +128,7 @@ export class ShopScreen extends BaseScreen {
     const tabs: [Tab, string][] = [
       ['skins', 'Skins'],
       ['trails', 'Trails'],
+      ['emotes', 'Emotes'],
       ['gems', 'Gems & Packs'],
     ];
     for (const [id, label] of tabs) {
@@ -144,6 +146,7 @@ export class ShopScreen extends BaseScreen {
     clearInterval(this.shapeTimer);
     clear(this.body);
     if (this.tab === 'gems') this.renderGems();
+    else if (this.tab === 'emotes') this.renderEmotes();
     else this.renderCosmetics(this.tab);
   }
 
@@ -317,13 +320,14 @@ export class ShopScreen extends BaseScreen {
           ui.toast(`${item.name} unlocked!`, 'sparkle');
           refresh();
         };
+        const shapeNote = isSkin && (item as SkinDef).silhouette ? 'New body shape, same hitbox. ' : '';
         if (u.price === 0) {
-          info.textContent = `Free during ${ev.name} (${eventEndLabel(ev)}). Yours to keep!`;
+          info.textContent = `${shapeNote}Free during ${ev.name} (${eventEndLabel(ev)}). Yours to keep!`;
           wrap.appendChild(button({ label: 'Claim free', icon: 'gift', cls: 'orange lg', onClick: grant }));
           break;
         }
         const afford = store.canAfford(u.price);
-        info.textContent = afford ? `${ev.name} only, ${eventEndLabel(ev)}. Yours to keep!` : `You need ${fmt(u.price - store.data.gems)} more gems. ${ev.name} ${eventEndLabel(ev)}.`;
+        info.textContent = shapeNote + (afford ? `${ev.name} only, ${eventEndLabel(ev)}. Yours to keep!` : `You need ${fmt(u.price - store.data.gems)} more gems. ${ev.name} ${eventEndLabel(ev)}.`);
         wrap.appendChild(
           button({
             label: fmt(u.price),
@@ -344,6 +348,47 @@ export class ShopScreen extends BaseScreen {
       default:
         break;
     }
+  }
+
+  // ---------------------------------------------------------------- emotes
+  private renderEmotes(): void {
+    const ev = activeEvent();
+    const owned = new Set(store.data.emotes.owned);
+    // Seasonal emotes show while their event is on (and always once owned).
+    const list = EMOTES.filter((e) => e.unlock.kind !== 'event' || ev || owned.has(e.id));
+    const grid = h('div.emote-grid');
+    for (const e of list) {
+      const has = owned.has(e.id);
+      const u = e.unlock;
+      const price = u.kind === 'gems' || u.kind === 'event' ? u.price : 0;
+      const buy = () => {
+        if (has) return;
+        if (price > 0 && !store.spendGems(price)) {
+          ui.sfx('error');
+          ui.toast('Not enough gems — rush for more or visit the gem shop!', 'gem');
+          return;
+        }
+        store.data.emotes.owned.push(e.id);
+        store.commit();
+        ui.sfx('reward');
+        ui.toast(`${e.name} unlocked! Use it on the podium and in lobbies.`, 'sparkle');
+        this.render();
+      };
+      grid.append(
+        h(
+          `button.emote-card${has ? '.owned' : ''}`,
+          { style: `--rc:${RARITY_COLORS[e.rarity]}`, onclick: buy, 'aria-label': has ? `${e.name}, owned` : `Buy ${e.name}` },
+          u.kind === 'event' && !has ? h('span.equipped-tag.spooky', null, 'HALLOWEEN') : null,
+          h(`span.emote-glyph.e-${e.anim}`, null, e.glyph),
+          h('b', null, e.name),
+          has ? h('span.state', null, 'Owned') : h('span.price', null, ic('gem'), price ? fmt(price) : 'Free'),
+        ),
+      );
+    }
+    this.body.append(
+      h('p.muted.small', { style: 'margin:0.5rem 0' }, 'Pop emotes on the podium after races and in online lobbies. Everyone in the room sees them.'),
+      h('div.scroll', { style: 'min-height:0' }, grid),
+    );
   }
 
   private goGems(): void {

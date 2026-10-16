@@ -22,10 +22,14 @@ export type Pattern =
   | 'wisp'
   | 'bandage'
   | 'cape'
-  | 'bones';
+  | 'bones'
+  | 'rip'
+  | 'cornstripe';
 export type Face = 'cute' | 'happy' | 'cool' | 'cat' | 'robot' | 'star' | 'sleepy' | 'wink' | 'dino' | 'jack' | 'ghost' | 'mummy' | 'vampire' | 'skull';
 /** Something worn on top (drawn behind the body outline). */
 export type Topper = 'stem' | 'witch' | 'bat';
+/** A different body outline (cosmetic only: the hitbox never changes). */
+export type Silhouette = 'ghost' | 'pumpkin' | 'tombstone' | 'skull' | 'candycorn';
 
 export type Unlock =
   | { kind: 'free' }
@@ -51,6 +55,7 @@ export interface SkinDef {
   pattern: Pattern;
   face: Face;
   topper?: Topper;
+  silhouette?: Silhouette;
 }
 
 export interface TrailDef {
@@ -109,6 +114,12 @@ export const SKINS: SkinDef[] = [
   { id: 'mummy', name: 'Mummy', rarity: 'rare', unlock: spooky(900), body: '#efe3c2', accent: '#c8b48a', outline: '#4a3b1c', pattern: 'bandage', face: 'mummy' },
   { id: 'jack', name: 'Jack-o’-Lantern', rarity: 'epic', unlock: spooky(1200), body: '#ff8a1f', accent: '#d95f00', outline: '#4a1d00', pattern: 'pumpkin', face: 'jack', topper: 'stem' },
   { id: 'vampire', name: 'Count Polygon', rarity: 'epic', unlock: spooky(1500), body: '#2e1438', accent: '#c4183a', outline: '#0e0410', pattern: 'cape', face: 'vampire', topper: 'bat' },
+  // Halloween body shapes (same hitbox, new outline)
+  { id: 'phantom', name: 'Phantom', rarity: 'epic', unlock: spooky(1800), body: '#f1f0ff', accent: '#b9b4ff', outline: '#3a3260', pattern: 'wisp', face: 'ghost', silhouette: 'ghost' },
+  { id: 'patch', name: 'Pumpkin Patch', rarity: 'epic', unlock: spooky(2000), body: '#ff8a1f', accent: '#d95f00', outline: '#4a1d00', pattern: 'pumpkin', face: 'jack', topper: 'stem', silhouette: 'pumpkin' },
+  { id: 'grave', name: 'Tombstone', rarity: 'epic', unlock: spooky(1500), body: '#a3a9bd', accent: '#6c7288', outline: '#2a2d3a', pattern: 'rip', face: 'sleepy', silhouette: 'tombstone' },
+  { id: 'skullhead', name: 'Bone Head', rarity: 'legendary', unlock: spooky(2400), body: '#f2f0e6', accent: '#c9c4b0', outline: '#1c1a26', pattern: 'solid', face: 'skull', silhouette: 'skull' },
+  { id: 'cornkid', name: 'Candy Corn Kid', rarity: 'rare', unlock: spooky(1200), body: '#ffffff', accent: '#ff8a1f', outline: '#5a2a00', pattern: 'cornstripe', face: 'happy', silhouette: 'candycorn' },
   { id: 'bones', name: 'Rattle Bones', rarity: 'legendary', unlock: spooky(2500), body: '#1c1a26', accent: '#f2f0e6', outline: '#000000', pattern: 'bones', face: 'skull' },
 ];
 

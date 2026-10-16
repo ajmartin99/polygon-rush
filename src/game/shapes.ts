@@ -2,10 +2,10 @@
 export type ShapeMode = 'square' | 'triangle' | 'hexagon' | 'diamond';
 
 export const SHAPE_INFO: Record<ShapeMode, { name: string; verb: string; hint: string; sub: string; color: string }> = {
-  square: { name: 'Jumper', verb: 'Jump', hint: 'TAP to jump!', sub: 'Hold to keep bouncing', color: '#ffd23f' },
-  triangle: { name: 'Glider', verb: 'Fly', hint: 'HOLD to fly up!', sub: 'Let go to glide down', color: '#ff5fa2' },
-  hexagon: { name: 'Roller', verb: 'Flip', hint: 'TAP to flip gravity!', sub: 'Roll on the ceiling', color: '#3ee6b0' },
-  diamond: { name: 'Hopper', verb: 'Hop', hint: 'TAP to hop!', sub: 'Tap again to stay up', color: '#3ad7ff' },
+  square: { name: 'Jumper', verb: 'Jump', hint: 'TAP to jump!', sub: 'Hold to keep bouncing · swipe down to drop', color: '#ffd23f' },
+  triangle: { name: 'Glider', verb: 'Fly', hint: 'HOLD to fly up!', sub: 'Let go to glide · swipe down to dive', color: '#ff5fa2' },
+  hexagon: { name: 'Roller', verb: 'Flip', hint: 'TAP to flip gravity!', sub: 'Flip any time, even mid-air', color: '#3ee6b0' },
+  diamond: { name: 'Hopper', verb: 'Hop', hint: 'TAP to hop!', sub: 'Tap to stay up · swipe down to drop', color: '#3ad7ff' },
 };
 
 /** Unit polygon (radius ~0.5) for each shape, pointing right / up. */

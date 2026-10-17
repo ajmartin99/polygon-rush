@@ -4,18 +4,20 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-10-17
+
 ### Added
 - **Online lobby after every race:** Back to lobby or Leave from the results; the host's rematch pulls everyone in, even from the podium. The host picks the next track (random, a world, a featured level or one of their own).
 - **Podium and emotes:** top 3 on a podium after races, 16 emotes (4 free, 8 in the new Emotes shop tab, 4 Halloween), Quick Chat on the results screen.
-- **New music:** Arcade Sunrise (new main menu theme), Bass Drop Boulevard (dubstep), Neon Nights (EDM), Pixel Drop (chipstep), Skyline Keys (piano house) and Coin Combo (8-bit). EDM and dubstep songs build up and drop.
-
+- **New classic synth songs:** Arcade Sunrise, Bass Drop Boulevard (dubstep), Neon Nights (EDM), Pixel Drop (chipstep), Skyline Keys (piano house) and Coin Combo (8-bit).
 - **Halloween body shapes:** Phantom (ghost), Pumpkin Patch, Tombstone, Bone Head (skull) and Candy Corn Kid change your racer's outline. Same hitbox, and the Glider keeps its arrow.
 - **Mid-air flips:** the Roller can flip gravity any time, even in the air (short cooldown so it can't hover).
 - **Swipe down to drop:** Jumper and Hopper slam to the ground, the Glider dives (Down arrow or S on keyboards).
 - **My Music:** add your own songs (MP3, WAV, OGG, M4A) in Settings → Soundtrack and play them Off, Mixed in, or Only mine. They stay on the device and are never shared.
 - **Your own racer name (13+):** type a name instead of a generated one. It's filtered like chat (plus stricter name rules) and unique with the community server; moderators can ban names. Under-13s keep generated names.
 - **Name your level (13+):** a pencil button in Level settings lets builders write their own level name; level codes carry it (and typed builder names).
-- **Recorded music support:** the game can now play licensed recorded tracks (with credits) alongside the synth songs, and custom levels can pick them. Level codes (v2) have room for the bigger music library; older codes still load.
+- **Real recorded music:** 26 licensed tracks (CC0 / CC-BY, credited in Settings → Credits) across house, drum & bass, dubstep, electro, trance, eurobeat, synthwave, funk, disco, rock and chiptune. Every run starts on a random song and each level switches to a new one; calm tracks play in the menus. The original synth songs can be mixed back in (Settings → Soundtrack → Classic songs).
+- **Map music library:** custom levels can pick any recorded track or classic song, and the credit shows when the level starts. Level codes (v2) carry it; older codes still load.
 
 ### Changed
 - Bat Swarm trail: bats flap off in their own directions with a flutter.

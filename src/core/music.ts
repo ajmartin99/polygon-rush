@@ -46,11 +46,12 @@ class MusicDirector extends Emitter<{ song: number }> {
     return this.context;
   }
 
-  /** Main menu: always opens with the theme (if it is in rotation). */
+  /** Main menu: a random menu song, or the (seasonal) theme. */
   menu(): void {
     // Recorded menu music when we have it (the seasonal theme still leads in season).
+    // With recorded menu music, open on a random one (the seasonal theme still leads in season).
     const rec = this.recorded('menu');
-    this.start('menu', rec.length && !activeEvent() ? rec[0] : menuTheme());
+    this.start('menu', rec.length && !activeEvent() && !this.mineOnly() ? -1 : menuTheme());
   }
 
   /** Endless run starting in a world. */

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import { loadConfig } from '../src/config.ts';
 import { createServer, type Server } from '../src/index.ts';
+import { Db } from '../src/db.ts';
 import type { Mail, Mailer } from '../src/mailer.ts';
 
 const sent: Mail[] = [];
@@ -267,6 +268,42 @@ describe('free chat', () => {
   test('the moderation API needs the admin token', async () => {
     assert.equal((await api('GET', '/api/admin/reports')).status, 401);
     assert.equal((await api('GET', '/api/admin/reports', undefined, 'wrong-token-wrong-token-wrong')).status, 401);
+  });
+});
+
+describe('typed racer names', () => {
+  const key = 'k'.repeat(20);
+  test('claim, uniqueness, filter and status', async () => {
+    assert.equal((await api('POST', '/api/names/claim', { name: 'Rocket Rex', key })).status, 200);
+    // Same name, other device: taken (any case).
+    assert.equal((await api('POST', '/api/names/claim', { name: 'rocket rex', key: 'x'.repeat(20) })).status, 409);
+    // Filter and digit rules.
+    assert.equal((await api('POST', '/api/names/claim', { name: 'call 5551234', key })).status, 400);
+    assert.equal((await api('POST', '/api/names/claim', { name: 'Admin', key })).status, 400);
+    const st = await api('POST', '/api/names/status', { name: 'Rocket Rex', key });
+    assert.equal(st.json.ok, true);
+    // Claiming a new name releases the old one.
+    assert.equal((await api('POST', '/api/names/claim', { name: 'Comet Kid', key })).status, 200);
+    assert.equal((await api('POST', '/api/names/claim', { name: 'Rocket Rex', key: 'y'.repeat(20) })).status, 200);
+  });
+
+  test('typed names can host public rooms', async () => {
+    const reg = await api('POST', '/api/rooms/BXTW', { name: [3, 4], host: 'Comet Kid', players: 1, max: 4, theme: 1 });
+    assert.equal(reg.status, 200);
+    await api('DELETE', '/api/rooms/BXTW', { secret: reg.json.secret });
+    assert.equal((await api('POST', '/api/rooms/BXTV', { name: [3, 4], host: 'call 5551234', players: 1, max: 4, theme: 1 })).status, 400);
+  });
+
+  test('inactive names are purged, permanent bans are kept', () => {
+    const db = new Db(':memory:');
+    const DAY = 86_400_000;
+    db.claimName('Old Timer', 'h1', 0);
+    db.claimName('Fresh Face', 'h2', 900 * DAY);
+    db.banName('Bad Name', -1, 'rude', 0);
+    db.purge(900 * DAY, { messageDays: 30, reportDays: 365, inactiveDays: 730 });
+    assert.equal(db.nameRow('old timer'), undefined);
+    assert.ok(db.nameRow('fresh face'));
+    assert.ok(db.nameRow('bad name'));
   });
 });
 

@@ -2,6 +2,8 @@ import { CEIL, ENDLESS_SPEED_START, MODE_INDEX, RACE_SPEED } from './constants';
 import type { ShapeMode } from './shapes';
 import { MAX_OBJ_W, World, type PickupType, type SolidRole, type WorldObj } from './world';
 import { decodeName, encodeName } from '../meta/names';
+import { checkDisplayText } from '../shared/chat-filter';
+import { isAllowedName } from '../meta/names-policy';
 
 /**
  * Player-made levels ("Create" mode). A level is a grid of pieces between the
@@ -59,6 +61,8 @@ export const PICKUP_TYPES: PickupType[] = ['heart', 'shield', 'magnet'];
 export interface LevelContent {
   /** Generated name: [adjective index, noun index]. */
   name: [number, number];
+  /** Typed title (13+ builders, filtered); shown instead of the generated name. */
+  title?: string;
   /** Generated racer names of the builders (max 4). */
   authors: string[];
   theme: number;
@@ -88,13 +92,30 @@ export interface LevelData extends LevelContent {
 const LEVEL_ADJ = [
   'Crystal', 'Turbo', 'Neon', 'Sunny', 'Spooky', 'Wobbly', 'Mega', 'Tiny', 'Jelly', 'Rainbow', 'Cosmic', 'Bouncy', 'Frosty', 'Lava', 'Pixel', 'Secret',
   'Super', 'Sneaky', 'Lucky', 'Thunder', 'Bubble', 'Candy', 'Robo', 'Star', 'Zigzag', 'Dizzy', 'Giant', 'Hyper', 'Mystic', 'Rocket', 'Shadow', 'Sparkle',
+  // Appended (indexes are stored in level codes: only ever add to the end).
+  'Atomic', 'Blazing', 'Bonkers', 'Breezy', 'Chaotic', 'Chilly', 'Clockwork', 'Cloudy', 'Crazy', 'Crimson', 'Dazzling', 'Desert', 'Electric', 'Emerald', 'Epic', 'Fiery',
+  'Floating', 'Funky', 'Fuzzy', 'Glitchy', 'Golden', 'Groovy', 'Haunted', 'Hidden', 'Icy', 'Jazzy', 'Jumbo', 'Laser', 'Lost', 'Lunar', 'Magic', 'Midnight',
+  'Misty', 'Moonlit', 'Nebula', 'Ocean', 'Orbit', 'Paper', 'Pocket', 'Polar', 'Quantum', 'Radiant', 'Retro', 'Royal', 'Ruby', 'Rusty', 'Sapphire', 'Silly',
+  'Silver', 'Sky', 'Slippery', 'Solar', 'Sonic', 'Spiral', 'Steam', 'Stormy', 'Sugar', 'Sunset', 'Swift', 'Tangled', 'Tidal', 'Toxic', 'Twisty', 'Velvet',
+  'Wacky', 'Wild', 'Windy', 'Wonky', 'Zany', 'Zen', 'Arctic', 'Bamboo', 'Coral', 'Cyber', 'Doodle', 'Echo', 'Fizzy', 'Frozen', 'Gummy', 'Honey',
 ];
 const LEVEL_NOUN = [
   'Canyon', 'Castle', 'Tower', 'Highway', 'Jungle', 'Galaxy', 'Factory', 'Volcano', 'Garden', 'Maze', 'Rush', 'Run', 'Dash', 'Valley', 'Temple', 'Island',
   'Lab', 'Ladder', 'Cave', 'Bridge', 'Party', 'Express', 'Odyssey', 'Circuit', 'Peak', 'Tunnel', 'Arena', 'Palace', 'Station', 'Voyage', 'Trail', 'Kingdom',
+  // Appended (indexes are stored in level codes: only ever add to the end).
+  'Abyss', 'Alley', 'Asteroid', 'Bakery', 'Bay', 'Boardwalk', 'Carnival', 'Cathedral', 'Chasm', 'Citadel', 'City', 'Cliffs', 'Coaster', 'Cosmos', 'Cove', 'Crater',
+  'Dojo', 'Dungeon', 'Dunes', 'Escape', 'Falls', 'Festival', 'Fortress', 'Forest', 'Frenzy', 'Gauntlet', 'Gorge', 'Grotto', 'Harbor', 'Hideout', 'Hills', 'Hive',
+  'Hollow', 'Jam', 'Junction', 'Lagoon', 'Lair', 'Lane', 'Loop', 'Machine', 'Marsh', 'Meadow', 'Mine', 'Mountain', 'Nebula', 'Oasis', 'Orbit', 'Outpost',
+  'Pinball', 'Pipeline', 'Plaza', 'Quest', 'Race', 'Rapids', 'Reef', 'Ridge', 'Rollercoaster', 'Ruins', 'Sanctuary', 'Showdown', 'Skyline', 'Slide', 'Spire', 'Springs',
+  'Stadium', 'Storm', 'Streets', 'Summit', 'Swamp', 'Gallery', 'Theater', 'Toybox', 'Track', 'Tundra', 'Vault', 'Workshop', 'Zone', 'Arcade', 'Beach', 'Blitz',
 ];
 
-export function levelName(l: Pick<LevelContent, 'name'>): string {
+/** Generated name combos available (for validation). */
+export const LEVEL_NAME_SIZES: [number, number] = [LEVEL_ADJ.length, LEVEL_NOUN.length];
+
+/** The level's typed title (13+ builders, filtered) or its generated name. */
+export function levelName(l: Pick<LevelContent, 'name'> & { title?: string }): string {
+  if (l.title) return l.title;
   return `${LEVEL_ADJ[l.name[0]] ?? 'Mystery'} ${LEVEL_NOUN[l.name[1]] ?? 'Level'}`;
 }
 
@@ -167,7 +188,8 @@ export function sanitizeContent(raw: unknown): LevelContent | null {
   const length = num(r.length, MIN_LENGTH, MAX_LENGTH, DEFAULT_LENGTH);
   const nm = Array.isArray(r.name) ? r.name : [];
   const name: [number, number] = [num(nm[0], 0, LEVEL_ADJ.length - 1, 0), num(nm[1], 0, LEVEL_NOUN.length - 1, 0)];
-  const authors = (Array.isArray(r.authors) ? r.authors : []).filter((a): a is string => typeof a === 'string' && encodeName(a) !== null).slice(0, 4);
+  const authors = (Array.isArray(r.authors) ? r.authors : []).filter((a): a is string => typeof a === 'string' && isAllowedName(a)).slice(0, 4);
+  const title = typeof r.title === 'string' && checkDisplayText(r.title, 'title').ok ? checkDisplayText(r.title, 'title').text : undefined;
   const hv = num(r.hearts, 1, 5, 3);
   const hearts = (HEART_OPTIONS as readonly number[]).includes(hv) ? hv : 3;
   const slots = new Map<number, Piece>();
@@ -181,6 +203,7 @@ export function sanitizeContent(raw: unknown): LevelContent | null {
   }
   return {
     name,
+    ...(title ? { title } : {}),
     authors,
     theme: num(r.theme, 0, THEME_COUNT - 1, 0),
     music: num(r.music, -1, MAX_LEVEL_SONG, -1),
@@ -382,9 +405,14 @@ export function pieceCount(l: Pick<LevelContent, 'pieces'>): number {
 
 // ------------------------------------------------------------------ share codes
 const TYPE_CODES: PieceType[] = ['block', 'platform', 'spike', 'saw', 'gem', 'pad', 'orb', 'portal'];
-const CODE_VERSION = 1;
-/** Highest song index a level can pick (5 bits in the code). */
-export const MAX_LEVEL_SONG = 30;
+/** v1: generated names only. v2: adds custom author names and an optional typed title. */
+const CODE_VERSION = 2;
+/**
+ * Highest music id a level can pick: synth songs and recorded tracks (see
+ * core/tracks). The player's own files (200+) never go into a level.
+ * v1 codes carry the song in 5 bits of the theme byte; v2 has a full byte.
+ */
+export const MAX_LEVEL_SONG = 198;
 export const CODE_PREFIX = 'PR1-';
 
 function pieceByte(p: Piece): number {
@@ -439,11 +467,20 @@ function fromBase64Url(s: string): Uint8Array {
 
 /** Compact, copy-pasteable level code. Only level content travels — never personal data. */
 export function encodeLevel(l: LevelContent): string {
-  // The theme byte carries the song in its top 5 bits (0 = the world's theme), so older codes still read.
-  const out: number[] = [CODE_VERSION, (l.theme & 7) | ((Math.min(MAX_LEVEL_SONG, Math.max(-1, l.music)) + 1) << 3), (l.speed << 4) | Math.max(0, (HEART_OPTIONS as readonly number[]).indexOf(l.hearts)), l.length & 0xff, l.length >> 8, l.name[0], l.name[1]];
-  const authors = l.authors.map(encodeName).filter((a): a is [number, number, number] => a !== null).slice(0, 4);
+  const song = l.music >= 0 && l.music <= MAX_LEVEL_SONG ? l.music : -1;
+  // v2 keeps the theme byte's top bits clear; the song gets its own byte (0 = the world's theme).
+  const out: number[] = [CODE_VERSION, l.theme & 7, song + 1, (l.speed << 4) | Math.max(0, (HEART_OPTIONS as readonly number[]).indexOf(l.hearts)), l.length & 0xff, l.length >> 8, l.name[0], l.name[1]];
+  const authors = l.authors.filter(isAllowedName).slice(0, 4);
   out.push(authors.length);
-  for (const a of authors) out.push(...a);
+  for (const a of authors) {
+    const gen = encodeName(a);
+    // Generated names pack into 3 bytes; typed names are 254, length, ASCII.
+    if (gen) out.push(...gen);
+    else pushText(out, a);
+  }
+  const title = l.title && checkDisplayText(l.title, 'title').ok ? l.title : '';
+  if (title) pushText(out, title);
+  else out.push(0);
   const pieces = sortPieces([...l.pieces]);
   pushVarint(out, pieces.length);
   let lastX = 0;
@@ -455,6 +492,11 @@ export function encodeLevel(l: LevelContent): string {
   const c = checksum(out);
   out.push(c >> 8, c & 0xff);
   return CODE_PREFIX + toBase64Url(out);
+}
+
+function pushText(out: number[], text: string): void {
+  out.push(254, text.length);
+  for (let i = 0; i < text.length; i++) out.push(text.charCodeAt(i) & 0x7f);
 }
 
 export class LevelCodeError extends Error {}
@@ -469,10 +511,11 @@ export function decodeLevel(code: string): LevelContent {
   } catch {
     throw new LevelCodeError('That doesn’t look like a level code.');
   }
-  if (bytes.length < 11) throw new LevelCodeError('That level code is incomplete.');
+  if (bytes.length < 11 + (bytes[0] >= 2 ? 2 : 0)) throw new LevelCodeError('That level code is incomplete.');
   const n = bytes.length - 2;
   if (checksum(bytes, n) !== ((bytes[n] << 8) | bytes[n + 1])) throw new LevelCodeError('That level code is incomplete or has a typo.');
-  if (bytes[0] !== CODE_VERSION) throw new LevelCodeError('This level needs a newer version of Polygon Rush.');
+  const version = bytes[0];
+  if (version !== 1 && version !== CODE_VERSION) throw new LevelCodeError('This level needs a newer version of Polygon Rush.');
   let i = 1;
   const byte = () => {
     if (i >= n) throw new LevelCodeError('That level code is incomplete.');
@@ -491,15 +534,33 @@ export function decodeLevel(code: string): LevelContent {
   };
   const tm = byte();
   const theme = tm & 7;
-  const music = (tm >> 3) - 1;
+  const music = (version >= 2 ? byte() : tm >> 3) - 1;
   const sh = byte();
   const length = byte() | (byte() << 8);
   const name: [number, number] = [byte(), byte()];
+  const text = () => {
+    const len = byte();
+    if (len > 32) throw new LevelCodeError('That level code is damaged.');
+    let t = '';
+    for (let k = 0; k < len; k++) t += String.fromCharCode(byte());
+    return t;
+  };
   const authors: string[] = [];
   const na = byte();
   for (let k = 0; k < na; k++) {
-    const nm = decodeName([byte(), byte(), byte()]);
-    if (nm) authors.push(nm);
+    const first = byte();
+    if (version >= 2 && first === 254) {
+      const nm = text();
+      if (isAllowedName(nm)) authors.push(nm);
+    } else {
+      const nm = decodeName([first, byte(), byte()]);
+      if (nm) authors.push(nm);
+    }
+  }
+  let title: string | undefined;
+  if (version >= 2) {
+    const mark = byte();
+    if (mark === 254) title = text();
   }
   const count = varint();
   if (count > MAX_PIECES) throw new LevelCodeError('That level is too big.');
@@ -510,7 +571,7 @@ export function decodeLevel(code: string): LevelContent {
     const p = pieceFromByte(byte(), x);
     if (p) pieces.push(p);
   }
-  const content = sanitizeContent({ name, authors, theme, music, speed: sh >> 4, hearts: HEART_OPTIONS[sh & 15] ?? 3, length, pieces });
+  const content = sanitizeContent({ name, title, authors, theme, music, speed: sh >> 4, hearts: HEART_OPTIONS[sh & 15] ?? 3, length, pieces });
   if (!content) throw new LevelCodeError('That level code is damaged.');
   return content;
 }
@@ -519,6 +580,7 @@ export function decodeLevel(code: string): LevelContent {
 export function contentOf(l: LevelContent): LevelContent {
   return {
     name: [l.name[0], l.name[1]],
+    ...(l.title ? { title: l.title } : {}),
     authors: [...l.authors],
     theme: l.theme,
     music: l.music,

@@ -31,6 +31,10 @@ export interface Settings {
   showFps: boolean;
   /** Endless & CPU race difficulty (picked on first launch). */
   difficulty: Difficulty;
+  /** My Music (own files): off, mixed into the game's music, or only mine. */
+  myMusic: 'off' | 'mix' | 'only';
+  /** Include the classic synthesised songs alongside the recorded tracks. */
+  classicSongs: boolean;
   /** Songs taken out of rotation in Settings → Soundtrack (indexes into SONGS). */
   musicOff: number[];
 }
@@ -72,6 +76,8 @@ export interface SaveData {
     banner: number;
     /** Badge ids pinned to the card (max 3). */
     showcase: string[];
+    /** Random device key that owns a typed name on the community server. */
+    nameKey: string;
   };
   gems: number;
   xp: number;
@@ -130,6 +136,8 @@ export const DEFAULT_SETTINGS: Settings = {
   showFps: false,
   musicOff: [],
   difficulty: 'medium',
+  myMusic: 'mix',
+  classicSongs: false,
 };
 
 export function emptyStats(): Stats {
@@ -154,7 +162,7 @@ export function createSave(now = Date.now()): SaveData {
   return {
     v: SAVE_VERSION,
     createdAt: now,
-    profile: { name: '', birthYear: null, ageGroup: null, title: '', banner: 0, showcase: [] },
+    profile: { name: '', birthYear: null, ageGroup: null, title: '', banner: 0, showcase: [], nameKey: '' },
     gems: 100,
     xp: 0,
     level: 1,
@@ -221,7 +229,8 @@ export function migrate(raw: unknown): SaveData {
   save.settings.music = clamp01(save.settings.music);
   save.settings.sfx = clamp01(save.settings.sfx);
   if (!DIFFICULTIES.includes(save.settings.difficulty)) save.settings.difficulty = 'medium';
-  save.settings.musicOff = save.settings.musicOff.filter((n) => Number.isInteger(n) && n >= 0 && n < 64).slice(0, 64);
+  if (!['off', 'mix', 'only'].includes(save.settings.myMusic)) save.settings.myMusic = 'mix';
+  save.settings.musicOff = save.settings.musicOff.filter((n) => Number.isInteger(n) && n >= 0 && n < 512).slice(0, 256);
   return save;
 }
 

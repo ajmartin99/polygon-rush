@@ -4,7 +4,7 @@ import { Emitter } from '../core/emitter';
 import type { EditOp } from '../editor/doc';
 import { quickLine } from '../meta/quickchat';
 import { validEmote } from '../meta/emotes';
-import { isGeneratedName } from '../meta/names';
+import { isAllowedName } from '../meta/names-policy';
 import { safeCard, type ProfileCard } from '../meta/profile';
 import { SKINS } from '../meta/catalog';
 
@@ -54,7 +54,7 @@ export function safeTrack(t: unknown): TrackInfo {
   if (!t || typeof t !== 'object') return { w: -1 };
   const r = t as Record<string, unknown>;
   const w = typeof r.w === 'number' && Number.isInteger(r.w) && r.w >= -1 && r.w <= 6 ? r.w : -1;
-  const nm = Array.isArray(r.name) && r.name.length === 2 && r.name.every((n) => Number.isInteger(n) && n >= 0 && n < 32) ? ([r.name[0], r.name[1]] as [number, number]) : undefined;
+  const nm = Array.isArray(r.name) && r.name.length === 2 && r.name.every((n) => Number.isInteger(n) && n >= 0 && n < 256) ? ([r.name[0], r.name[1]] as [number, number]) : undefined;
   return w === 6 && nm ? { w, name: nm } : { w: w === 6 ? -1 : w };
 }
 
@@ -120,7 +120,7 @@ export const FALLBACK_NAME = 'Mystery Polygon';
 
 /** Only generated names travel between players: anything else (a modified client) is replaced. */
 export function safeName(name: unknown): string {
-  return typeof name === 'string' && isGeneratedName(name) ? name : FALLBACK_NAME;
+  return isAllowedName(name) ? name : FALLBACK_NAME;
 }
 
 function safeSkin(skin: unknown): string {
@@ -139,7 +139,7 @@ export function safePlayers(list: unknown): NetPlayer[] {
 
 /** Generated names only, at most 4. */
 export function safeAuthors(list: unknown): string[] {
-  return Array.isArray(list) ? list.filter((a): a is string => typeof a === 'string' && isGeneratedName(a)).slice(0, 4) : [];
+  return Array.isArray(list) ? list.filter((a): a is string => isAllowedName(a)).slice(0, 4) : [];
 }
 
 function validState(s: unknown): s is NetState {

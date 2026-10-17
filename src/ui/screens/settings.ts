@@ -13,7 +13,8 @@ import { ui } from '../ui';
 import { openChatSettings, startFreeChatSignup } from '../community';
 import { music } from '../../core/music';
 import { SONGS } from '../../core/songs';
-import { openSoundtrack } from '../soundtrack';
+import { TRACKS } from '../../core/tracks';
+import { musicCredits, openSoundtrack } from '../soundtrack';
 import { canOfferFreeChat, freeChatPath, serverAvailable } from '../../meta/community';
 
 function row(iconName: IconName, title: string, sub: string, control: Child): HTMLElement {
@@ -47,6 +48,7 @@ function openCredits(): void {
         h('p', null, 'Game design, code, music & art made with ♥ for players of every age.'),
         h('h3', null, 'Built with'),
         h('p', null, 'Capacitor · Vite · TypeScript · Web Audio · Canvas'),
+        musicCredits(),
         h('h3', null, 'Font'),
         h('p', null, 'Fredoka by Milena Brandão & Hafontia — SIL Open Font License 1.1'),
         h('h3', null, 'Thank you'),
@@ -174,7 +176,7 @@ export class SettingsScreen extends BaseScreen {
             row(
               'skip',
               'Soundtrack',
-              `${SONGS.length} songs · pick, skip or switch off`,
+              `${SONGS.length + TRACKS.length} songs + My Music · pick, skip, add your own`,
               h('div.row', { style: 'gap:0.4rem' }, button({ icon: 'skip', cls: 'icon ghost', aria: 'Skip song', onClick: () => music.skip() }), button({ label: 'Songs', cls: 'yellow sm', onClick: () => openSoundtrack() })),
             ),
             row('sound', 'Sound effects', 'Jumps, gems & more', slider(s.sfx, (v) => store.setSetting('sfx', v), 'Sound volume')),

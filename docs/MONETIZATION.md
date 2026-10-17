@@ -42,7 +42,7 @@ The game is designed for a **mixed audience (children and adults)**:
 
 * A **neutral age screen** on first launch asks for a birth year with no default and no hint about the "right" answer.
 * Under-13 (or unknown): child-directed, non-personalised, G-rated ads; a grown-up check before purchases and external links.
-* No free-text names (racer and level names are generated). Online rooms are private 4-character codes shared in person, and parents can switch them off.
+* Under-13s get generated racer and level names only; 13+ can type names that pass the same filter as chat, plus stricter name rules (see SAFETY.md). Online rooms are private 4-character codes shared in person, and parents can switch them off.
 * Chat for under-13s is **Quick Chat only** (preset phrases, parents can switch it off). Typed **Free Chat** needs the optional community server and an email-verified account: 16+ verify themselves, 13–15 need a parent's email approval, under-13s can never sign up. Public build rooms are 13+ only. See [SAFETY.md](SAFETY.md).
 * No analytics or tracking SDKs.
 

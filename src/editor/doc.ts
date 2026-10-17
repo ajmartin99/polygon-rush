@@ -13,12 +13,16 @@ import {
   THEME_COUNT,
   type LevelContent,
   MAX_LEVEL_SONG,
+  LEVEL_NAME_SIZES,
   type Piece,
 } from '../game/level';
+import { checkDisplayText } from '../shared/chat-filter';
 
 /** Level-wide settings that can be edited (and synced) like pieces. */
 export interface LevelSettings {
   name: [number, number];
+  /** Typed title ('' = use the generated name). */
+  title: string;
   theme: number;
   /** Song index, or -1 for the world's theme. */
   music: number;
@@ -56,7 +60,8 @@ function validSettings(set: Partial<LevelSettings>): boolean {
   if (set.speed !== undefined && (!int(set.speed) || set.speed < 0 || set.speed >= LEVEL_SPEEDS.length)) return false;
   if (set.hearts !== undefined && !(HEART_OPTIONS as readonly number[]).includes(set.hearts)) return false;
   if (set.length !== undefined && (!int(set.length) || set.length < MIN_LENGTH || set.length > MAX_LENGTH)) return false;
-  if (set.name !== undefined && (!Array.isArray(set.name) || set.name.length !== 2 || !set.name.every((n) => int(n) && n >= 0 && n < 32))) return false;
+  if (set.name !== undefined && (!Array.isArray(set.name) || set.name.length !== 2 || !set.name.every((n, k) => int(n) && n >= 0 && n < LEVEL_NAME_SIZES[k]))) return false;
+  if (set.title !== undefined && set.title !== '' && !(typeof set.title === 'string' && checkDisplayText(set.title, 'title').ok && checkDisplayText(set.title, 'title').text === set.title)) return false;
   return true;
 }
 
@@ -73,7 +78,7 @@ export class LevelDoc extends Emitter<DocEvents> {
 
   constructor(level: LevelContent) {
     super();
-    this.settings = { name: [level.name[0], level.name[1]], theme: level.theme, music: level.music, speed: level.speed, hearts: level.hearts, length: level.length };
+    this.settings = { name: [level.name[0], level.name[1]], title: level.title ?? '', theme: level.theme, music: level.music, speed: level.speed, hearts: level.hearts, length: level.length };
     this.authors = [...level.authors];
     for (const p of level.pieces) if (canPlace(p, level.length)) this.slots.set(slotOf(p), { ...p });
   }

@@ -9,6 +9,7 @@ import { Db } from './db.ts';
 import { createApp, ipKeyFor } from './http.ts';
 import { createMailer, type Mailer } from './mailer.ts';
 import { RoomDirectory } from './rooms.ts';
+import { NameRegistry } from './names.ts';
 
 export const VERSION = '1.0.0';
 
@@ -18,6 +19,7 @@ export interface Server {
   accounts: AccountService;
   rooms: RoomDirectory;
   hub: ChatHub;
+  names: NameRegistry;
   listen(port?: number): Promise<number>;
   close(): Promise<void>;
 }
@@ -28,9 +30,10 @@ export function createServer(cfg: Config, opts: { mailer?: Mailer; log?: (msg: s
   const db = new Db(cfg.dbFile);
   const mailer = opts.mailer ?? createMailer(cfg, log);
   const accounts = new AccountService(db, mailer, cfg);
-  const rooms = new RoomDirectory(db);
-  const hub = new ChatHub(db, accounts);
-  const app = createApp({ cfg, db, accounts, rooms, hub, mailer, version: VERSION });
+  const names = new NameRegistry(db, cfg.secret);
+  const rooms = new RoomDirectory(db, names);
+  const hub = new ChatHub(db, accounts, names);
+  const app = createApp({ cfg, db, accounts, rooms, hub, names, mailer, version: VERSION });
   const server = http.createServer(app);
 
   // PeerJS signalling for online rooms, on the same port. Its WebSocket and
@@ -119,6 +122,7 @@ export function createServer(cfg: Config, opts: { mailer?: Mailer; log?: (msg: s
     accounts,
     rooms,
     hub,
+    names,
     listen(port = cfg.port) {
       return new Promise((resolve) => {
         server.listen(port, () => {

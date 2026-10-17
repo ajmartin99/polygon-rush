@@ -6,6 +6,7 @@ import type { Db } from './db.ts';
 import type { Mailer } from './mailer.ts';
 import { DELETE_JS, deletePage, landingPage } from './pages.ts';
 import type { RoomDirectory } from './rooms.ts';
+import type { NameRegistry } from './names.ts';
 import { hmac, safeEqual } from './util.ts';
 
 export interface AppDeps {
@@ -14,6 +15,7 @@ export interface AppDeps {
   accounts: AccountService;
   rooms: RoomDirectory;
   hub: ChatHub;
+  names: NameRegistry;
   mailer: Mailer;
   version: string;
 }
@@ -42,7 +44,7 @@ export function ipKeyFor(cfg: Config, ip: string | undefined): string {
 }
 
 export function createApp(d: AppDeps): express.Express {
-  const { cfg, db, accounts, rooms, hub } = d;
+  const { cfg, db, accounts, rooms, hub, names } = d;
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', cfg.trustProxy ? 1 : false);
@@ -105,6 +107,9 @@ export function createApp(d: AppDeps): express.Express {
     }),
   );
 
+  // Typed racer names (13+): claim one, or check ours is still fine.
+  app.post('/api/names/claim', route((req) => names.claim(req.body ?? {}, ipKey(req))));
+  app.post('/api/names/status', route((req) => names.status(req.body ?? {})));
   app.get('/api/rooms', route((req) => ({ rooms: rooms.list(Date.now(), req.query.kind === 'race' ? 'race' : 'build') })));
   app.post('/api/rooms/:code', route((req) => rooms.register(req.params.code, req.body ?? {}, ipKey(req))));
   app.post(
@@ -249,6 +254,24 @@ export function createApp(d: AppDeps): express.Express {
       const ok = rooms.hide(req.params.code, (req.body ?? {}).hidden !== false);
       db.audit(actor, 'hide_room', req.params.code, null, Date.now());
       return { ok };
+    }),
+  );
+  admin.get('/names', route((req) => ({ banned: db.bannedNames(Math.min(1000, Number(req.query.limit) || 200)) })));
+  admin.post(
+    '/names/:name/ban',
+    route((req) => {
+      const b = req.body ?? {};
+      const until = names.ban(req.params.name, num(b.days, 0), typeof b.reason === 'string' ? b.reason.slice(0, 200) : 'not allowed');
+      db.audit(actor, 'ban_name', req.params.name, null, Date.now());
+      return { ok: true, until };
+    }),
+  );
+  admin.post(
+    '/names/:name/unban',
+    route((req) => {
+      names.unban(req.params.name);
+      db.audit(actor, 'unban_name', req.params.name, null, Date.now());
+      return { ok: true };
     }),
   );
   admin.get('/audit', route((req) => ({ audit: db.auditLog(Math.min(1000, Number(req.query.limit) || 200)) })));

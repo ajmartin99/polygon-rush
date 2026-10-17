@@ -7,6 +7,7 @@ import type { Mailer } from './mailer.ts';
 import { DELETE_JS, deletePage, landingPage } from './pages.ts';
 import type { RoomDirectory } from './rooms.ts';
 import type { NameRegistry } from './names.ts';
+import type { PlayerService } from './players.ts';
 import { hmac, safeEqual } from './util.ts';
 
 export interface AppDeps {
@@ -16,6 +17,7 @@ export interface AppDeps {
   rooms: RoomDirectory;
   hub: ChatHub;
   names: NameRegistry;
+  players: PlayerService;
   mailer: Mailer;
   version: string;
 }
@@ -44,7 +46,7 @@ export function ipKeyFor(cfg: Config, ip: string | undefined): string {
 }
 
 export function createApp(d: AppDeps): express.Express {
-  const { cfg, db, accounts, rooms, hub, names } = d;
+  const { cfg, db, accounts, rooms, hub, names, players } = d;
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', cfg.trustProxy ? 1 : false);
@@ -107,9 +109,40 @@ export function createApp(d: AppDeps): express.Express {
     }),
   );
 
-  // Typed racer names (13+): claim one, or check ours is still fine.
-  app.post('/api/names/claim', route((req) => names.claim(req.body ?? {}, ipKey(req))));
-  app.post('/api/names/status', route((req) => names.status(req.body ?? {})));
+  // Players (Name#tag) and friends. Every call is authorised by the device key.
+  app.post('/api/players/register', route((req) => players.register(req.body ?? {}, ipKey(req))));
+  app.post(
+    '/api/players/delete',
+    route((req) => {
+      players.remove(req.body ?? {});
+      return { ok: true };
+    }),
+  );
+  app.post('/api/friends/sync', route((req) => players.sync(req.body ?? {})));
+  app.post('/api/friends/add', route((req) => players.add(req.body ?? {}, ipKey(req))));
+  app.post('/api/friends/respond', route((req) => players.respond(req.body ?? {})));
+  app.post(
+    '/api/friends/remove',
+    route((req) => {
+      players.unfriend(req.body ?? {});
+      return { ok: true };
+    }),
+  );
+  app.post(
+    '/api/friends/block',
+    route((req) => {
+      players.block(req.body ?? {});
+      return { ok: true };
+    }),
+  );
+  app.post('/api/friends/invite', route((req) => players.invite(req.body ?? {})));
+  app.post(
+    '/api/friends/invite/dismiss',
+    route((req) => {
+      players.dismissInvite(req.body ?? {});
+      return { ok: true };
+    }),
+  );
   app.get('/api/rooms', route((req) => ({ rooms: rooms.list(Date.now(), req.query.kind === 'race' ? 'race' : 'build') })));
   app.post('/api/rooms/:code', route((req) => rooms.register(req.params.code, req.body ?? {}, ipKey(req))));
   app.post(
@@ -257,6 +290,7 @@ export function createApp(d: AppDeps): express.Express {
     }),
   );
   admin.get('/names', route((req) => ({ banned: db.bannedNames(Math.min(1000, Number(req.query.limit) || 200)) })));
+  admin.get('/names/:name', route((req) => ({ players: players.byName(req.params.name) })));
   admin.post(
     '/names/:name/ban',
     route((req) => {

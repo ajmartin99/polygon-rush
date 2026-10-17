@@ -10,6 +10,7 @@ import { createApp, ipKeyFor } from './http.ts';
 import { createMailer, type Mailer } from './mailer.ts';
 import { RoomDirectory } from './rooms.ts';
 import { NameRegistry } from './names.ts';
+import { PlayerService } from './players.ts';
 
 export const VERSION = '1.0.0';
 
@@ -20,6 +21,7 @@ export interface Server {
   rooms: RoomDirectory;
   hub: ChatHub;
   names: NameRegistry;
+  players: PlayerService;
   listen(port?: number): Promise<number>;
   close(): Promise<void>;
 }
@@ -30,10 +32,11 @@ export function createServer(cfg: Config, opts: { mailer?: Mailer; log?: (msg: s
   const db = new Db(cfg.dbFile);
   const mailer = opts.mailer ?? createMailer(cfg, log);
   const accounts = new AccountService(db, mailer, cfg);
-  const names = new NameRegistry(db, cfg.secret);
+  const names = new NameRegistry(db);
+  const players = new PlayerService(db, cfg.secret, names);
   const rooms = new RoomDirectory(db, names);
   const hub = new ChatHub(db, accounts, names);
-  const app = createApp({ cfg, db, accounts, rooms, hub, names, mailer, version: VERSION });
+  const app = createApp({ cfg, db, accounts, rooms, hub, names, players, mailer, version: VERSION });
   const server = http.createServer(app);
 
   // PeerJS signalling for online rooms, on the same port. Its WebSocket and
@@ -105,7 +108,8 @@ export function createServer(cfg: Config, opts: { mailer?: Mailer; log?: (msg: s
 
   const purge = () => {
     try {
-      const out = db.purge(Date.now(), { messageDays: cfg.messageRetentionDays, reportDays: cfg.reportRetentionDays, inactiveDays: cfg.inactiveAccountDays });
+      const now = Date.now();
+      const out = { ...db.purge(now, { messageDays: cfg.messageRetentionDays, reportDays: cfg.reportRetentionDays, inactiveDays: cfg.inactiveAccountDays }), ...players.purge(now, cfg.inactiveAccountDays) };
       if (Object.values(out).some((n) => n > 0)) log(`[purge] ${JSON.stringify(out)}`);
     } catch (e) {
       log(`[purge] failed: ${(e as Error).message}`);
@@ -123,6 +127,7 @@ export function createServer(cfg: Config, opts: { mailer?: Mailer; log?: (msg: s
     rooms,
     hub,
     names,
+    players,
     listen(port = cfg.port) {
       return new Promise((resolve) => {
         server.listen(port, () => {

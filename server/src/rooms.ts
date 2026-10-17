@@ -4,7 +4,7 @@ import { ApiError } from './accounts.ts';
 import { randomId, safeEqual } from './util.ts';
 import type { NameRegistry } from './names.ts';
 
-const CODE_RE = /^[BCDFGHJKLMNPQRSTVWXZ23456789]{4}$/;
+export const CODE_RE = /^[BCDFGHJKLMNPQRSTVWXZ23456789]{4}$/;
 const TTL = 45_000;
 const MAX_ROOMS = 200;
 const HIDE_AFTER_REPORTS = 3;

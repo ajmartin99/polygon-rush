@@ -96,6 +96,10 @@ App endpoints (CORS-limited to `ALLOWED_ORIGINS`):
 * `POST /api/account/verify` `{ email, code }` → `{ token, account }`
 * `GET /api/account/me`, `POST /api/account/delete` (Bearer token)
 * `POST /api/account/delete/start|confirm` (web deletion)
+* `POST /api/players/register` `{ key, name, kid, friendsOff, tag? }` → `{ id, name, tag }` (Name#tag), `POST /api/players/delete` `{ key }`
+* `POST /api/friends/sync` `{ key, activity }` → friends with online status, requests both ways, invites
+* `POST /api/friends/add` `{ key, handle: "Name#1234" }`, `/respond` `{ key, id, accept }`, `/remove` `{ key, id }`, `/block` `{ key, id }`
+* `POST /api/friends/invite` `{ key, id, kind: race|build, room }`, `/invite/dismiss` `{ key, id }`
 * `GET /api/rooms`, `POST /api/rooms/:code`, `POST /api/rooms/:code/beat`, `DELETE /api/rooms/:code`, `POST /api/rooms/:code/report`
 * WebSocket `/chat`: `auth` → `join {channel, name}` → `say {text}` / `report {id, reason}`
 * PeerJS signalling under `/peerjs`
@@ -111,5 +115,7 @@ curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -H 'content-type: applicati
 #   actions: dismiss | mute (hours) | ban (days, 0 = permanent) | hide (public room)
 curl -H "Authorization: Bearer $ADMIN_TOKEN" $S/api/admin/accounts/ACCOUNT_ID/export   # lawful requests
 curl -H "Authorization: Bearer $ADMIN_TOKEN" $S/api/admin/rooms
+curl -H "Authorization: Bearer $ADMIN_TOKEN" "$S/api/admin/names/Neon%20Fox"   # who has a name (all #tags)
+curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' -d '{"days":0,"reason":"rude"}' "$S/api/admin/names/Bad%20Name/ban"
 curl -H "Authorization: Bearer $ADMIN_TOKEN" $S/api/admin/audit
 ```

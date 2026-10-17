@@ -26,6 +26,8 @@ export interface Settings {
   freeChat: boolean;
   /** Parental control (13+ only): join and host public build rooms. */
   publicRooms: boolean;
+  /** Parental control: friends list, online status and room invites. */
+  friends: boolean;
   /** Parental control: allow in-app purchases. */
   purchasesAllowed: boolean;
   showFps: boolean;
@@ -78,6 +80,8 @@ export interface SaveData {
     showcase: string[];
     /** Random device key that owns a typed name on the community server. */
     nameKey: string;
+    /** 4-digit tag after the name ("Neon Fox#0427"), given by the server; 0 = none yet. */
+    tag: number;
   };
   gems: number;
   xp: number;
@@ -132,6 +136,7 @@ export const DEFAULT_SETTINGS: Settings = {
   quickChat: true,
   freeChat: false,
   publicRooms: true,
+  friends: true,
   purchasesAllowed: true,
   showFps: false,
   musicOff: [],
@@ -162,7 +167,7 @@ export function createSave(now = Date.now()): SaveData {
   return {
     v: SAVE_VERSION,
     createdAt: now,
-    profile: { name: '', birthYear: null, ageGroup: null, title: '', banner: 0, showcase: [], nameKey: '' },
+    profile: { name: '', birthYear: null, ageGroup: null, title: '', banner: 0, showcase: [], nameKey: '', tag: 0 },
     gems: 100,
     xp: 0,
     level: 1,
@@ -226,6 +231,7 @@ export function migrate(raw: unknown): SaveData {
   save.account.blocked = save.account.blocked.filter((b) => typeof b === 'string').slice(-200);
   save.profile.showcase = save.profile.showcase.filter((b) => typeof b === 'string').slice(0, 3);
   save.profile.banner = Number.isInteger(save.profile.banner) ? Math.max(0, save.profile.banner) : 0;
+  save.profile.tag = Number.isInteger(save.profile.tag) && save.profile.tag >= 0 && save.profile.tag <= 9999 ? save.profile.tag : 0;
   save.settings.music = clamp01(save.settings.music);
   save.settings.sfx = clamp01(save.settings.sfx);
   if (!DIFFICULTIES.includes(save.settings.difficulty)) save.settings.difficulty = 'medium';

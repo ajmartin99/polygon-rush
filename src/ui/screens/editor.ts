@@ -23,6 +23,8 @@ import { canUsePublicRooms } from '../../meta/community';
 import { lobby, PublicListing } from '../../services/lobby';
 import { openPlayerCard } from '../profile';
 import { ServerError } from '../../services/server';
+import { friends } from '../../services/friends';
+import { openInvitePicker } from '../friend-invites';
 
 /** Sessions whose room races are already hooked up to the game. */
 const raceWired = new WeakSet<EditorSession>();
@@ -422,6 +424,7 @@ export class EditorScreen extends BaseScreen {
     if (!room) return;
     append(this.people, [
       h('div.ed-code', { title: 'Room code' }, ic('users'), h('b', null, room.code)),
+      friends.available && room.players.length < 4 ? button({ icon: 'mail', cls: 'icon mint sm', aria: 'Invite friends', onClick: () => openInvitePicker('build', room.code) }) : null,
       room.players.map((p) =>
         h(
           'button.ed-person',

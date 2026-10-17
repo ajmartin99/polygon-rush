@@ -3,6 +3,8 @@ import { after, before, describe, test } from 'node:test';
 import { loadConfig } from '../src/config.ts';
 import { createServer, type Server } from '../src/index.ts';
 import { Db } from '../src/db.ts';
+import { NameRegistry } from '../src/names.ts';
+import { PlayerService } from '../src/players.ts';
 import type { Mail, Mailer } from '../src/mailer.ts';
 
 const sent: Mail[] = [];
@@ -271,38 +273,105 @@ describe('free chat', () => {
   });
 });
 
-describe('typed racer names', () => {
-  const key = 'k'.repeat(20);
-  test('claim, uniqueness, filter and status', async () => {
-    assert.equal((await api('POST', '/api/names/claim', { name: 'Rocket Rex', key })).status, 200);
-    // Same name, other device: taken (any case).
-    assert.equal((await api('POST', '/api/names/claim', { name: 'rocket rex', key: 'x'.repeat(20) })).status, 409);
-    // Filter and digit rules.
-    assert.equal((await api('POST', '/api/names/claim', { name: 'call 5551234', key })).status, 400);
-    assert.equal((await api('POST', '/api/names/claim', { name: 'Admin', key })).status, 400);
-    const st = await api('POST', '/api/names/status', { name: 'Rocket Rex', key });
-    assert.equal(st.json.ok, true);
-    // Claiming a new name releases the old one.
-    assert.equal((await api('POST', '/api/names/claim', { name: 'Comet Kid', key })).status, 200);
-    assert.equal((await api('POST', '/api/names/claim', { name: 'Rocket Rex', key: 'y'.repeat(20) })).status, 200);
+describe('players and friends', () => {
+  const k = (c: string) => c.repeat(20);
+  const reg = (key: string, name: string, extra: Record<string, unknown> = {}) => api('POST', '/api/players/register', { key, name, ...extra });
+  const sync = (key: string, extra: Record<string, unknown> = {}) => api('POST', '/api/friends/sync', { key, ...extra });
+
+  test('names can be shared; the #tag tells players apart', async () => {
+    const a = await reg(k('a'), 'Rocket Rex');
+    const b = await reg(k('b'), 'Rocket Rex');
+    assert.equal(a.status, 200);
+    assert.equal(b.status, 200);
+    assert.notEqual(a.json.tag, b.json.tag);
+    assert.ok(a.json.tag >= 1 && a.json.tag <= 9999);
+    // Registering again keeps the same player and tag.
+    const again = await reg(k('a'), 'Rocket Rex');
+    assert.equal(again.json.id, a.json.id);
+    assert.equal(again.json.tag, a.json.tag);
+    // Filter, digit and reserved-word rules still apply.
+    assert.equal((await reg(k('c'), 'call 5551234')).status, 400);
+    assert.equal((await reg(k('c'), 'Admin')).status, 400);
+    // Under-13s use generated names only.
+    assert.equal((await reg(k('c'), 'Rocket Rex', { kid: true })).status, 400);
+    assert.equal((await reg(k('c'), 'Speedy Panda 7', { kid: true })).status, 200);
+  });
+
+  test('add by Name#tag, accept, see online friends, invite, remove', async () => {
+    const a = (await reg(k('d'), 'Comet Kid')).json;
+    const b = (await reg(k('e'), 'Neon Fox')).json;
+    const handle = (p: any) => `${p.name}#${String(p.tag).padStart(4, '0')}`;
+    // Wrong tag: not found.
+    assert.equal((await api('POST', '/api/friends/add', { key: k('d'), handle: `Neon Fox#${(b.tag % 9999) + 1}` })).status, 404);
+    assert.equal((await api('POST', '/api/friends/add', { key: k('d'), handle: handle(a) })).status, 400);
+    assert.equal((await api('POST', '/api/friends/add', { key: k('d'), handle: handle(b).toLowerCase() })).json.state, 'sent');
+    let sb = (await sync(k('e'))).json;
+    assert.deepEqual(sb.incoming.map((p: any) => p.id), [a.id]);
+    // Not friends yet: no invites.
+    assert.equal((await api('POST', '/api/friends/invite', { key: k('d'), id: b.id, kind: 'race', room: 'BXTW' })).status, 404);
+    assert.equal((await api('POST', '/api/friends/respond', { key: k('e'), id: a.id, accept: true })).json.state, 'friends');
+    const sa = (await sync(k('d'), { activity: 'race' })).json;
+    assert.equal(sa.friends.length, 1);
+    assert.equal(sa.friends[0].id, b.id);
+    assert.equal(sa.friends[0].online, true);
+    sb = (await sync(k('e'))).json;
+    assert.equal(sb.friends[0].activity, 'race');
+    // Invites carry only a kind and a room code.
+    assert.equal((await api('POST', '/api/friends/invite', { key: k('d'), id: b.id, kind: 'race', room: 'not a code' })).status, 400);
+    assert.equal((await api('POST', '/api/friends/invite', { key: k('d'), id: b.id, kind: 'build', room: 'BXTW' })).status, 200);
+    sb = (await sync(k('e'))).json;
+    assert.equal(sb.invites.length, 1);
+    assert.deepEqual([sb.invites[0].kind, sb.invites[0].room, sb.invites[0].from.id], ['build', 'BXTW', a.id]);
+    await api('POST', '/api/friends/invite/dismiss', { key: k('e'), id: sb.invites[0].id });
+    assert.equal((await sync(k('e'))).json.invites.length, 0);
+    await api('POST', '/api/friends/remove', { key: k('e'), id: a.id });
+    assert.equal((await sync(k('d'))).json.friends.length, 0);
+  });
+
+  test('blocking hides you; parents can switch friends off', async () => {
+    const a = (await reg(k('f'), 'Pixel Pal')).json;
+    const b = (await reg(k('g'), 'Lemon Zest')).json;
+    const hb = `Lemon Zest#${b.tag}`;
+    await api('POST', '/api/friends/add', { key: k('f'), handle: hb });
+    await api('POST', '/api/friends/block', { key: k('g'), id: a.id });
+    assert.equal((await sync(k('g'))).json.incoming.length, 0);
+    assert.equal((await api('POST', '/api/friends/add', { key: k('f'), handle: hb })).status, 404);
+    // Friends switched off: invisible to requests, and its own lists are empty.
+    await reg(k('h'), 'Speedy Panda 8', { kid: true, friendsOff: true });
+    const c = (await sync(k('h'))).json;
+    assert.equal(c.me.friendsOff, true);
+    assert.equal((await api('POST', '/api/friends/add', { key: k('f'), handle: `Speedy Panda 8#${c.me.tag}` })).status, 404);
+  });
+
+  test('a banned name resets on the next sync; deleting forgets the player', async () => {
+    await reg(k('i'), 'Grumpy Gus');
+    const ban = await api('POST', '/api/admin/names/Grumpy%20Gus/ban', { days: 0, reason: 'test' }, ADMIN);
+    assert.equal(ban.status, 200);
+    assert.equal((await sync(k('i'))).json.error, 'name_banned');
+    assert.equal((await reg(k('j'), 'Grumpy Gus')).status, 403);
+    await api('POST', '/api/players/delete', { key: k('i') });
+    assert.equal((await sync(k('i'))).status, 401);
   });
 
   test('typed names can host public rooms', async () => {
-    const reg = await api('POST', '/api/rooms/BXTW', { name: [3, 4], host: 'Comet Kid', players: 1, max: 4, theme: 1 });
-    assert.equal(reg.status, 200);
-    await api('DELETE', '/api/rooms/BXTW', { secret: reg.json.secret });
+    const r = await api('POST', '/api/rooms/BXTW', { name: [3, 4], host: 'Comet Kid', players: 1, max: 4, theme: 1 });
+    assert.equal(r.status, 200);
+    await api('DELETE', '/api/rooms/BXTW', { secret: r.json.secret });
     assert.equal((await api('POST', '/api/rooms/BXTV', { name: [3, 4], host: 'call 5551234', players: 1, max: 4, theme: 1 })).status, 400);
   });
 
-  test('inactive names are purged, permanent bans are kept', () => {
+  test('inactive players and names are purged, permanent bans are kept', () => {
     const db = new Db(':memory:');
+    const names = new NameRegistry(db);
+    const players = new PlayerService(db, 's'.repeat(48), names);
     const DAY = 86_400_000;
-    db.claimName('Old Timer', 'h1', 0);
-    db.claimName('Fresh Face', 'h2', 900 * DAY);
+    players.register({ key: 'o'.repeat(20), name: 'Old Timer' }, 'ip', 0);
+    players.register({ key: 'p'.repeat(20), name: 'Fresh Face' }, 'ip', 900 * DAY);
     db.banName('Bad Name', -1, 'rude', 0);
     db.purge(900 * DAY, { messageDays: 30, reportDays: 365, inactiveDays: 730 });
-    assert.equal(db.nameRow('old timer'), undefined);
-    assert.ok(db.nameRow('fresh face'));
+    players.purge(900 * DAY, 730);
+    assert.equal(players.byName('Old Timer').length, 0);
+    assert.equal(players.byName('Fresh Face').length, 1);
     assert.ok(db.nameRow('bad name'));
   });
 });

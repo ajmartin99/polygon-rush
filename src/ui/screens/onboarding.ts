@@ -4,6 +4,7 @@ import { store } from '../../state/store';
 import { isGeneratedName, randomName } from '../../meta/names';
 import { checkDisplayText, NAME_MESSAGES } from '../../shared/chat-filter';
 import { canTypeName, claimTypedName } from '../../services/names';
+import { friends } from '../../services/friends';
 import { ads } from '../../services/ads';
 import { BaseScreen, button } from '../components';
 import { h } from '../dom';
@@ -137,6 +138,7 @@ export class NameScreen extends BaseScreen {
               }
               store.data.profile.name = name;
               store.commit();
+              void friends.refresh();
               nav.go(first ? 'difficulty' : 'menu', first ? { first: true } : undefined);
             },
           }),

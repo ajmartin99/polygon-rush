@@ -1,9 +1,11 @@
 import { levels } from '../state/levels';
+import { friends } from '../services/friends';
+import { formatHandle } from '../shared/handle';
 import { store } from '../state/store';
 import { leagueFor } from '../meta/economy';
 import { BADGES, BANNER_LEVELS, BANNERS, badgeById, DEFAULT_TITLE, earnedBadges, MAX_SHOWCASE, myCard, titleFor, type BadgeCtx, type ProfileCard } from '../meta/profile';
 import type { NetPlayer } from '../services/net';
-import { BaseScreen, titleBar } from './components';
+import { BaseScreen, button, titleBar } from './components';
 import { fmt, h, ic } from './dom';
 import { nav } from './nav';
 import { previewCanvas } from './preview';
@@ -51,7 +53,37 @@ export function profileCard(name: string, skin: string, card: ProfileCard): HTML
 
 /** Tap a player in a room to see their card. */
 export function openPlayerCard(p: NetPlayer): void {
-  ui.modal([p.card ? profileCard(p.name, p.skin, p.card) : h('div.col', { style: 'align-items:center;gap:0.5rem' }, h('h2', null, p.name), h('p.muted', null, 'This player’s game doesn’t share a profile card yet.'))], { showClose: true });
+  const tag = p.card?.tag ?? 0;
+  const handle = tag ? formatHandle(p.name, tag) : '';
+  // 13+ can send a request straight from a room (under-13s add by typed Name#tag only).
+  const add =
+    handle && friends.canAddFromCards && handle !== friends.myHandle && !friends.state.friends.some((f) => f.name === p.name && f.tag === tag)
+      ? button({
+          label: 'Add friend',
+          icon: 'users',
+          cls: 'mint sm',
+          onClick: async (e: MouseEvent) => {
+            const b = e.currentTarget as HTMLButtonElement;
+            try {
+              const r = await friends.add(handle);
+              b.disabled = true;
+              b.textContent = r.state === 'friends' ? 'Friends!' : 'Request sent';
+            } catch (err) {
+              ui.toast((err as Error).message, 'info', 3000);
+            }
+          },
+        })
+      : null;
+  ui.modal(
+    [
+      p.card
+        ? profileCard(p.name, p.skin, p.card)
+        : h('div.col', { style: 'align-items:center;gap:0.5rem' }, h('h2', null, p.name), h('p.muted', null, 'This player’s game doesn’t share a profile card yet.')),
+      handle ? h('p.muted.small', { style: 'text-align:center' }, handle) : null,
+      add ? h('div.row', { style: 'justify-content:center' }, add) : null,
+    ],
+    { showClose: true },
+  );
 }
 
 export class ProfileScreen extends BaseScreen {

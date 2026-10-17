@@ -23,12 +23,14 @@ import { RaceLobbyScreen } from './ui/screens/race';
 import { DuelScreen } from './ui/screens/duel';
 import { FriendsScreen } from './ui/screens/friends';
 import { CreateScreen } from './ui/screens/create';
+import { PalsScreen } from './ui/screens/pals';
 import { EditorScreen } from './ui/screens/editor';
 import { GameController } from './game/controller';
 import { audio } from './core/audio';
 import { music } from './core/music';
 import { myMusic } from './services/mymusic';
-import { verifyOwnName } from './services/names';
+import { friends } from './services/friends';
+import { initFriendInvites } from './ui/friend-invites';
 import { SONGS } from './core/songs';
 
 function registerRoutes(): void {
@@ -48,6 +50,7 @@ function registerRoutes(): void {
   nav.register('friends', (p) => new FriendsScreen(p));
   nav.register('create', (p) => new CreateScreen(p));
   nav.register('editor', (p) => new EditorScreen(p));
+  nav.register('pals', () => new PalsScreen());
 }
 
 async function boot(): Promise<void> {
@@ -72,13 +75,16 @@ async function boot(): Promise<void> {
   };
   window.addEventListener('pointerdown', unlock, true);
   void myMusic.load();
-  void verifyOwnName().then((msg) => msg && ui.toast(msg, 'info', 4000));
+  initFriendInvites();
+  friends.on('notice', (msg) => ui.toast(msg, 'info', 4500));
+  friends.start();
   game.startAttract();
   if (import.meta.env.DEV) {
     // Dev-only hooks for automated audio checks and store screenshots.
     (window as unknown as { __audio: typeof audio }).__audio = audio;
     (window as unknown as { __songs: typeof SONGS }).__songs = SONGS;
     (window as unknown as { __music: typeof music }).__music = music;
+    (window as unknown as { __friends: typeof friends }).__friends = friends;
     (window as unknown as { __game: GameController }).__game = game;
   }
 

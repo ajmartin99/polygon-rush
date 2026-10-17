@@ -16,6 +16,8 @@ import { SONGS } from '../../core/songs';
 import { TRACKS } from '../../core/tracks';
 import { musicCredits, openSoundtrack } from '../soundtrack';
 import { canOfferFreeChat, freeChatPath, serverAvailable } from '../../meta/community';
+import { BackupError, makeBackup, restoreBackup } from '../../services/backup';
+import { friends } from '../../services/friends';
 
 function row(iconName: IconName, title: string, sub: string, control: Child): HTMLElement {
   return h('div.setting', null, h('span', { class: 'ico', style: 'display:contents' }, ic(iconName)), h('div.lbl', null, h('b', null, title), h('span', null, sub)), control);
@@ -84,6 +86,9 @@ async function openParentalControls(): Promise<void> {
         'div.col.body-scroll',
         { style: 'text-align:left;gap:0.8rem' },
         row('globe', 'Online play', 'Allow online rooms: Play with Friends and Build Together.', toggle(s.onlineAllowed, (v) => store.setSetting('onlineAllowed', v), 'Online play')),
+        serverAvailable()
+          ? row('users', 'Friends', 'Add friends by their Name#number, see who’s online and get invites to their rooms. No messages.', toggle(s.friends, (v) => store.setSetting('friends', v), 'Friends'))
+          : null,
         row('chat', 'Quick Chat', 'Preset friendly phrases and emotes in online rooms. No typing.', toggle(s.quickChat, (v) => store.setSetting('quickChat', v), 'Quick Chat')),
         teenPlus && serverAvailable()
           ? row('public', 'Public build rooms', 'Let your teen find and join build rooms hosted by other players (13+).', toggle(s.publicRooms, (v) => store.setSetting('publicRooms', v), 'Public build rooms'))
@@ -138,6 +143,7 @@ export class SettingsScreen extends BaseScreen {
           ui.toast(n > 0 ? `Restored ${n} purchase${n > 1 ? 's' : ''}!` : 'Everything is already up to date.', 'restore');
         },
       }),
+      button({ label: 'Move to a new phone', icon: 'share', cls: 'ghost sm', onClick: () => openBackup() }),
       button({ label: 'Parental controls', icon: 'child', cls: 'ghost sm', onClick: () => void openParentalControls() }),
       button({ label: 'Chat & Community', icon: 'chat', cls: 'ghost sm', onClick: () => openChatSettings() }),
       button({ label: 'Privacy policy', icon: 'privacy', cls: 'ghost sm', onClick: () => openPrivacyPolicy() }),
@@ -201,4 +207,71 @@ export class SettingsScreen extends BaseScreen {
       ),
     );
   }
+}
+
+/** Settings → Move to a new phone: copy a backup code here, paste it there. */
+function openBackup(): void {
+  const out = h<HTMLTextAreaElement>('textarea.backup-code', {
+    readonly: '',
+    rows: '3',
+    'aria-label': 'Your backup code',
+    placeholder: 'Making your code…',
+  });
+  const inp = h<HTMLTextAreaElement>('textarea.backup-code', {
+    rows: '3',
+    'aria-label': 'Paste a backup code',
+    placeholder: 'Paste the code from your old phone here',
+  });
+  void makeBackup().then((c) => (out.value = c));
+  const m = ui.modal(
+    [
+      h('h2', null, 'Move to a new phone'),
+      h(
+        'div.col.body-scroll',
+        { style: 'gap:0.7rem;text-align:left' },
+        h('h3', null, 'On your old phone'),
+        h(
+          'p.muted.small',
+          null,
+          'Copy this code and send it to yourself. It holds your gems, skins, records, levels, name and friends. Keep it private: anyone with it can use your friends list. Purchases come back with Restore purchases.',
+        ),
+        out,
+        button({
+          label: 'Copy code',
+          icon: 'copy',
+          cls: 'mint sm',
+          onClick: async () => {
+            try {
+              await navigator.clipboard.writeText(out.value);
+              ui.toast('Backup code copied.', 'check');
+            } catch {
+              out.select();
+            }
+          },
+        }),
+        h('h3', null, 'On your new phone'),
+        h('p.muted.small', null, 'Paste the code from your old phone. This replaces the progress on this phone.'),
+        inp,
+        button({
+          label: 'Restore',
+          icon: 'restore',
+          cls: 'yellow sm',
+          onClick: async () => {
+            if (!inp.value.trim()) return ui.toast('Paste your backup code first.', 'info');
+            if (!(await confirm('Restore this backup?', 'Progress on this phone is replaced by the backup.', 'Restore', 'Cancel', true))) return;
+            try {
+              const r = await restoreBackup(inp.value);
+              m.close();
+              void friends.refresh();
+              ui.toast(`Welcome back! Progress restored${r.levels ? ` with ${r.levels} level${r.levels > 1 ? 's' : ''}` : ''}.`, 'check', 3500);
+              nav.go('menu');
+            } catch (e) {
+              ui.toast(e instanceof BackupError ? e.message : 'That backup didn’t work. Copy the whole code and try again.', 'info', 4000);
+            }
+          },
+        }),
+      ),
+    ],
+    { showClose: true, wide: true },
+  );
 }

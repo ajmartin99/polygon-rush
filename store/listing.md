@@ -24,6 +24,7 @@ FEATURES
 • Spooky Season: Halloween skins, bat and candy-corn trails and a haunted Daily Run (Oct 1 – Nov 7)
 • CREATE: build your own levels with spikes, saws, pads, portals and gems, test them, then share a level code
 • Build Together: up to 4 friends edit the same level live, then race it
+• Friends: add friends by Name#number, see who's online and invite them to race or build
 • Quick Chat: friendly preset phrases and emotes for every age
 • Six worlds: Bubblegum Bay, Mint Meadow, Sunset Circuit, Ocean Prism, Candy Cosmos and Lemon Lab, with 26 real tracks from house and drum & bass to dubstep, synthwave, funk and rock, a new song every level
 • 23 skins with silly faces (sunglasses, kitty, dino, robot…) and 11 sparkly trails
@@ -63,7 +64,9 @@ Ages 5–8, 9–12, 13–15, 16–17, 18+ (mixed audience, with a neutral age sc
 * **Personal info → Other (birth year):** collected with the email to decide which permission is needed.
 * **Messages → Other in-app messages:** Free Chat messages, collected and stored 30 days for safety reviews. Not shared except where the law requires (e.g. reports to authorities).
 * **Personal info → User IDs:** a random chat account id.
-* **Personal info → Name:** a typed racer name (13+ only, optional) with a hashed random device key, so names stay unique. Not shared; deleted after 2 years unused.
+* **Personal info → Name:** the racer name (generated, or typed by 13+) with its #number. Shown only to friends and players in the same room. Not shared with third parties.
+* **Personal info → User IDs:** a random player id and a hashed random device key (no Google or ad id).
+* **App activity → Other actions:** friends list, friend requests, blocks, online status (menu / playing / building / in a room) and room invites (a room code). Purpose: app functionality. Deleted after 2 years unused, or in-app (Friends → Delete friends data).
 * **App activity → Other user-generated content:** a snapshot of a public build room's level when someone reports it.
 * Data is encrypted in transit (https/wss). Account deletion: in-app (Settings → Chat & Community) and web (`https://YOUR-SERVER/account/delete`).
 

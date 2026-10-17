@@ -202,24 +202,6 @@ export class Db {
     return this.one<NameRow>('SELECT * FROM names WHERE name_lc = ?', nameLc);
   }
 
-  /** One name per device key: claiming a new one releases the old (unless it was banned). */
-  claimName(name: string, keyHash: string, now: number): void {
-    this.run('DELETE FROM names WHERE key_hash = ? AND name_lc != ? AND banned_until = 0', keyHash, name.toLowerCase());
-    this.run(
-      `INSERT INTO names (name_lc, name, key_hash, created_at, last_seen) VALUES (?, ?, ?, ?, ?)
-       ON CONFLICT(name_lc) DO UPDATE SET last_seen = excluded.last_seen, name = excluded.name`,
-      name.toLowerCase(),
-      name,
-      keyHash,
-      now,
-      now,
-    );
-  }
-
-  touchName(nameLc: string, now: number): void {
-    this.run('UPDATE names SET last_seen = ? WHERE name_lc = ?', now, nameLc);
-  }
-
   banName(name: string, until: number, reason: string | null, now: number): void {
     const lc = name.toLowerCase();
     if (!this.nameRow(lc)) this.run('INSERT INTO names (name_lc, name, key_hash, created_at, last_seen) VALUES (?, ?, ?, ?, ?)', lc, name, '', now, now);

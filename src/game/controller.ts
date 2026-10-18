@@ -30,6 +30,7 @@ import { TRACK_BASE, TRACKS } from '../core/tracks';
 import { HAUNTED_TRACK, hauntedPayout } from '../meta/haunted';
 import { InputManager } from './input';
 import type { Racer, RacerSpec } from './racer';
+import type { ChaserEvent, ChaserKind } from './chaser';
 import { GameSession, type BoxItem, type SessionKind } from './session';
 import { SHAPE_INFO, type ShapeMode } from './shapes';
 
@@ -207,7 +208,7 @@ export class GameController {
     switch (req.mode) {
       case 'custom': {
         this.kind = 'custom';
-        this.session = new GameSession({ kind: 'custom', seed: 1, level: req.level, startX: req.startX, racers: [me] });
+        this.session = new GameSession({ kind: 'custom', seed: 1, level: req.level, startX: req.startX, racers: [me], chaser: req.haunted });
         break;
       }
       case 'endless': {
@@ -467,6 +468,7 @@ export class GameController {
         this.maybeModeHint(racer, mode);
       }),
       s.on('hint', ({ racer, key, text, sub }) => this.onHint(racer, key, text, sub)),
+      s.on('chaser', ({ racer, event, kind }) => this.onChaser(racer, event, kind)),
       s.on('death', ({ racer }) => {
         this.renderer.fx.death(racer);
         if (local(racer)) void this.onDeath(racer);
@@ -476,6 +478,38 @@ export class GameController {
         this.onFinish(racer, place);
       }),
     );
+  }
+
+  /** Haunted Run: the zombie / ghost on your heels. */
+  private onChaser(racer: Racer, event: ChaserEvent, kind: ChaserKind): void {
+    const c = this.session?.chaser;
+    if (!c || racer.kind !== 'human') return;
+    const ghost = kind === 'ghost';
+    const cy = c.y + (ghost ? 1.1 : c.flip > 0.5 ? -1.6 : 1.6);
+    switch (event) {
+      case 'warn':
+        audio.play(ghost ? 'boo' : 'groan');
+        haptics.medium();
+        this.hud?.showHint(ghost ? 'The ghost is right behind you!' : 'The zombie is right behind you!', 'Clear obstacles cleanly and grab gems to shake it off', 1500, '18%');
+        break;
+      case 'lunge':
+        audio.play(ghost ? 'boo' : 'groan');
+        this.renderer.fx.text(c.x, cy, ghost ? 'BOO!' : 'GRRR!', ghost ? '#d9f4ff' : '#9dff6a', 0.9, 1.2);
+        this.renderer.fx.addShake(0.25);
+        break;
+      case 'morph':
+        audio.play(ghost ? 'boo' : 'groan');
+        this.renderer.fx.text(c.x, cy, ghost ? 'BOO!' : 'BRAINS!', ghost ? '#d9f4ff' : '#9dff6a', 0.75, 1);
+        break;
+      case 'caught':
+        audio.play(ghost ? 'boo' : 'groan');
+        haptics.heavy();
+        this.renderer.fx.text(racer.x - 0.5, racer.body.y + 1.8, 'GOTCHA!', ghost ? '#d9f4ff' : '#9dff6a', 1.2, 1.4);
+        this.renderer.fx.addShake(0.5);
+        break;
+      default:
+        break;
+    }
   }
 
   private maybeModeHint(racer: Racer, mode: ShapeMode): void {
@@ -600,6 +634,7 @@ export class GameController {
       markers,
       haunted: this.paletteFor(this.session?.racers[0]?.x ?? 0) === SPOOKY,
       secretsFound: store.data.secrets.found,
+      chaser: s.chaser,
     });
     if (this.kind === 'attract' || this.phase === 'results') return;
     const ctx = this.renderer.ctx;
@@ -880,6 +915,7 @@ export class GameController {
         missions.push(`Haunted Run cleared on ${diff === 'hard' ? 'Hard' : 'Easy'}! +${pay} gems`);
       } else if (pay > 0) missions.push(`Haunted Run: +${pay} gems${diff === 'easy' ? ' (Easy pays half)' : ''}`);
       d.stats.gemsCollected += r.gems;
+      if (s.chaser?.caught && !missions.length) missions.push('Clear obstacles cleanly and grab gems to keep it back');
     }
     if (missions.length) {
       ui.sfx('reward');
@@ -899,7 +935,7 @@ export class GameController {
         hits: r.hits,
         verifiedNow,
         missionsDone: missions,
-        notesTitle: req.haunted ? 'Haunted Run' : undefined,
+        notesTitle: req.haunted ? (s.chaser?.caught ? (s.chaser.kind === 'ghost' ? 'The ghost caught you! 👻' : 'The zombie caught you! 🧟') : 'Haunted Run') : undefined,
         rate: req.rate,
       },
       {

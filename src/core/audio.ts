@@ -39,7 +39,9 @@ export type Sfx =
   | 'open'
   | 'error'
   | 'reward'
-  | 'levelUp';
+  | 'levelUp'
+  | 'groan'
+  | 'boo';
 
 const mtof = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
 
@@ -1200,6 +1202,18 @@ class AudioEngine {
       }
       case 'bigGem':
         this.arp([84, 88, 91, 96], 0.05, 'sine', 0.2);
+        break;
+      case 'groan':
+        // A zombie's low, wobbly moan.
+        this.tone('sawtooth', 140, 82, 0.62, 0.13);
+        this.tone('sawtooth', 147, 78, 0.6, 0.09, 0.03);
+        this.burst(0.4, 0.12, 380);
+        break;
+      case 'boo':
+        // A ghost's rising, then falling "boooo".
+        this.tone('sine', 260, 520, 0.24, 0.2);
+        this.tone('sine', 520, 230, 0.5, 0.18, 0.22);
+        this.tone('triangle', 390, 780, 0.24, 0.06);
         break;
       case 'hit':
         this.burst(0.25, 0.5, 900);

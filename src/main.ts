@@ -15,7 +15,8 @@ import { nav } from './ui/nav';
 import { localCard, ProfileScreen, watchBadges } from './ui/profile';
 import { ModesScreen } from './ui/screens/modes';
 import { LevelsScreen } from './ui/screens/levels';
-import { setLocalCard } from './services/net';
+import { setLocalCard, setRoomGuards } from './services/net';
+import { isBanned, roomId } from './services/room-bans';
 import { AgeGateScreen, DifficultyScreen, NameScreen } from './ui/screens/onboarding';
 import { MenuScreen } from './ui/screens/menu';
 import { ShopScreen } from './ui/screens/shop';
@@ -45,6 +46,7 @@ function registerRoutes(): void {
   nav.register('modes', () => new ModesScreen());
   nav.register('levels', () => new LevelsScreen());
   setLocalCard(localCard);
+  setRoomGuards({ rid: roomId, banned: isBanned });
   nav.register('menu', () => new MenuScreen());
   nav.register('shop', (p) => new ShopScreen(p));
   nav.register('missions', () => new MissionsScreen());

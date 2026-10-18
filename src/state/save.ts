@@ -127,6 +127,8 @@ export interface SaveData {
   phrases: { owned: string[] };
   /** Secret eggs found: Endless level numbers (1-based). */
   secrets: { found: number[] };
+  /** Players you banned from rooms you host (anonymous room id + their name then). */
+  roomBans: { rid: string; name: string; at: number }[];
   /** Played the beta (1.0.x): exclusive rewards granted. */
   beta: { tester: boolean; version: string; at: number };
   best: Record<string, number>;
@@ -222,6 +224,7 @@ export function createSave(now = Date.now()): SaveData {
     emotes: { owned: [...FREE_EMOTES] },
     phrases: { owned: [] },
     secrets: { found: [] },
+    roomBans: [],
     beta: { tester: false, version: '', at: 0 },
     best: {},
     stats: emptyStats(),
@@ -276,6 +279,7 @@ export function migrate(raw: unknown): SaveData {
   save.skins.owned = str(save.skins.owned);
   save.trails.owned = str(save.trails.owned);
   save.phrases.owned = str(save.phrases.owned);
+  save.roomBans = save.roomBans.filter((b) => b && typeof b.rid === 'string' && /^[a-f0-9]{16}$/.test(b.rid) && typeof b.name === 'string').slice(-200);
   save.secrets.found = [...new Set(save.secrets.found.filter((n) => Number.isInteger(n) && n >= 1 && n <= 40))];
   // Items only a purchase gives: kept only with the purchase (Google Play restores it on launch).
   const paid = (u: Unlock) => (u.kind === 'legend' && !save.purchases.legend) || (u.kind === 'starter' && !save.purchases.starter);

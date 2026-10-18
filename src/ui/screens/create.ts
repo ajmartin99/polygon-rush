@@ -14,12 +14,19 @@ import { codeEntry } from '../code-entry';
 import { openShareModal } from './editor';
 import { publicBuildsSection, setPublicJoinHandler } from '../public-builds';
 import { thumb } from '../level-thumb';
+import { removeBan } from '../../services/room-bans';
 import { communitySection, shareToCommunity } from '../community-levels';
 import { canUseSharedLevels } from '../../meta/community';
 
 type Tab = 'mine' | 'community' | 'featured' | 'together';
 
+/** Only a level's builders edit it: yours, or one you built together. Levels from codes and Community are play-only. */
+export function canEditLevel(level: Pick<LevelData, 'origin'>): boolean {
+  return level.origin !== 'code';
+}
+
 export function openEditor(level: LevelData): void {
+  if (!canEditLevel(level)) return void ui.toast('Only the people who built this level can change it.', 'lock', 3000);
   setActiveEditor(EditorSession.solo(level));
   nav.go('editor');
 }
@@ -52,6 +59,7 @@ function onlineBlocked(): boolean {
 /** Host a build room around a level (new or one of yours). */
 export async function hostBuildRoom(level: LevelData): Promise<boolean> {
   if (onlineBlocked()) return false;
+  if (!canEditLevel(level)) return void ui.toast('Only the people who built this level can change it.', 'lock', 3000), false;
   try {
     const room = await NetRoom.host(store.data.profile.name || 'Rusher', store.data.skins.equipped, { kind: 'build' });
     const session = EditorSession.host(level, room);
@@ -177,6 +185,7 @@ export class CreateScreen extends BaseScreen {
 
   private levelMenu(l: LevelData): void {
     const mine = l.origin === 'mine';
+    const editable = canEditLevel(l);
     const m = ui.modal(
       [
         h('h2', null, levelName(l)),
@@ -186,7 +195,7 @@ export class CreateScreen extends BaseScreen {
           'div.actions',
           null,
           button({ label: 'Play', icon: 'play', cls: 'mint lg', onClick: () => (m.close(), playLevel(l, true)) }),
-          button({ label: mine ? 'Edit' : 'Remix', icon: 'edit', cls: 'yellow lg', onClick: () => (m.close(), this.edit(l)) }),
+          editable ? button({ label: 'Edit', icon: 'edit', cls: 'yellow lg', onClick: () => (m.close(), openEditor(l)) }) : null,
           button({
             label: 'Share',
             icon: 'share',
@@ -213,11 +222,12 @@ export class CreateScreen extends BaseScreen {
               }),
             )
           : null,
+        editable ? null : h('p.muted.small', null, 'From another player: you can play and share it, but only its builders can change it.'),
         h(
           'div.actions',
           null,
-          button({ label: 'Build with friends', icon: 'users', cls: 'violet sm', onClick: () => (m.close(), void hostBuildRoom(l)) }),
-          button({
+          editable ? button({ label: 'Build with friends', icon: 'users', cls: 'violet sm', onClick: () => (m.close(), void hostBuildRoom(l)) }) : null,
+          !editable ? null : button({
             label: 'Copy',
             icon: 'copy',
             cls: 'ghost sm',
@@ -241,17 +251,6 @@ export class CreateScreen extends BaseScreen {
       ],
       { showClose: true },
     );
-  }
-
-  private edit(l: LevelData): void {
-    if (l.origin !== 'mine') {
-      // Remixing someone's level: it becomes yours (their names stay in the credits).
-      levels.touch(l.id, (x) => {
-        x.origin = 'mine';
-        x.verified = false;
-      });
-    }
-    openEditor(levels.get(l.id) ?? l);
   }
 
   private importCode(): void {
@@ -305,6 +304,29 @@ export class CreateScreen extends BaseScreen {
     );
   }
 
+  /** Players banned from rooms you host: unban any of them. */
+  private openBans(): void {
+    const list = h('div.col', { style: 'gap:0.4rem;align-items:stretch' });
+    const render = () => {
+      clear(list);
+      const bans = store.data.roomBans;
+      if (!bans.length) list.append(h('p.muted', null, 'Nobody is banned.'));
+      for (const b of [...bans].reverse()) {
+        list.append(
+          h(
+            'div.row',
+            { style: 'justify-content:space-between;align-items:center;gap:0.5rem' },
+            h('span', null, b.name, h('span.muted.small', null, ` · ${new Date(b.at).toLocaleDateString()}`)),
+            button({ label: 'Unban', cls: 'ghost sm', onClick: () => (removeBan(b.rid), render()) }),
+          ),
+        );
+      }
+    };
+    render();
+    const m = ui.modal([h('h2', null, 'Banned players'), h('p.muted.small', null, 'They can’t join rooms you host, on any level.'), list], { showClose: true });
+    void m.closed.then(() => this.tab === 'together' && this.render());
+  }
+
   // ------------------------------------------------------------ featured
   private renderFeatured(): void {
     const grid = h('div.level-grid');
@@ -349,7 +371,7 @@ export class CreateScreen extends BaseScreen {
       this.body.append(h('div.center.col', { style: 'gap:0.6rem;text-align:center;padding:2rem' }, ic('lock'), h('p', null, 'Online building is turned off in Parental Controls.')));
       return;
     }
-    const mine = levels.list();
+    const mine = levels.list().filter(canEditLevel);
     const hostCol = h(
       'div.panel.col',
       { style: 'gap:0.6rem;align-items:stretch' },
@@ -375,6 +397,17 @@ export class CreateScreen extends BaseScreen {
           )
         : null,
     );
+    const bans = store.data.roomBans;
+    if (bans.length) {
+      hostCol.append(
+        button({
+          label: `Banned players (${bans.length})`,
+          icon: 'report',
+          cls: 'ghost sm',
+          onClick: () => this.openBans(),
+        }),
+      );
+    }
     // With public rooms available the keypad moves into a pop-up to make room for the list.
     const pub = publicBuildsSection();
     const joinCol = pub

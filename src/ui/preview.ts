@@ -46,7 +46,11 @@ function paint(canvas: HTMLCanvasElement, opts: PreviewOptions, t: number): void
   const w = canvas.width;
   const hh = canvas.height;
   ctx.clearRect(0, 0, w, hh);
-  const size = hh * (opts.scale ?? 0.55);
+  const skin = skinById(opts.skin);
+  // Shrink to fit: the body (plus a hat or tall outline) at the top of its bounce stays inside the canvas.
+  const reach = 1.05 + (skin.topper ? 0.62 : skin.silhouette ? 0.12 : 0);
+  const room = hh * (0.86 - (opts.animate ? 0.12 : 0) - 0.02);
+  const size = Math.min(hh * (opts.scale ?? 0.55), room / reach);
   const bounce = opts.animate ? Math.abs(Math.sin(t * 2.6)) : 0;
   const squash = opts.animate ? 1 + Math.sin(t * 5.2) * 0.04 : 1;
   const groundY = hh * 0.86;
@@ -62,7 +66,7 @@ function paint(canvas: HTMLCanvasElement, opts: PreviewOptions, t: number): void
     const tr = trailById(opts.trail!);
     drawTrailPreview(ctx, tr.style, tr.colors, cx - size * 0.45, groundY - size * 0.55 - bounce * hh * 0.12, size, t);
   }
-  drawCharacter(ctx, cx, groundY - size * 0.55 - bounce * hh * 0.12, size, opts.shape ?? 'square', skinById(opts.skin), {
+  drawCharacter(ctx, cx, groundY - size * 0.55 - bounce * hh * 0.12, size, opts.shape ?? 'square', skin, {
     squash,
     lookX: opts.animate ? Math.sin(t * 0.9) * 0.6 : 0.4,
     blink,

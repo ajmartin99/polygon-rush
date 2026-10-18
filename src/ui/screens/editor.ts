@@ -14,6 +14,7 @@ import { TOOLS, type Tool } from '../../editor/tools';
 import { store } from '../../state/store';
 import { BaseScreen, button, confirm, parentalGate, segmented } from '../components';
 import { append, clear, h, ic } from '../dom';
+import { addBan } from '../../services/room-bans';
 import type { IconName } from '../icons';
 import { nav } from '../nav';
 import { ui } from '../ui';
@@ -196,7 +197,20 @@ export class EditorScreen extends BaseScreen {
       this.chat = new ChatPanel({ where: 'build', log: session.chat, onQuick: (n) => session.sendQuick(n) });
       this.el.append(this.chat.el);
       this.renderPeople();
-      this.own(session.on('players', () => this.renderPeople()));
+      this.own(
+        session.on('players', (players) => {
+          this.renderPeople();
+          this.refresh();
+          // Host: point out newcomers who joined unable to build (public rooms).
+          const room = session.room;
+          if (!room?.isHost) return;
+          for (const p of players) {
+            if (p.id === room.localId || this.seenPlayers.has(p.id)) continue;
+            this.seenPlayers.add(p.id);
+            if (!room.canBuild(p.id)) this.hint(`${p.name} joined. They can look around; tap their name to let them build.`, 3600);
+          }
+        }),
+      );
       this.own(session.on('lock', () => this.refresh()));
       this.own(session.on('closed', (reason) => this.roomClosed(reason)));
     }
@@ -213,9 +227,8 @@ export class EditorScreen extends BaseScreen {
     this.resizeObs.observe(this.palette);
     window.addEventListener('resize', this.measure);
     audio.intensity = 0.25;
-    const st = this.session.doc.settings;
-    if (st.music >= 0) music.level(st.music, st.theme);
-    else music.build(st.theme);
+    // Quiet while building: the level's song plays when you test it (and while picking one in Settings).
+    music.stop();
     const fc = freeChatFor(this.session);
     if (fc && this.chat) this.detachFree = fc.bind(this.chat);
     if (this.session.room && !this.session.room.open) this.roomClosed(this.session.closedReason);
@@ -362,6 +375,7 @@ export class EditorScreen extends BaseScreen {
       listings.delete(s);
       s.publicRoom = false;
       room.setPublic(false);
+      room.newPlayersPaused = false;
       this.hint('Your room is private again (friends with the code can still join).', 2600);
       this.refresh();
       return;
@@ -377,8 +391,10 @@ export class EditorScreen extends BaseScreen {
     listings.set(s, listing);
     s.publicRoom = true;
     room.setPublic(true);
+    // Strangers start as watchers: the host decides who builds.
+    room.newPlayersPaused = true;
     s.onEnd(() => listing.stop());
-    this.hint('Your room is public: players 13+ can find and join it. You can remove anyone or pause building.', 4200);
+    this.hint('Your room is public: players 13+ can join. New players can only watch until you tap their name and let them build.', 4600);
     this.refresh();
   }
 
@@ -437,10 +453,14 @@ export class EditorScreen extends BaseScreen {
           h('i'),
           p.id === room.localId ? 'You' : p.name.replace(/ \d+$/, ''),
           p.host ? h('span.tag', null, 'HOST') : null,
+          !p.host && !room.canBuild(p.id) ? h('span.ed-watch', { title: 'Watching (can’t build)' }, ic('lock')) : null,
         ),
       ),
     ]);
   }
+
+  /** Players the host has already been told about. */
+  private seenPlayers = new Set<string>();
 
   private personMenu(id: string): void {
     const room = this.session.room;
@@ -462,6 +482,19 @@ export class EditorScreen extends BaseScreen {
               m.close();
             },
           }),
+          room.isHost && room.kind === 'build'
+            ? button({
+                label: room.canBuild(id) ? 'Stop them building' : 'Let them build',
+                icon: room.canBuild(id) ? 'lock' : 'build',
+                cls: room.canBuild(id) ? 'ghost lg' : 'mint lg',
+                onClick: () => {
+                  const can = !room.canBuild(id);
+                  room.setCanBuild(id, can);
+                  m.close();
+                  this.hint(can ? `${p.name} can build now.` : `${p.name} can only watch now.`, 2200);
+                },
+              })
+            : null,
           room.isHost
             ? button({
                 label: 'Remove from room',
@@ -470,7 +503,21 @@ export class EditorScreen extends BaseScreen {
                 onClick: () => {
                   room.kick(id);
                   m.close();
-                  ui.toast(`${p.name} was removed.`, 'close');
+                  ui.toast(`${p.name} was removed. They can’t rejoin for 10 minutes.`, 'close', 3000);
+                },
+              })
+            : null,
+          room.isHost
+            ? button({
+                label: 'Ban from my rooms',
+                icon: 'report',
+                cls: 'red lg',
+                onClick: async () => {
+                  m.close();
+                  if (!(await confirm(`Ban ${p.name}?`, 'They’re removed now and can never join a room you host again. Unban them any time in Create → Build Together → Banned players.', 'Ban', 'Cancel', true))) return;
+                  const b = room.ban(id);
+                  if (b) addBan(b.rid, b.name);
+                  ui.toast(b ? `${p.name} is banned from your rooms.` : `${p.name} was removed (their app is too old to ban).`, 'report', 3200);
                 },
               })
             : null,
@@ -527,7 +574,7 @@ export class EditorScreen extends BaseScreen {
       const next = songs[(at + dir + songs.length) % songs.length];
       set({ set: { music: next } });
       songEl.textContent = songLabel();
-      music.level(next, d.settings.theme);
+      music.level(next, d.settings.theme); // preview while Settings is open
     };
     const themes = h(
       'div.ed-themes',
@@ -539,12 +586,12 @@ export class EditorScreen extends BaseScreen {
           set({ set: { theme: i } });
           themes.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
           this.buildPalette();
-          if (d.settings.music < 0) music.build(i);
+          if (d.settings.music < 0) music.level(-1, i);
         });
         return b;
       }),
     );
-    ui.modal(
+    const settings = ui.modal(
       [
         h('h2', null, 'Level settings'),
         h(
@@ -631,6 +678,8 @@ export class EditorScreen extends BaseScreen {
       ],
       { wide: true, showClose: true },
     );
+    // Song previews stop when Settings closes: building stays quiet.
+    void settings.closed.then(() => music.stop());
   }
 
   private share(): void {

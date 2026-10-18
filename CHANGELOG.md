@@ -5,6 +5,11 @@ All notable changes to Polygon Rush are documented here.
 ## [Unreleased]
 
 ### Changed
+- **Level editor is quiet:** no music while building. The level's song plays when you test it, and as a preview while you pick it in Level settings.
+- **A level's song is part of the level:** while playing any player-made level (your tests, Community, codes, build-room races) the song can't be skipped or changed.
+- **Only builders edit levels:** levels from codes and Community can be played and shared but not edited or remixed. Levels you built, alone or together, stay editable. Saving a copy of a build room you didn't build in is play-only.
+- **Host tools in build rooms:** tap a player to stop or allow their building, remove them (they can't rejoin for 10 minutes; others still can), or ban them from every room you host. Manage bans in Create → Build Together → Banned players. In public rooms new players join as watchers until the host lets them build.
+- **Home screen fixes (Pixel 9 Pro):** the character's hat no longer gets cut off, the level badge no longer covers your name, and the Settings button matches the others. Violet buttons (Build with friends, Settings) now show their colour.
 - Bat Swarm trail: bats now dart upward in erratic zigzags, banking into each turn and flapping faster, instead of bobbing (tester feedback).
 
 ### Security

@@ -39,6 +39,16 @@ export function setLocalCard(fn: () => ProfileCard | undefined): void {
   localCard = fn;
 }
 
+/** Host room safety: this device's anonymous room id, and the host's ban list. */
+const guards = { rid: (): string => '', banned: (_rid: string): boolean => false };
+export function setRoomGuards(g: Partial<typeof guards>): void {
+  Object.assign(guards, g);
+}
+
+const RID_RE = /^[a-f0-9]{16}$/;
+/** A removed player can't come back for this long (a ban is for good). */
+const KICK_BLOCK_MS = 10 * 60_000;
+
 /** Compact racer state: [id, x, y, rot, modeIndex, flags, speed]. */
 export type NetState = [string, number, number, number, number, number, number];
 
@@ -59,10 +69,12 @@ export function safeTrack(t: unknown): TrackInfo {
 }
 
 export type NetMsg =
-  | { t: 'hello'; v: number; name: string; skin: string; card?: ProfileCard }
-  | { t: 'welcome'; you: string; players: NetPlayer[]; kind: RoomKind; chat: string; lock: boolean; pub?: boolean; level?: string; rev?: number; authors?: string[] }
-  | { t: 'lobby'; players: NetPlayer[]; racing: boolean; pub?: boolean; track?: TrackInfo }
-  | { t: 'reject'; reason: 'full' | 'version' | 'started' | 'closed' }
+  /** `rid`: an anonymous id that stays the same for this device (lets a host ban someone). Only the host sees it. */
+  | { t: 'hello'; v: number; name: string; skin: string; card?: ProfileCard; rid?: string }
+  | { t: 'welcome'; you: string; players: NetPlayer[]; kind: RoomKind; chat: string; lock: boolean; pub?: boolean; level?: string; rev?: number; authors?: string[]; paused?: string[] }
+  /** `paused`: build rooms, players the host stopped from building. */
+  | { t: 'lobby'; players: NetPlayer[]; racing: boolean; pub?: boolean; track?: TrackInfo; paused?: string[] }
+  | { t: 'reject'; reason: 'full' | 'version' | 'started' | 'closed' | 'banned' }
   | { t: 'chatkey'; key: string }
   | { t: 'start'; seed: number; players: NetPlayer[]; delay: number; level?: string }
   | { t: 'st'; s: NetState }
@@ -125,6 +137,10 @@ export function safeName(name: unknown): string {
 
 function safeSkin(skin: unknown): string {
   return typeof skin === 'string' && SKINS.some((s) => s.id === skin) ? skin : 'classic';
+}
+
+function safeIds(v: unknown): Set<string> {
+  return new Set(Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && x.length < 80).slice(0, 8) : []);
 }
 
 /** Clean a player list received from the host. */
@@ -247,6 +263,13 @@ export class NetRoom extends Emitter<RoomEvents> {
   private buckets = new Map<string, { ops: Bucket; cur: Bucket; qc: Bucket; st: Bucket; fx: Bucket; em: Bucket }>();
   private joinBlockedUntil = 0;
   private kicked = new Set<string>();
+  /** Host: each player's anonymous room id, and room ids removed recently. */
+  private rids = new Map<string, string>();
+  private blockedRids = new Map<string, number>();
+  /** Build rooms: players who may not build (host's choice). */
+  paused = new Set<string>();
+  /** Host: new joiners start unable to build until allowed (on for public rooms). */
+  newPlayersPaused = false;
 
   private constructor(isHost: boolean) {
     super();
@@ -310,7 +333,8 @@ export class NetRoom extends Emitter<RoomEvents> {
       const conn = peer.connect(CONFIG.net.roomPrefix + code, { reliable: true, serialization: 'json' });
       room.hostConn = conn;
       conn.on('open', () => {
-        conn.send({ t: 'hello', v: PROTOCOL_VERSION, name, skin, card: localCard() } satisfies NetMsg);
+        const rid = guards.rid();
+        conn.send({ t: 'hello', v: PROTOCOL_VERSION, name, skin, card: localCard(), ...(RID_RE.test(rid) ? { rid } : {}) } satisfies NetMsg);
       });
       conn.on('data', (data) => {
         const msg = data as NetMsg;
@@ -323,6 +347,7 @@ export class NetRoom extends Emitter<RoomEvents> {
           room.chatKey = typeof msg.chat === 'string' ? msg.chat.slice(0, 64) : '';
           room.locked = Boolean(msg.lock);
           room.publicRoom = msg.pub === true;
+          room.paused = safeIds(msg.paused);
           if (room.kind === 'build' && typeof msg.level === 'string') room.joinLevel = { code: msg.level, rev: msg.rev ?? 0, authors: safeAuthors(msg.authors) };
           room.wireClient();
           resolve();
@@ -334,6 +359,8 @@ export class NetRoom extends Emitter<RoomEvents> {
                 ? 'That room is full (4 players max).'
                 : msg.reason === 'started'
                   ? 'That room is racing right now. Try again in a minute!'
+                  : msg.reason === 'banned'
+                  ? 'The host of that room has blocked you from joining.'
                   : msg.reason === 'closed'
                     ? 'That room isn’t taking new players right now.'
                     : 'Your friend has a different game version. Update both apps!',
@@ -381,15 +408,20 @@ export class NetRoom extends Emitter<RoomEvents> {
       case 'hello': {
         if (member || this.kicked.has(from)) return; // one hello per connection
         if (msg.v !== PROTOCOL_VERSION) return void conn.send({ t: 'reject', reason: 'version' } satisfies NetMsg);
+        const rid = typeof msg.rid === 'string' && RID_RE.test(msg.rid) ? msg.rid : '';
+        if (rid && guards.banned(rid)) return void conn.send({ t: 'reject', reason: 'banned' } satisfies NetMsg);
+        if (rid && (this.blockedRids.get(rid) ?? 0) > performance.now()) return void conn.send({ t: 'reject', reason: 'closed' } satisfies NetMsg);
         if (this.racing) return void conn.send({ t: 'reject', reason: 'started' } satisfies NetMsg);
-        // Just removed someone: no new joiners for a bit (they'd come back with a new id).
-        if (performance.now() < this.joinBlockedUntil) return void conn.send({ t: 'reject', reason: 'closed' } satisfies NetMsg);
+        // Just removed someone on an old version (no room id): no unknown joiners for a bit.
+        if (!rid && performance.now() < this.joinBlockedUntil) return void conn.send({ t: 'reject', reason: 'closed' } satisfies NetMsg);
         if (this.players.length >= CONFIG.net.maxPlayers) return void conn.send({ t: 'reject', reason: 'full' } satisfies NetMsg);
         this.conns.set(from, conn);
         const used = new Set(this.players.map((p) => p.color));
         const color = [0, 1, 2, 3].find((c) => !used.has(c)) ?? 0;
         this.players.push({ id: from, name: safeName(msg.name), skin: safeSkin(msg.skin), host: false, color, card: safeCard(msg.card) });
-        const welcome: NetMsg = { t: 'welcome', you: from, players: this.players, kind: this.kind, chat: this.chatKey, lock: this.locked, pub: this.publicRoom };
+        if (rid) this.rids.set(from, rid);
+        if (this.kind === 'build' && this.newPlayersPaused) this.paused.add(from);
+        const welcome: NetMsg = { t: 'welcome', you: from, players: this.players, kind: this.kind, chat: this.chatKey, lock: this.locked, pub: this.publicRoom, paused: [...this.paused] };
         if (this.kind === 'build' && this.snapshot) {
           const snap = this.snapshot();
           welcome.level = snap.code;
@@ -419,7 +451,7 @@ export class NetRoom extends Emitter<RoomEvents> {
       case 'ops': {
         if (!member || this.kind !== 'build' || this.racing || !Array.isArray(msg.ops)) return;
         const seq = Number(msg.seq) || 0;
-        if (this.locked || msg.ops.length > MAX_OPS_PER_MSG || !this.bucket(from).ops.take(msg.ops.length)) {
+        if (this.locked || this.paused.has(from) || msg.ops.length > MAX_OPS_PER_MSG || !this.bucket(from).ops.take(msg.ops.length)) {
           // Echo with no ops so the builder's preview rolls back.
           this.sendTo(from, { t: 'ops', seq, ops: [], by: from, rev: this.rev });
           return;
@@ -463,6 +495,7 @@ export class NetRoom extends Emitter<RoomEvents> {
     if (!conn && !this.players.some((p) => p.id === id && !p.host)) return;
     this.conns.delete(id);
     this.buckets.delete(id);
+    this.paused.delete(id);
     conn?.close();
     if (!this.racing || this.kind === 'build') {
       this.players = this.players.filter((p) => p.id !== id);
@@ -475,7 +508,7 @@ export class NetRoom extends Emitter<RoomEvents> {
   }
 
   private broadcastLobby(): void {
-    this.broadcast({ t: 'lobby', players: this.players, racing: this.racing, pub: this.publicRoom, track: this.track });
+    this.broadcast({ t: 'lobby', players: this.players, racing: this.racing, pub: this.publicRoom, track: this.track, paused: [...this.paused] });
     this.emit('lobby', this.players);
   }
 
@@ -589,16 +622,42 @@ export class NetRoom extends Emitter<RoomEvents> {
     if (this.isHost) this.broadcast({ t: 'authors', list });
   }
 
+  /** Host: let a player build, or stop them (their edits are refused). */
+  setCanBuild(id: string, can: boolean): void {
+    if (!this.isHost || id === this.localId) return;
+    if (can) this.paused.delete(id);
+    else this.paused.add(id);
+    this.broadcastLobby();
+  }
+
+  canBuild(id = this.localId): boolean {
+    return !this.paused.has(id);
+  }
+
   /**
-   * Host: remove a player. New joiners are refused for two minutes (a
-   * removed player would come back with a new id), and the room's Free Chat
-   * channel moves to a new key that only the remaining players get.
+   * Host: ban a player from your rooms for good. Returns what to keep on the
+   * ban list (their anonymous room id), or null for an old version without one
+   * (they're still removed).
+   */
+  ban(id: string): { rid: string; name: string } | null {
+    const rid = this.rids.get(id);
+    const name = this.player(id)?.name ?? 'Player';
+    this.kick(id);
+    return rid ? { rid, name } : null;
+  }
+
+  /**
+   * Host: remove a player. They can't rejoin for 10 minutes (players on an
+   * old version without a room id: nobody new for two minutes), and the
+   * room's Free Chat channel moves to a new key only the others get.
    */
   kick(id: string): void {
     if (!this.isHost || id === this.localId) return;
     this.sendTo(id, { t: 'kick' });
     this.kicked.add(id);
-    this.joinBlockedUntil = performance.now() + 120_000;
+    const rid = this.rids.get(id);
+    if (rid) this.blockedRids.set(rid, performance.now() + KICK_BLOCK_MS);
+    else this.joinBlockedUntil = performance.now() + 120_000;
     setTimeout(() => {
       this.dropPeer(id);
       this.chatKey = randomKey();
@@ -626,6 +685,7 @@ export class NetRoom extends Emitter<RoomEvents> {
         this.racing = Boolean(msg.racing);
         this.publicRoom = msg.pub === true;
         this.track = safeTrack(msg.track);
+        this.paused = safeIds(msg.paused);
         this.emit('lobby', this.players);
         if (wasRacing && !this.racing) this.emit('raceOver', undefined);
         break;

@@ -105,6 +105,8 @@ export interface ProfileCard {
   show: string[];
   /** Number of badges earned. */
   badges: number;
+  /** Friend tag (13+ only, so others in a room can send a request). */
+  tag?: number;
 }
 
 export function myCard(c: BadgeCtx): ProfileCard {
@@ -119,6 +121,8 @@ export function myCard(c: BadgeCtx): ProfileCard {
     banner: c.save.level >= (BANNER_LEVELS[p.banner] ?? Infinity) ? p.banner : 0,
     show: p.showcase.filter((id) => earned.has(id)).slice(0, MAX_SHOWCASE),
     badges: earned.size,
+    // Under-13s share their Name#tag in person only.
+    ...(p.tag > 0 && p.birthYear !== null && new Date().getFullYear() - p.birthYear - 1 >= 13 ? { tag: p.tag } : {}),
   };
 }
 
@@ -139,6 +143,7 @@ export function safeCard(raw: unknown): ProfileCard | undefined {
     banner: int(r.banner, 0, BANNERS.length - 1),
     show,
     badges: int(r.badges, show.length, BADGES.length),
+    ...(typeof r.tag === 'number' && Number.isInteger(r.tag) && r.tag >= 1 && r.tag <= 9999 ? { tag: r.tag } : {}),
   };
 }
 

@@ -19,6 +19,8 @@ import { canUsePublicRooms, serverAvailable, ageOf } from '../../meta/community'
 import { lobby, PublicListing } from '../../services/lobby';
 import { ensureRules } from '../community';
 import { ServerError } from '../../services/server';
+import { friends as friendsSvc } from '../../services/friends';
+import { openInvitePicker } from '../friend-invites';
 
 type View = 'choose' | 'join' | 'busy' | 'lobby';
 
@@ -184,6 +186,7 @@ export class FriendsScreen extends BaseScreen {
         !room.isHost && room.publicRoom ? button({ icon: 'report', cls: 'icon red', aria: 'Report this room', onClick: () => this.report() }) : null,
         h('span.muted.small', null, room.isHost ? (room.publicRoom ? 'Racers can find you · code:' : 'Room code:') : 'Room code:'),
         h('div.code-display', null, [...room.code].map((c) => h('span', null, c))),
+        friendsSvc.available && room.players.length < 4 ? button({ label: 'Invite friends', icon: 'mail', cls: 'mint sm', onClick: () => openInvitePicker('race', room.code) }) : null,
         button({ label: 'Leave', icon: 'back', cls: 'ghost sm', onClick: () => this.back(), sfx: 'back' }),
       ),
       h('div.players', { style: 'width:min(36rem,92vw)' }, slots),

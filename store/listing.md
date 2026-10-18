@@ -24,16 +24,22 @@ FEATURES
 • Spooky Season: Halloween skins, bat and candy-corn trails and a haunted Daily Run (Oct 1 – Nov 7)
 • CREATE: build your own levels with spikes, saws, pads, portals and gems, test them, then share a level code
 • Build Together: up to 4 friends edit the same level live, then race it
+• Friends: add friends by Name#number, see who's online and invite them to race or build
 • Quick Chat: friendly preset phrases and emotes for every age
-• Six worlds: Bubblegum Bay, Mint Meadow, Sunset Circuit, Ocean Prism, Candy Cosmos and Lemon Lab, each with its own catchy theme, plus 17 original songs from chiptune to drum & bass
+• Six worlds: Bubblegum Bay, Mint Meadow, Sunset Circuit, Ocean Prism, Candy Cosmos and Lemon Lab, with 26 real tracks from house and drum & bass to dubstep, synthwave, funk and rock, a new song every level
 • 23 skins with silly faces (sunglasses, kitty, dino, robot…) and 11 sparkly trails
+• My Music: play your own songs while you rush
 • Easy, Medium or Hard: pick your challenge
 • Player profiles with badges and titles to show your friends
 • Daily gifts, missions, levels and rewards
 • Kid Mode: slower speed and extra hearts for younger players
-• Parental controls for online play, chat and purchases, generated names only, and kid-safe ads
+• Parental controls for online play, chat and purchases, generated names for under-13s, and kid-safe ads
 
 Easy to learn, hard to master. How far can YOU rush?
+
+## Contact
+* Developer: Soft Game Bros · website `https://softgamebros.com` · email `polygonrush@softgamebros.com`
+* Privacy policy: `https://softgamebros.com/polygon-rush/privacy/`
 
 ## Category / tags
 Game → Arcade. Tags: Runner, Casual, Platformer, Racing, Kids, Rhythm.
@@ -53,8 +59,8 @@ Ages 5–8, 9–12, 13–15, 16–17, 18+ (mixed audience, with a neutral age sc
 * **Data shared:** with Google (AdMob) for advertising.
 * **Encrypted in transit:** yes. **Users can request deletion:** yes (Reset progress / uninstall; game data is local only).
 * **Purchase history:** handled by Google Play Billing (no payment info reaches the app).
-* **Online play:** racer name (generated), skin, race positions, level edits and Quick Chat phrase numbers go peer-to-peer to players in your room only. Not stored.
-* **Levels:** stored on the device; share codes contain only the level and generated builder names.
+* **Online play:** racer name (generated, or a filtered typed name for 13+), skin, race positions, level edits and Quick Chat phrase numbers go peer-to-peer to players in your room only. Not stored.
+* **Levels:** stored on the device; share codes contain only the level, its name and the builders' racer names. My Music songs stay on the device and are never uploaded.
 * No analytics SDK, no contacts, no location permission.
 
 **Extra rows only when the community server is enabled (`SERVER_URL`):**
@@ -62,8 +68,11 @@ Ages 5–8, 9–12, 13–15, 16–17, 18+ (mixed audience, with a neutral age sc
 * **Personal info → Other (birth year):** collected with the email to decide which permission is needed.
 * **Messages → Other in-app messages:** Free Chat messages, collected and stored 30 days for safety reviews. Not shared except where the law requires (e.g. reports to authorities).
 * **Personal info → User IDs:** a random chat account id.
+* **Personal info → Name:** the racer name (generated, or typed by 13+) with its #number. Shown only to friends and players in the same room. Not shared with third parties.
+* **Personal info → User IDs:** a random player id and a hashed random device key (no Google or ad id).
+* **App activity → Other actions:** friends list, friend requests, blocks, online status (menu / playing / building / in a room) and room invites (a room code). Purpose: app functionality. Deleted after 2 years unused, or in-app (Friends → Delete friends data).
 * **App activity → Other user-generated content:** a snapshot of a public build room's level when someone reports it.
-* Data is encrypted in transit (https/wss). Account deletion: in-app (Settings → Chat & Community) and web (`https://YOUR-SERVER/account/delete`).
+* Data is encrypted in transit (https/wss). Account deletion: in-app (Settings → Chat & Community) and web (`https://polygon-rush.softgamebros.com/account/delete`).
 
 ## Graphics
 * App icon 512×512: `store/icon-512.png`

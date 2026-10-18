@@ -16,6 +16,7 @@ import { activeEvent } from '../../meta/events';
 import { unlockedLevels } from '../../meta/modes';
 import { eventChip, giftClaimed, openEventModal } from '../event';
 import { openNoAdsOffer } from './shop';
+import { friends } from '../../services/friends';
 
 let dailyPromptShown = false;
 let eventPromptShown = false;
@@ -61,6 +62,11 @@ export class MenuScreen extends BaseScreen {
         ? h('div.play-wrap', null, playBtn, button({ label: `Levels 1–${unlocked}`, icon: 'target', cls: 'violet sm level-pick', onClick: () => nav.go('levels') }))
         : playBtn;
 
+    // Friends: a badge counts requests and invites waiting.
+    const friendsBtn = friends.available ? button({ icon: 'users', cls: 'icon cyan', aria: 'Friends', badge: friends.waiting, onClick: () => nav.go('pals') }) : null;
+    if (friendsBtn) {
+      const off = friends.on('change', () => (friendsBtn.isConnected ? setBadge(friendsBtn, friends.waiting) : off()));
+    }
     this.el.append(
       h(
         'div.topbar',
@@ -70,6 +76,7 @@ export class MenuScreen extends BaseScreen {
         eventChip(),
         h('div.spacer'),
         gemChip(this),
+        friendsBtn,
         button({ icon: 'cart', cls: 'icon mint', aria: 'Shop', onClick: () => nav.go('shop') }),
         button({ icon: 'gear', cls: 'icon ghost', aria: 'Settings', onClick: () => nav.go('settings') }),
       ),

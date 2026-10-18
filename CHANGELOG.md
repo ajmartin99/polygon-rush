@@ -4,19 +4,29 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-10-17
+
 ### Added
 - **Online lobby after every race:** Back to lobby or Leave from the results; the host's rematch pulls everyone in, even from the podium. The host picks the next track (random, a world, a featured level or one of their own).
 - **Podium and emotes:** top 3 on a podium after races, 16 emotes (4 free, 8 in the new Emotes shop tab, 4 Halloween), Quick Chat on the results screen.
-- **New music:** Arcade Sunrise (new main menu theme), Bass Drop Boulevard (dubstep), Neon Nights (EDM), Pixel Drop (chipstep), Skyline Keys (piano house) and Coin Combo (8-bit). EDM and dubstep songs build up and drop.
-
+- **New classic synth songs:** Arcade Sunrise, Bass Drop Boulevard (dubstep), Neon Nights (EDM), Pixel Drop (chipstep), Skyline Keys (piano house) and Coin Combo (8-bit).
 - **Halloween body shapes:** Phantom (ghost), Pumpkin Patch, Tombstone, Bone Head (skull) and Candy Corn Kid change your racer's outline. Same hitbox, and the Glider keeps its arrow.
 - **Mid-air flips:** the Roller can flip gravity any time, even in the air (short cooldown so it can't hover).
 - **Swipe down to drop:** Jumper and Hopper slam to the ground, the Glider dives (Down arrow or S on keyboards).
+- **Friends:** every racer gets a #number after their name (Neon Fox#0427), so lots of people can share a name. Add friends by Name#number, accept or decline requests, see who's online, and invite friends straight into your race or Build Together room. 13+ can also add someone from their player card in a room. Kid-safe: under-13s add only by a typed Name#number, there's no search and no text, Block is on every friend, and parents can switch friends off.
+- **Move to a new phone:** Settings makes a backup code with your progress, levels, name and friends; paste it on the new phone. Purchases come back with Restore purchases.
+- **My Music:** add your own songs (MP3, WAV, OGG, M4A) in Settings → Soundtrack and play them Off, Mixed in, or Only mine. They stay on the device and are never shared.
+- **Your own racer name (13+):** type a name instead of a generated one. It's filtered like chat (plus stricter name rules) and moderators can ban names. Under-13s keep generated names.
+- **Name your level (13+):** a pencil button in Level settings lets builders write their own level name; level codes carry it (and typed builder names).
+- **Real recorded music:** 26 licensed tracks (CC0 / CC-BY, credited in Settings → Credits) across house, drum & bass, dubstep, electro, trance, eurobeat, synthwave, funk, disco, rock and chiptune. Every run starts on a random song and each level switches to a new one; calm tracks play in the menus. The original synth songs can be mixed back in (Settings → Soundtrack → Classic songs).
+- **Map music library:** custom levels can pick any recorded track or classic song, and the credit shows when the level starts. Level codes (v2) carry it; older codes still load.
 
 ### Changed
 - Bat Swarm trail: bats flap off in their own directions with a flutter.
 - Every new Endless level switches to a different song (shuffled, no repeats until all have played) instead of cycling the six world themes. Menu songs never play during runs.
 - Results: the HOST tag no longer cuts off names, and online races no longer show "+0" trophies.
+- The chat filter also catches stretched swears ("fuuuuck").
+- Level names: 12,500 generated combinations (was a few hundred), and twice as many words for generated racer names (100 × 100).
 
 ## [1.0.3] - 2026-10-15
 

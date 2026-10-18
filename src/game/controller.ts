@@ -1,6 +1,7 @@
 import { App as CapApp } from '@capacitor/app';
 import { audio, WORLD_SONGS } from '../core/audio';
 import { music } from '../core/music';
+import { trackOf } from '../core/tracks';
 import { haptics } from '../core/haptics';
 import { isNative } from '../core/platform';
 import { store } from '../state/store';
@@ -302,6 +303,8 @@ export class GameController {
       if (d.stats.runs === 0) hud.showHint('Tap or hold anywhere to play!', 'Avoid spikes, grab gems', 3200, '22%');
     } else if (this.kind === 'custom' && req.mode === 'custom') {
       music.level(req.level.music, req.level.theme);
+      const track = trackOf(req.level.music);
+      if (track) ui.toast(`♪ ${track.title} by ${track.artist} (${track.license})`, 'music', 3000);
       audio.intensity = 0.7;
       this.go();
       hud.showHint(levelName(req.level), req.level.authors.length ? `by ${req.level.authors.join(', ')}` : 'Tap or hold to play!', 1800, '40%');

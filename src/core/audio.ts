@@ -193,13 +193,85 @@ class AudioEngine {
   }
 
   suspend(): void {
+    this.trackEl?.pause();
     const ctx = this.ctx as AudioContext | null;
     if (ctx && ctx.state === 'running' && 'suspend' in ctx) void ctx.suspend();
   }
 
   resume(): void {
+    if (this.trackEl) void this.trackEl.play().catch(() => {});
     const ctx = this.ctx as AudioContext | null;
     if (ctx && ctx.state === 'suspended' && 'resume' in ctx) void ctx.resume();
+  }
+
+  // ------------------------------------------------------------------ recorded tracks
+  private trackEl: HTMLAudioElement | null = null;
+  private trackGain: GainNode | null = null;
+  private trackId = -1;
+  private trackOffset = 0;
+  /** Called when a recorded track fails to load (the director moves on). */
+  onTrackError: ((id: number) => void) | null = null;
+
+  /**
+   * Play recorded music (a bundled track or one of the player's own files).
+   * Streams through a media element (low memory) into the music bus, so the
+   * music volume and pause-menu ducking apply. Crossfades from whatever
+   * was playing.
+   */
+  playTrack(id: number, url: string, bpm = 120, offset = 0, gainDb = 0): void {
+    this.unlock();
+    if (!this.ctx || typeof Audio === 'undefined') return;
+    if (this.trackId === id && this.trackEl) return;
+    if (this.playing) this.stopSynth();
+    const ctx = this.ctx as AudioContext;
+    this.fadeOutTrack();
+    const el = new Audio();
+    el.preload = 'auto';
+    el.src = url;
+    const g = ctx.createGain();
+    g.gain.value = 0.0001;
+    ctx.createMediaElementSource(el).connect(g).connect(this.musicBus);
+    const target = Math.pow(10, gainDb / 20);
+    el.addEventListener('playing', () => g.gain.setTargetAtTime(target, ctx.currentTime, 0.25), { once: true });
+    el.addEventListener('ended', () => {
+      if (this.trackEl !== el) return;
+      this.onSongEnd?.();
+      // Nobody picked something else: loop it.
+      if (this.trackEl === el) {
+        el.currentTime = 0;
+        void el.play().catch(() => {});
+      }
+    });
+    el.addEventListener('error', () => {
+      if (this.trackEl === el) this.onTrackError?.(id);
+    });
+    this.trackEl = el;
+    this.trackGain = g;
+    this.trackId = id;
+    this.trackOffset = offset;
+    this.beatLength = 60 / Math.max(40, bpm);
+    void el.play().catch(() => {});
+  }
+
+  private fadeOutTrack(): void {
+    const el = this.trackEl;
+    const g = this.trackGain;
+    this.trackEl = null;
+    this.trackGain = null;
+    this.trackId = -1;
+    if (!el || !g || !this.ctx) return;
+    g.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.3);
+    setTimeout(() => {
+      el.pause();
+      el.removeAttribute('src');
+      el.load();
+      g.disconnect();
+    }, 1600);
+  }
+
+  /** Is recorded music (not the synth) playing? */
+  get trackPlaying(): boolean {
+    return this.trackEl !== null;
   }
 
   /** Duck everything (pause menus, ads). */
@@ -210,11 +282,12 @@ class AudioEngine {
 
   // ------------------------------------------------------------------ music
   get currentSong(): number {
-    return this.songIndex;
+    return this.trackId >= 0 ? this.trackId : this.songIndex;
   }
 
   /** The song playing, or the one queued for the next bar line. */
   get targetSong(): number {
+    if (this.trackId >= 0) return this.trackId;
     return this.pending >= 0 ? this.pending : this.songIndex;
   }
 
@@ -222,6 +295,7 @@ class AudioEngine {
   playSong(index: number): void {
     this.unlock();
     if (!this.ctx) return;
+    if (this.trackEl) this.fadeOutTrack();
     if (this.playing && (this.songIndex === index || this.pending === index)) return;
     if (this.playing) {
       this.pending = index;
@@ -244,6 +318,11 @@ class AudioEngine {
   }
 
   stopMusic(): void {
+    this.fadeOutTrack();
+    this.stopSynth();
+  }
+
+  private stopSynth(): void {
     this.playing = false;
     clearInterval(this.timer);
     this.songIndex = -1;
@@ -252,6 +331,10 @@ class AudioEngine {
 
   /** 0 right on a beat → 1 just before the next (for visual pulsing). */
   beatPhase(): number {
+    if (this.trackEl) {
+      const t = this.trackEl.currentTime - this.trackOffset;
+      return t < 0 ? 0 : (t / this.beatLength) % 1;
+    }
     if (!this.ctx || !this.playing) return 0;
     const t = this.ctx.currentTime - this.lastBeatTime;
     return Math.max(0, Math.min(1, t / this.beatLength));

@@ -1,6 +1,9 @@
 import { audio } from '../../core/audio';
 import { music } from '../../core/music';
 import { SONGS } from '../../core/songs';
+import { musicInfo, TRACK_BASE, TRACKS } from '../../core/tracks';
+import { canTypeName } from '../../services/names';
+import { checkDisplayText, NAME_MESSAGES } from '../../shared/chat-filter';
 import { BIOMES } from '../../render/biomes';
 import { Renderer } from '../../render/renderer';
 import { buildWorld, encodeLevel, HEART_OPTIONS, levelName, MAX_LENGTH, MIN_LENGTH, randomLevelName, slotOf, SPEED_NAMES, START_ZONE, THEME_COUNT, type LevelContent, type Piece } from '../../game/level';
@@ -20,6 +23,8 @@ import { canUsePublicRooms } from '../../meta/community';
 import { lobby, PublicListing } from '../../services/lobby';
 import { openPlayerCard } from '../profile';
 import { ServerError } from '../../services/server';
+import { friends } from '../../services/friends';
+import { openInvitePicker } from '../friend-invites';
 
 /** Sessions whose room races are already hooked up to the game. */
 const raceWired = new WeakSet<EditorSession>();
@@ -419,6 +424,7 @@ export class EditorScreen extends BaseScreen {
     if (!room) return;
     append(this.people, [
       h('div.ed-code', { title: 'Room code' }, ic('users'), h('b', null, room.code)),
+      friends.available && room.players.length < 4 ? button({ icon: 'mail', cls: 'icon mint sm', aria: 'Invite friends', onClick: () => openInvitePicker('build', room.code) }) : null,
       room.players.map((p) =>
         h(
           'button.ed-person',
@@ -506,12 +512,17 @@ export class EditorScreen extends BaseScreen {
       if (lost) ui.toast(`Removed ${lost} piece${lost > 1 ? 's' : ''} past the finish (Undo brings them back).`, 'info', 3000);
       lenEl.textContent = `${d.settings.length}m`;
     };
-    const songLabel = () => (d.settings.music < 0 ? 'World theme' : `${SONGS[d.settings.music].title} · ${SONGS[d.settings.music].genre}`);
+    // The map music library: the world's theme, the recorded tracks, then the classic songs.
+    const songs = [-1, ...TRACKS.map((_, i) => TRACK_BASE + i), ...SONGS.map((_, i) => i)];
+    const songLabel = () => {
+      const m = musicInfo(d.settings.music);
+      return !m ? 'World theme' : m.artist ? `${m.title} · ${m.genre} · ${m.artist}` : `${m.title} · ${m.genre}`;
+    };
     const songEl = h('b', null, songLabel());
     const cycleSong = (dir: number) => {
       if (!canEdit) return;
-      const n = SONGS.length + 1;
-      const next = ((d.settings.music + 1 + dir + n) % n) - 1;
+      const at = Math.max(0, songs.indexOf(d.settings.music));
+      const next = songs[(at + dir + songs.length) % songs.length];
       set({ set: { music: next } });
       songEl.textContent = songLabel();
       music.level(next, d.settings.theme);
@@ -547,10 +558,24 @@ export class EditorScreen extends BaseScreen {
               aria: 'New name',
               disabled: !canEdit,
               onClick: () => {
-                set({ set: { name: randomLevelName() } });
+                set({ set: { name: randomLevelName(), title: '' } });
                 nameEl.textContent = levelName(d.settings);
               },
             }),
+            canTypeName()
+              ? button({
+                  icon: 'edit',
+                  cls: 'icon ghost',
+                  aria: 'Write your own name',
+                  disabled: !canEdit,
+                  onClick: async () => {
+                    const title = await askTitle(d.settings.title);
+                    if (title === null) return;
+                    set({ set: { title } });
+                    nameEl.textContent = levelName(d.settings);
+                  },
+                })
+              : null,
           ),
           h('div.setting', null, h('div.lbl', null, h('span', null, 'World'), h('b', null, 'Colours & scenery')), themes),
           h(
@@ -672,4 +697,48 @@ export function openShareModal(level: LevelContent): void {
     { showClose: true, wide: true },
   );
   void m;
+}
+
+/** Ask for a typed level name (13+). Resolves to the clean title, '' to clear, or null if cancelled. */
+function askTitle(current: string): Promise<string | null> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (v: string | null) => {
+      if (done) return;
+      done = true;
+      handle.close();
+      resolve(v);
+    };
+    const input = h<HTMLInputElement>('input.name-input', { type: 'text', maxlength: '24', value: current, placeholder: 'e.g. Spike Canyon', 'aria-label': 'Level name', autocomplete: 'off', spellcheck: 'false' });
+    const hint = h('p.name-hint', null, '3–24 letters, numbers and spaces. Keep it friendly!');
+    const check = () => {
+      const v = input.value.trim();
+      if (!v) return { ok: true, text: '' };
+      const r = checkDisplayText(v, 'title');
+      hint.textContent = r.ok ? 'Looks good!' : NAME_MESSAGES[r.reason!];
+      hint.classList.toggle('bad', !r.ok);
+      return r;
+    };
+    input.addEventListener('input', check);
+    const save = () => {
+      const r = check();
+      if (r.ok) finish(r.text);
+    };
+    input.addEventListener('keydown', (e) => e.key === 'Enter' && save());
+    const handle = ui.modal(
+      [
+        h('h2', null, 'Name your level'),
+        input,
+        hint,
+        h(
+          'div.row',
+          { style: 'gap:0.6rem;justify-content:center' },
+          current ? button({ label: 'Use a random name', cls: 'ghost sm', onClick: () => finish('') }) : null,
+          button({ label: 'Save', icon: 'check', cls: 'mint', onClick: save }),
+        ),
+      ],
+      { showClose: true, onClose: () => finish(null) },
+    );
+    setTimeout(() => input.focus(), 50);
+  });
 }

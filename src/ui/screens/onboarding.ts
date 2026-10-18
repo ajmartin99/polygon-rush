@@ -1,7 +1,10 @@
 import { ageGroupFor, DIFFICULTY_NAMES } from '../../state/save';
 import { DIFFICULTIES, type Difficulty } from '../../game/constants';
 import { store } from '../../state/store';
-import { randomName } from '../../meta/names';
+import { isGeneratedName, randomName } from '../../meta/names';
+import { checkDisplayText, NAME_MESSAGES } from '../../shared/chat-filter';
+import { canTypeName, claimTypedName } from '../../services/names';
+import { friends } from '../../services/friends';
 import { ads } from '../../services/ads';
 import { BaseScreen, button } from '../components';
 import { h } from '../dom';
@@ -81,6 +84,18 @@ export class NameScreen extends BaseScreen {
     const first = Boolean(params?.first);
     let name = store.data.profile.name || randomName();
     const label = h('span', null, name);
+    // 13+: type your own name (checked here, then claimed on the community server).
+    const input = h<HTMLInputElement>('input.name-input', { type: 'text', maxlength: '16', placeholder: 'Or type your own (letters, numbers)', autocomplete: 'off', autocapitalize: 'words', spellcheck: 'false', value: isGeneratedName(name) ? '' : name });
+    const hint = h('p.small.name-hint', null, 'No real names, ages or phone numbers. Rude names get reset.');
+    input.addEventListener('input', () => {
+      const v = input.value.trim();
+      const r = v ? checkDisplayText(v, 'name') : null;
+      hint.textContent = !r ? 'No real names, ages or phone numbers. Rude names get reset.' : r.ok ? 'Looks good!' : NAME_MESSAGES[r.reason ?? 'empty'];
+      hint.classList.toggle('bad', Boolean(r && !r.ok));
+      if (r?.ok) label.textContent = r.text;
+      else if (!v) label.textContent = name;
+    });
+    const typed = h('div.name-type', null, input);
     const reroll = button({
       icon: 'dice',
       cls: 'icon yellow',
@@ -88,6 +103,8 @@ export class NameScreen extends BaseScreen {
       onClick: () => {
         name = randomName();
         label.textContent = name;
+        input.value = '';
+        hint.classList.remove('bad');
         reroll.animate([{ transform: 'rotate(0)' }, { transform: 'rotate(360deg)' }], { duration: 400 });
       },
     });
@@ -101,14 +118,27 @@ export class NameScreen extends BaseScreen {
           h('h2', null, first ? 'Choose your racer name!' : 'Change your name'),
           previewCanvas({ skin: store.data.skins.equipped, animate: true, scale: 0.6 }, 'hero-preview'),
           h('div.name-card', null, label, reroll),
-          h('p.muted.small', null, 'Tap the dice for a new name. Names are made up so everyone stays safe.'),
+          h('p.muted.small', null, canTypeName() ? 'Tap the dice for a new name, or type your own below.' : 'Tap the dice for a new name. Names are made up so everyone stays safe.'),
+          canTypeName() ? typed : null,
+          canTypeName() ? hint : null,
           button({
             label: first ? "Let's Rush!" : 'Save',
             icon: first ? 'play' : 'check',
             cls: 'mint lg',
-            onClick: () => {
+            onClick: async () => {
+              const want = input.value.trim();
+              if (want) {
+                const r = await claimTypedName(want);
+                if (!r.ok) {
+                  hint.textContent = r.message;
+                  hint.classList.add('bad');
+                  return;
+                }
+                name = r.name;
+              }
               store.data.profile.name = name;
               store.commit();
+              void friends.refresh();
               nav.go(first ? 'difficulty' : 'menu', first ? { first: true } : undefined);
             },
           }),

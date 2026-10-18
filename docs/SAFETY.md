@@ -22,7 +22,10 @@ needs a person, and what to do when something serious happens.
 
 * Ages come from the neutral age screen (birth year, conservatively rounded down)
   and the server re-checks the birth year sent at sign-up.
-* Names are always generated ("Speedy Panda 7"): no one can type a name.
+* Under-13s always get a generated name ("Speedy Panda 7"). Players 13+ can type
+  their own racer name and level names instead (see **Typed names** below).
+* Friends work for every age, but under-13s can only add someone by typing their
+  exact Name#number (see **Friends** below), and parents can switch friends off.
 * Profile cards (shown when you tap a player in a room) hold only game facts: level, league, badges, a title chosen from earned badges, a banner colour and a few stats. There is no bio, photo or free text, and incoming cards are cleaned (unknown ids dropped, numbers clamped).
 * Free Chat is only delivered to players who are verified themselves, so a
   verified adult can never send typed text to an unverified child in the same room.
@@ -49,8 +52,40 @@ needs a person, and what to do when something serious happens.
 * **Removing a player** (host): they're disconnected, the room refuses new joiners
   for 2 minutes, and the room's Free Chat moves to a new secret channel only the
   remaining players know.
-* **Names** are checked everywhere: anything that isn't a generated name (a modified
-  app) is replaced, and two people can't use the same name in one Free Chat room.
+* **Names** are checked everywhere: anything that isn't a generated name or an
+  allowed typed name (a modified app) is replaced, and two people can't use the
+  same name in one Free Chat room.
+* **Typed names (13+)** (`checkDisplayText`): racer names are 3–16 letters, digits
+  and spaces, starting with a letter; level names 3–24 characters (also `! ? ' -`).
+  At most 3 digits and never 3 in a row (no phone numbers, ages or birth years).
+  Reserved words (admin, mod, staff, Polygon Rush…) are refused. The chat filter runs
+  on the name as written, CamelCase split and with spaces removed, and anything it
+  would mask is refused. Names are stricter than chat: a long swear inside a word
+  blocks the name. Every receiver (rooms, level codes, server) runs the same check.
+* **Name#number:** with the community server every player gets a random 4-digit
+  number after their name ("Neon Fox#0427"), so many players can share a name. The
+  player is a random key made on the device (stored only as an HMAC). Moderators can
+  ban a name for everyone who has it (`POST /api/admin/names/NAME/ban {days, reason}`,
+  `GET /api/admin/names/NAME` lists its holders); the app swaps a banned name for a
+  generated one on its next sync. Banned names can't be hosted, listed or used in
+  Free Chat.
+* **Friends (all ages, kid-safe):**
+  * Added only by exact Name#number: no search, no directory, no "people you may know".
+  * Both sides must accept. Remove and Block are on every row; a blocked player
+    (and anyone whose friends are switched off) gets the same "not found" as a
+    name that doesn't exist, so nothing leaks.
+  * Under-13s can only type a Name#number they were given in person. Their
+    profile cards don't show their #number, and they get no "Add friend" button
+    on other players' cards (13+ do, for people they just raced).
+  * Friends see online status and an activity (menu, playing, building, in an
+    online room). Invites carry only a kind (race/build) and a room code: there
+    is no text anywhere in the friends system.
+  * Parents can switch friends off (Parental Controls); the server then hides the
+    player from requests and drops their invites.
+  * Limits: 100 friends, 50 pending requests, 30 requests an hour, 12 invites a
+    minute, invites expire after 10 minutes, players unseen for 2 years are deleted.
+  * "Delete friends data" on the Friends screen removes the player, friends,
+    requests and invites from the server.
 * **Typed text in other scripts** (e.g. Cyrillic look-alike letters) and non-ASCII
   digits are refused, so the filter can't be dodged with look-alikes.
 * **Deleting an account** closes its live chat at once. A one-way email hash, the
@@ -86,6 +121,7 @@ user-generated content).
 minor, attempts to obtain images): ban the account immediately, then:
 
 * **Imminent risk of harm:** contact local emergency services / police.
+* **Where reports from parents arrive:** `safety@softgamebros.com` (privacy and data requests: `privacy@softgamebros.com`).
 * **Suspected child sexual exploitation:** in the United States, online service
   providers must report apparent child sexual exploitation to the NCMEC
   CyberTipline (report.cybertip.org). Elsewhere, report to your national hotline

@@ -1,12 +1,20 @@
 /**
- * Kid-safe racer names. Players pick from generated names only — there is no
- * free-text entry anywhere in the game, so no personal info can be shared.
+ * Kid-safe racer names. Everyone can pick a generated name; players 13+ may
+ * type their own instead (checked by the shared filter, see
+ * `checkDisplayText` in shared/chat-filter.ts and `isAllowedName` in net).
  */
 const ADJECTIVES = [
   'Speedy', 'Happy', 'Zippy', 'Bouncy', 'Sparkly', 'Turbo', 'Cosmic', 'Jolly', 'Mighty', 'Sunny',
   'Rocket', 'Neon', 'Fuzzy', 'Lucky', 'Swift', 'Brave', 'Cheery', 'Dizzy', 'Snappy', 'Pixel',
   'Giggly', 'Super', 'Hyper', 'Jumpy', 'Breezy', 'Wobbly', 'Shiny', 'Groovy', 'Comet', 'Frosty',
   'Zoomy', 'Peppy', 'Mega', 'Ultra', 'Nimble', 'Plucky', 'Bubbly', 'Starry', 'Wiggly', 'Dashing',
+  // Appended (order is the save/level-code format: only ever add to the end).
+  'Atomic', 'Blazing', 'Bold', 'Bright', 'Chill', 'Clever', 'Crafty', 'Daring', 'Electric', 'Epic',
+  'Fearless', 'Fiery', 'Flashy', 'Funky', 'Galactic', 'Gentle', 'Glowing', 'Golden', 'Grand', 'Hasty',
+  'Icy', 'Jazzy', 'Keen', 'Lively', 'Loopy', 'Lunar', 'Magic', 'Merry', 'Misty', 'Mystic',
+  'Nifty', 'Noble', 'Orbit', 'Peachy', 'Quick', 'Quirky', 'Radiant', 'Rapid', 'Rusty', 'Silly',
+  'Silver', 'Sleek', 'Slick', 'Solar', 'Spicy', 'Spiffy', 'Sporty', 'Steady', 'Stellar', 'Stormy',
+  'Swirly', 'Tiny', 'Tricky', 'Twisty', 'Vivid', 'Wacky', 'Wild', 'Witty', 'Zesty', 'Zany',
 ];
 
 const NOUNS = [
@@ -14,6 +22,13 @@ const NOUNS = [
   'Panda', 'Otter', 'Fox', 'Koala', 'Penguin', 'Dragon', 'Unicorn', 'Tiger', 'Bunny', 'Turtle',
   'Falcon', 'Dolphin', 'Robot', 'Wizard', 'Ninja', 'Pirate', 'Comet', 'Meteor', 'Pickle', 'Muffin',
   'Waffle', 'Noodle', 'Taco', 'Donut', 'Llama', 'Gecko', 'Hamster', 'Puffin', 'Narwhal', 'Yeti',
+  // Appended (order is the save/level-code format: only ever add to the end).
+  'Badger', 'Beetle', 'Bison', 'Cactus', 'Capybara', 'Cheetah', 'Cookie', 'Coyote', 'Cricket', 'Cupcake',
+  'Dingo', 'Eagle', 'Ferret', 'Firefly', 'Flamingo', 'Frog', 'Gazelle', 'Giraffe', 'Goblin', 'Gopher',
+  'Hedgehog', 'Hippo', 'Jaguar', 'Jellybean', 'Kiwi', 'Lemur', 'Lynx', 'Mango', 'Meerkat', 'Moose',
+  'Nacho', 'Ocelot', 'Owl', 'Panther', 'Parrot', 'Peanut', 'Pebble', 'Phoenix', 'Pretzel', 'Pudding',
+  'Quokka', 'Raccoon', 'Raven', 'Rhino', 'Sloth', 'Sparrow', 'Squid', 'Starfish', 'Sushi', 'Toucan',
+  'Tornado', 'Volcano', 'Walrus', 'Wombat', 'Zebra', 'Pancake', 'Pixie', 'Satellite', 'Kraken', 'Gizmo',
 ];
 
 export function randomName(rand: () => number = Math.random): string {

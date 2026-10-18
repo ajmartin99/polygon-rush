@@ -6,11 +6,11 @@ const deletionUrl = CONFIG.server.url ? `${CONFIG.server.url}/account/delete` : 
 export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   {
     title: 'The short version',
-    body: 'Polygon Rush has no sign-in and no free-text names. Your progress and the levels you build are saved on your device. The only account is the optional Free Chat account for players 13 and older, which needs an email address (a parent’s email for ages 13–15). Players under 13 never get typed chat or public rooms. We do not sell personal information.',
+    body: 'Polygon Rush has no sign-in. Players under 13 always get a generated racer name; players 13 and older may type their own racer and level names, which are filtered. Your progress and the levels you build are saved on your device. With the game server, your racer name gets a #number and you can add friends. The only account is the optional Free Chat account for players 13 and older, which needs an email address (a parent’s email for ages 13–15). Players under 13 never get typed chat or public rooms. We do not sell personal information.',
   },
   {
     title: 'Information stored on your device',
-    body: 'Game progress, settings, the birth year you entered on first launch, your generated racer name and the levels you build or import are stored only on your device. Uninstalling the app deletes them.',
+    body: 'Game progress, settings, the birth year you entered on first launch, your racer name, the levels you build or import and any songs you add to My Music are stored on your device. Songs in My Music are never uploaded or shared. Uninstalling the app deletes them all. A backup code (Settings > Move to a new phone) contains this progress so you can move it yourself; we never see it.',
   },
   {
     title: 'Age screen',
@@ -26,15 +26,19 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'Online rooms (Play with Friends, Build Together)',
-    body: 'Online rooms connect players directly (peer-to-peer) using a short room code; a signalling server only helps them find each other. Players in a room share their generated racer name, skin, game profile card (level, badges, title and game stats), race positions, level edits and Quick Chat choices (preset phrases, never typed text). Like any internet connection, players in a room can see each other’s IP address. Parents can turn online play and Quick Chat off in Settings > Parental Controls.',
+    body: 'Online rooms connect players directly (peer-to-peer) using a short room code; a signalling server only helps them find each other. Players in a room share their racer name, skin, game profile card (level, badges, title, game stats and, for players 13+, their #number so others can send a friend request), race positions, level edits and Quick Chat choices (preset phrases, never typed text). Like any internet connection, players in a room can see each other’s IP address. Parents can turn online play and Quick Chat off in Settings > Parental Controls.',
+  },
+  {
+    title: 'Friends and your #number',
+    body: 'When the game server is available, your racer name, a random #number and a random key created on your device (stored by us only as a one-way hash) are sent to our server. This lets friends add you by Name#number, which is never searchable or listed. We store your racer name and #number, whether you are under 13 (so typed names stay off for you), your friends list, friend requests, blocks, when you were last online and what you are doing in the game (menu, playing, building or in an online room), and invites, which hold only a room code. Friends can see whether you are online and get invites from you; nobody else can. There are no messages. Under-13s can only add a friend by typing their exact Name#number, shared in person. Parents can turn friends off in Settings > Parental Controls. Invites are deleted after 10 minutes; players not seen for 2 years are deleted with their friends lists.',
   },
   {
     title: 'Level codes',
-    body: 'Sharing a level creates a code containing only the level itself and the generated names of the players who built it.',
+    body: 'Sharing a level creates a code containing only the level itself, its name and the racer names of the players who built it.',
   },
   {
     title: 'Public rooms and Quick Match (13+)',
-    body: 'A host aged 13+ can list a race or build room publicly, and Quick Match joins one at random. The list shows the room code, a generated room name and colours, the host’s generated name and the number of players. Race rooms leave the list when the race starts. If someone reports a public build room, a snapshot of the level is sent to our safety team.',
+    body: 'A host aged 13+ can list a race or build room publicly, and Quick Match joins one at random. The list shows the room code, a generated room name and colours, the host’s racer name and the number of players. Race rooms leave the list when the race starts. If someone reports a public build room, a snapshot of the level is sent to our safety team.',
   },
   {
     title: 'Free Chat (13+, optional)',
@@ -50,10 +54,14 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'Children',
-    body: 'Polygon Rush is designed to be suitable for all ages and follows the Google Play Families policy. We do not knowingly collect personal information from children under 13: they can only use Quick Chat’s preset phrases, and cannot create a Free Chat account or use public rooms.',
+    body: 'Polygon Rush is designed to be suitable for all ages and follows the Google Play Families policy. We do not knowingly collect personal information from children under 13: they can only use Quick Chat’s preset phrases, keep generated racer names, add friends only by a typed Name#number, and cannot create a Free Chat account or use public rooms.',
   },
   {
     title: 'Deleting your data',
-    body: `Use Settings > Reset Progress or uninstall the app to delete data on your device (delete levels in Create > My Levels). Delete a Free Chat account and its messages in Settings > Chat & Community > Delete chat account, or on the web at ${deletionUrl}. Ad-related data held by Google can be managed in your device’s Google settings.`,
+    body: `Use Settings > Reset Progress or uninstall the app to delete data on your device (delete levels in Create > My Levels). Delete your #number, friends list and invites from our server in Friends > Delete friends data. Delete a Free Chat account and its messages in Settings > Chat & Community > Delete chat account, or on the web at ${deletionUrl}. Ad-related data held by Google can be managed in your device’s Google settings.`,
+  },
+  {
+    title: 'Contact',
+    body: 'Soft Game Bros. Data and privacy requests: privacy@softgamebros.com. Safety concerns: safety@softgamebros.com. Help with the game: polygonrush@softgamebros.com.',
   },
 ];

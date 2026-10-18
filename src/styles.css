@@ -3260,3 +3260,138 @@ button.player-slot {
 .results .podium-stage {
   margin-top: 1.4rem;
 }
+
+/* ------------------------------------------------------------------ typed names */
+.name-type {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.name-input {
+  width: min(20rem, 100%);
+  padding: 0.55rem 0.9rem;
+  border-radius: 0.9rem;
+  border: 0.13rem solid var(--stroke);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+  font: inherit;
+  font-size: 1rem;
+  text-align: center;
+}
+
+.name-input:focus {
+  outline: none;
+  border-color: var(--yellow);
+}
+
+.name-hint {
+  margin: -0.4rem 0 0;
+  color: var(--ink-dim);
+}
+
+.name-hint.bad {
+  color: #ff8a8a;
+}
+
+/* ---------- friends */
+.pals {
+  width: min(40rem, 94vw);
+  margin: 0 auto;
+  padding-bottom: 1rem;
+}
+
+.pals h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.my-handle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.8rem;
+}
+
+.my-handle .lbl {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.my-handle .lbl span {
+  font-size: 0.75rem;
+  color: var(--ink-dim);
+}
+
+.my-handle .lbl b {
+  font-size: 1.25rem;
+  overflow-wrap: anywhere;
+}
+
+.my-handle p {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.pal-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.friend-list {
+  gap: 0.35rem;
+}
+
+.friend-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.8rem;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.friend-row .lbl {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.friend-row .lbl b {
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+
+.friend-row .lbl span {
+  font-size: 0.72rem;
+  color: var(--ink-dim);
+}
+
+.friend-row .dot {
+  width: 0.65rem;
+  height: 0.65rem;
+  flex: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.friend-row .dot.on {
+  background: var(--mint);
+  box-shadow: 0 0 0.5rem var(--mint);
+}
+
+.backup-code {
+  width: 100%;
+  min-height: 4.2rem;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.8rem;
+  border: 0.13rem solid var(--stroke);
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font: 0.75rem/1.35 ui-monospace, Menlo, Consolas, monospace;
+  word-break: break-all;
+  resize: vertical;
+}

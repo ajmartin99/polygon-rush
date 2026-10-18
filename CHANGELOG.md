@@ -4,6 +4,8 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-10-18
+
 ### Changed
 - **Cooler, longer battery:** gameplay is capped at 60 fps (120 Hz phones were drawing twice as many frames), the menu backdrop, editor and character previews run at 30 fps, nothing is drawn behind full-screen pages (Shop, Settings, Create…), the Auto graphics resolution is a little lower, and the background blur behind panels is only used on High graphics.
 - Polygon Rush is now © Soft Game Bros, all rights reserved (it was CC0). README and package details list Soft Game Bros as developer and contact.

@@ -7,7 +7,7 @@ apply plugin: 'com.android.application'
 // read from environment variables (set by the GitHub release workflow from
 // repository secrets/variables) so no credentials ever live in the repo.
 //
-//   VERSION_NAME / VERSION_CODE   app version (defaults: 1.0.7 / 10007)
+//   VERSION_NAME / VERSION_CODE   app version (defaults: 1.0.8 / 10008)
 //   ADMOB_APP_ID                  AdMob app id (defaults to Google's test id)
 //   ANDROID_KEYSTORE_FILE         path to the upload/release keystore (.jks)
 //   ANDROID_KEYSTORE_PASSWORD     keystore password
@@ -20,8 +20,8 @@ def env = { String name, String fallback = null ->
     return (value != null && !value.trim().isEmpty()) ? value.trim() : fallback
 }
 
-def appVersionName = env('VERSION_NAME', '1.0.7')
-def appVersionCode = env('VERSION_CODE', '10007').toInteger()
+def appVersionName = env('VERSION_NAME', '1.0.8')
+def appVersionCode = env('VERSION_CODE', '10008').toInteger()
 // Google's public AdMob *test* app id. Replace via ADMOB_APP_ID for production.
 def admobAppId = env('ADMOB_APP_ID', 'ca-app-pub-3940256099942544~3347511713')
 def releaseKeystore = env('ANDROID_KEYSTORE_FILE')

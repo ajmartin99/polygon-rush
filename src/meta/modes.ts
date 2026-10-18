@@ -9,7 +9,7 @@ import { endlessBestKey } from '../state/save';
  *  - oneheart: one bump and it's over, no heart pickups, no revive;
  *  - gemrush: 60 seconds to grab as many gems as you can (bumps only stun).
  */
-export type EndlessVariant = 'classic' | 'daily' | 'oneheart' | 'gemrush' | 'lightsout';
+export type EndlessVariant = 'classic' | 'daily' | 'oneheart' | 'gemrush' | 'lightsout' | 'rhythm';
 
 /** Lights Out pays this much more (it's run half blind). */
 export const LIGHTS_OUT_GEM_RATE = 1.5;
@@ -47,6 +47,8 @@ export function variantBestKey(v: EndlessVariant, s: Pick<Settings, 'kidMode' | 
       return 'gemrush';
     case 'lightsout':
       return `lightsout_${s.difficulty}`;
+    case 'rhythm':
+      return `rhythm_${s.difficulty}`;
     default:
       return endlessBestKey(s);
   }
@@ -72,6 +74,7 @@ export const VARIANT_INFO: Record<EndlessVariant, { name: string; blurb: string 
   daily: { name: 'Daily Run', blurb: 'A new course every day, the same for everyone, with its own soundtrack. No revives!' },
   oneheart: { name: 'One Heart', blurb: 'One bump and it’s over. For pros.' },
   gemrush: { name: 'Gem Rush', blurb: `${GEM_RUSH_SECONDS} seconds. Grab every gem, and bumps drop 5!` },
+  rhythm: { name: 'Rhythm Rush', blurb: 'Jump, flip and glide right on the beat! Perfect presses build a combo and multiply your score; off-beat presses break it.' },
   lightsout: { name: 'Lights Out', blurb: 'Pitch dark! Every beat of the music flashes the way ahead for a moment. Run by rhythm and memory. Pays 1.5× gems.' },
 };
 

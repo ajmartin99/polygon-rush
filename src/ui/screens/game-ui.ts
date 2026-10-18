@@ -180,7 +180,7 @@ export interface EndlessResult {
   kidMode: boolean;
   /** Mode name for variants (Daily Run, One Heart, Gem Rush). */
   label?: string;
-  unit?: 'm' | 'gems';
+  unit?: 'm' | 'gems' | 'pts';
 }
 
 export class EndlessResultsScreen extends BaseScreen {
@@ -209,9 +209,9 @@ export class EndlessResultsScreen extends BaseScreen {
         h(
           'div.col',
           { style: 'align-items:center;gap:0.4rem;text-align:center' },
-          h('span.stat-label', null, r.label ? `${r.label} · ${r.unit === 'gems' ? 'Gems' : 'Distance'}` : r.kidMode ? 'Distance · Kid Mode' : 'Distance'),
-          h('div.stat-big', null, r.unit === 'gems' ? fmt(r.distance) : `${fmt(r.distance)}m`),
-          r.newBest ? h('span.new-best', null, 'NEW BEST!') : h('span.muted', null, `Best ${fmt(r.best)}${r.unit === 'gems' ? ' gems' : 'm'}`),
+          h('span.stat-label', null, r.label ? `${r.label} · ${r.unit === 'gems' ? 'Gems' : r.unit === 'pts' ? 'Score' : 'Distance'}` : r.kidMode ? 'Distance · Kid Mode' : 'Distance'),
+          h('div.stat-big', null, r.unit === 'gems' || r.unit === 'pts' ? fmt(r.distance) : `${fmt(r.distance)}m`),
+          r.newBest ? h('span.new-best', null, 'NEW BEST!') : h('span.muted', null, `Best ${fmt(r.best)}${r.unit === 'gems' ? ' gems' : r.unit === 'pts' ? '' : 'm'}`),
           previewCanvas({ skin: store.data.skins.equipped, animate: true, scale: 0.6 }, 'hero-preview'),
         ),
         h(

@@ -90,6 +90,16 @@ export class ModesScreen extends BaseScreen {
         go: endless('oneheart'),
       },
       {
+        id: 'rhythm',
+        name: VARIANT_INFO.rhythm.name,
+        blurb: VARIANT_INFO.rhythm.blurb,
+        icon: 'music',
+        color: 'pink',
+        tag: DIFFICULTY_NAMES[d.settings.difficulty],
+        stat: best('rhythm') ? `Best ${fmt(best('rhythm'))}` : 'New!',
+        go: endless('rhythm'),
+      },
+      {
         id: 'lightsout',
         name: VARIANT_INFO.lightsout.name,
         blurb: VARIANT_INFO.lightsout.blurb,

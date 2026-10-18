@@ -449,6 +449,23 @@ class AudioEngine {
   }
 
   /** 0 right on a beat → 1 just before the next (for visual pulsing). */
+  /**
+   * Seconds from the nearest beat as the player hears it (negative = early,
+   * positive = late), allowing for the device's audio output delay. Null
+   * when no music is playing.
+   */
+  beatError(): number | null {
+    const ctx = this.ctx as (AudioContext & { outputLatency?: number }) | null;
+    if (!ctx || !(this.beatLength > 0)) return null;
+    const lat = ctx.outputLatency || ctx.baseLatency || 0;
+    let t: number;
+    if (this.trackEl) t = this.trackEl.currentTime - this.trackOffset - lat;
+    else if (this.playing) t = ctx.currentTime - this.lastBeatTime - lat;
+    else return null;
+    const ph = (((t / this.beatLength) % 1) + 1) % 1;
+    return (ph < 0.5 ? ph : ph - 1) * this.beatLength;
+  }
+
   beatPhase(): number {
     if (this.trackEl) {
       const t = this.trackEl.currentTime - this.trackOffset;

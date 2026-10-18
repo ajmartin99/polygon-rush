@@ -12,7 +12,7 @@ import { describe, reportMission, type MissionEvent } from '../meta/missions';
 import { skinById, trailById } from '../meta/catalog';
 import { Renderer, type ViewSpec } from '../render/renderer';
 import { BIOMES, paletteAt, paletteInLevel, type Palette } from '../render/biomes';
-import { drawEndlessHud, drawLevelHud, drawRaceHud } from '../render/hud';
+import { drawEndlessHud, drawRhythmHud, drawLevelHud, drawRaceHud } from '../render/hud';
 import { nav, type LevelRunResult, type PlayRequest, type Rival } from '../ui/nav';
 import { ui } from '../ui/ui';
 import { EndlessResultsScreen, GameHud, LevelResultsScreen, RaceResultsScreen, openPause, openRevive, type RacePlacement, type RaceResultsActions } from '../ui/screens/game-ui';
@@ -30,6 +30,7 @@ import { TRACK_BASE, TRACKS } from '../core/tracks';
 import { HAUNTED_TRACK, hauntedPayout } from '../meta/haunted';
 import { InputManager } from './input';
 import type { Racer, RacerSpec } from './racer';
+import { RhythmScore } from './rhythm';
 import type { ChaserEvent, ChaserKind } from './chaser';
 import { GameSession, type BoxItem, type SessionKind } from './session';
 import { SHAPE_INFO, type ShapeMode } from './shapes';
@@ -70,6 +71,10 @@ export class GameController {
   private hud: GameHud | null = null;
   private req: PlayRequest | null = null;
   private variant: EndlessVariant = 'classic';
+  /** Rhythm Rush scoring (null in other modes). */
+  private rhythm: RhythmScore | null = null;
+  /** The press state last step (Rhythm Rush judges each new press). */
+  private prevHeld = false;
   private startLevel = 1;
   private acc = 0;
   private last = 0;
@@ -226,6 +231,8 @@ export class GameController {
       case 'endless': {
         this.kind = 'endless';
         const v = (this.variant = req.variant ?? 'classic');
+        this.rhythm = v === 'rhythm' ? new RhythmScore() : null;
+        this.prevHeld = false;
         // Classic runs can start from any level already reached on this difficulty.
         const level = (this.startLevel = v === 'classic' ? clampStartLevel(req.level, d.levels[endlessBestKey(d.settings)] ?? 1) : 1);
         // The Daily Run is the same course, rules and soundtrack for everyone,
@@ -634,8 +641,23 @@ export class GameController {
       s.racers[0].held = this.input.held(0);
       s.racers[1].held = this.input.held(1);
     } else {
-      for (const r of s.racers) if (r.kind === 'human') r.held = this.input.held(0);
+      const held = this.input.held(0);
+      for (const r of s.racers) if (r.kind === 'human') r.held = held;
+      if (this.rhythm && held && !this.prevHeld && this.phase === 'running') this.onBeatPress();
+      this.prevHeld = held;
     }
+  }
+
+  /** Rhythm Rush: judge a press against the beat. */
+  private onBeatPress(): void {
+    const err = audio.beatError();
+    const me = this.session?.racers[0];
+    if (err === null || !me || !this.rhythm) return;
+    const { judgement, points } = this.rhythm.press(err);
+    const text = judgement === 'perfect' ? 'PERFECT!' : judgement === 'great' ? 'GREAT' : 'MISS';
+    const color = judgement === 'perfect' ? '#ffd23f' : judgement === 'great' ? '#9fe8ff' : '#b9b3d6';
+    this.renderer.fx.text(me.x + 0.6, me.body.y + 1.5, points ? `${text} +${points}` : text, color, judgement === 'perfect' ? 0.62 : 0.5, 0.7);
+    if (judgement === 'perfect') haptics.light();
   }
 
   private draw(dt: number): void {
@@ -677,6 +699,7 @@ export class GameController {
     for (const v of views) {
       if (this.kind === 'endless') {
         drawEndlessHud(ctx, v.rect, v.racer, store.data.best[this.bestKey()] ?? 0, this.renderer.dpr, this.variant === 'gemrush' ? { timer: Math.max(0, GEM_RUSH_SECONDS - s.time) } : this.variant === 'classic' ? undefined : { label: VARIANT_INFO[this.variant].name });
+        if (this.rhythm) drawRhythmHud(ctx, v.rect, this.rhythm.score, this.rhythm.combo, this.rhythm.mult, audio.beatPhase(), this.renderer.dpr);
       } else if (this.kind === 'custom' && this.req?.mode === 'custom') {
         drawLevelHud(ctx, v.rect, s, v.racer, this.renderer.dpr, levelName(this.req.level), this.req.level.best);
       } else {
@@ -850,7 +873,7 @@ export class GameController {
     const v = this.variant;
     const distance = Math.floor(r.distance);
     // Gem Rush scores gems; every other variant scores metres.
-    const score = v === 'gemrush' ? r.gems : distance;
+    const score = v === 'gemrush' ? r.gems : v === 'rhythm' ? (this.rhythm?.score ?? 0) : distance;
     const key = this.bestKey();
     if (v === 'daily') pruneDaily(d.best);
     const prevBest = d.best[key] ?? 0;
@@ -880,6 +903,8 @@ export class GameController {
       ['clean_distance', Math.floor(r.bestClean)],
     ]);
     missions.unshift(...bonus);
+    const rh = this.rhythm;
+    if (rh) missions.unshift(`Best combo ${rh.bestCombo} · ${rh.perfects} Perfect · ${rh.greats} Great · ${rh.misses} Miss`);
     const ups = this.grantXp(xp);
     // Gem Rush is all gems, so it pays out half of them (keeps the shop fair).
     // Extreme pays 1.3x, Easy a little less (the Daily Run is the same for everyone).
@@ -908,7 +933,7 @@ export class GameController {
           missionsDone: missions,
           kidMode: v === 'classic' && d.settings.kidMode,
           label: v === 'classic' ? undefined : VARIANT_INFO[v].name,
-          unit: v === 'gemrush' ? 'gems' : 'm',
+          unit: v === 'gemrush' ? 'gems' : v === 'rhythm' ? 'pts' : 'm',
         },
         {
           onAgain: () => this.play({ mode: 'endless', variant: v, level: this.startLevel }),

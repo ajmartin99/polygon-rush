@@ -26,6 +26,12 @@ interface Particle {
   wob: number;
   wf: number;
   ph: number;
+  /** Zigzag flight: average seconds between sharp changes of direction (0 = off). */
+  zig: number;
+  /** Time left until the next dart, which way it goes (+1 / -1), and the bank angle. */
+  zt: number;
+  side: number;
+  tilt: number;
 }
 
 interface FloatText {
@@ -84,6 +90,10 @@ export class Effects {
     o.wob = p.wob ?? 0;
     o.wf = p.wf ?? 0;
     o.ph = p.ph ?? 0;
+    o.zig = p.zig ?? 0;
+    o.zt = p.zt ?? 0;
+    o.side = p.side ?? 1;
+    o.tilt = 0;
     this.live.push(o);
   }
 
@@ -106,6 +116,17 @@ export class Effects {
         this.live.pop();
         this.pool.push(p);
         continue;
+      }
+      if (p.zig) {
+        // Dart one way, then snap the other: an erratic zigzag climb, banking into each turn.
+        p.zt -= dt;
+        if (p.zt <= 0) {
+          p.zt = p.zig * (0.5 + Math.random());
+          p.side = Math.random() < 0.8 ? -p.side : p.side;
+          p.vx = -0.8 + p.side * (1.6 + Math.random() * 2.6);
+          p.vy = 1.3 + Math.random() * 2.4;
+        }
+        p.tilt += (Math.max(-0.7, Math.min(0.7, p.vx * 0.16)) - p.tilt) * Math.min(1, dt * 18);
       }
       p.vy += p.g * dt;
       if (p.drag) {
@@ -165,7 +186,7 @@ export class Effects {
         ctx.fillStyle = p.color;
         ctx.fillRect(sx(p.x) - r * 4, sy(p.y) - r * 0.15, r * 8, r * 0.3);
       } else {
-        drawParticleShape(ctx, p.style, sx(p.x), sy(p.y), r, p.color, p.rot);
+        drawParticleShape(ctx, p.style, sx(p.x), sy(p.y), r, p.color, p.rot, p.tilt);
       }
     }
     ctx.globalAlpha = 1;
@@ -223,25 +244,23 @@ export class Effects {
             this.spawn({ x: behind, y: b.y + jitter, vy: 1.4, size: 0.16, grow: 1, max: 0.9, color: c, style: 'notes', back: true });
             break;
           case 'bats': {
-            // Each bat flaps off its own way: up, down, back or ahead, with a flutter.
-            const ang = Math.random() * Math.PI * 2;
-            const sp = 1.2 + Math.random() * 2.6;
+            // Each bat zigzags upward on its own erratic path (see update: zig).
+            const side = Math.random() < 0.5 ? -1 : 1;
             this.spawn({
               x: behind,
               y: b.y + jitter,
-              vx: Math.cos(ang) * sp - 1,
-              vy: Math.sin(ang) * sp + 0.6,
-              drag: 0.4,
+              vx: -0.8 + side * (1.6 + Math.random() * 2.4),
+              vy: 1.5 + Math.random() * 2,
+              zig: 0.09 + Math.random() * 0.08,
+              zt: 0.05 + Math.random() * 0.1,
+              side,
               size: 0.12 + Math.random() * 0.08,
               grow: 1,
               max: 0.9 + Math.random() * 0.6,
               color: c,
               style: 'bats',
               rot: Math.random() * 6,
-              vr: 5 + Math.random() * 5,
-              wob: 1.5 + Math.random() * 2,
-              wf: 7 + Math.random() * 5,
-              ph: Math.random() * Math.PI * 2,
+              vr: 14 + Math.random() * 8,
               back: true,
             });
             break;

@@ -833,20 +833,21 @@ export function drawTrailPreview(ctx: CanvasRenderingContext2D, style: string, c
   if (style === 'none' || !colors.length) return;
   const bats = style === 'bats';
   for (let i = 1; i <= 7; i++) {
-    // Bats scatter and flutter; everything else follows a gentle wave.
-    const px = x - i * size * 0.32 + (bats ? Math.cos(t * 2.3 + i * 2.1) * size * 0.08 : 0);
-    const py = y + (bats ? Math.sin(t * 3 + i * 1.7) * size * (0.1 + i * 0.05) : Math.sin(t * 6 + i * 0.9) * size * 0.08);
+    // Bats zigzag upward and back in sharp darts; everything else follows a gentle wave.
+    const dart = bats ? ((Math.floor(t * 7 + i * 1.3) + i) % 2 ? 1 : -1) * (0.6 + 0.4 * Math.abs(Math.sin(i * 2.7 + t))) : 0;
+    const px = x - i * size * 0.3 + dart * size * 0.16;
+    const py = y + (bats ? -i * size * 0.13 + Math.sin(t * 9 + i) * size * 0.03 : Math.sin(t * 6 + i * 0.9) * size * 0.08);
     const a = 1 - i / 8;
     const c = colors[i % colors.length];
     ctx.save();
     ctx.globalAlpha *= a;
-    drawParticleShape(ctx, style, px, py, size * (0.16 - i * 0.008), c, t * 3 + i);
+    drawParticleShape(ctx, style, px, py, size * (0.16 - i * 0.008), c, bats ? t * 16 + i : t * 3 + i, dart * 0.45);
     ctx.restore();
   }
 }
 
 /** Shared glyphs for trail particles. */
-export function drawParticleShape(ctx: CanvasRenderingContext2D, style: string, x: number, y: number, r: number, color: string, rot: number): void {
+export function drawParticleShape(ctx: CanvasRenderingContext2D, style: string, x: number, y: number, r: number, color: string, rot: number, tilt = 0): void {
   ctx.fillStyle = color;
   ctx.strokeStyle = color;
   switch (style) {
@@ -892,6 +893,7 @@ export function drawParticleShape(ctx: CanvasRenderingContext2D, style: string, 
     case 'bats': {
       ctx.save();
       ctx.translate(x, y);
+      ctx.rotate(tilt);
       const flap = Math.sin(rot * 3) * 0.5 + 0.5;
       ctx.beginPath();
       ctx.ellipse(0, 0, r * 0.35, r * 0.45, 0, 0, Math.PI * 2);

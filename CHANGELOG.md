@@ -4,6 +4,9 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+### Changed
+- Bat Swarm trail: bats now dart upward in erratic zigzags, banking into each turn and flapping faster, instead of bobbing (tester feedback).
+
 ### Security
 - Backup codes ("Move to a new phone") are now signed: a code that was decoded and edited (for example to add gems) is refused. Codes from 1.0.6–1.0.7 (`PRB1.`) need to be made again after updating.
 - Items only a purchase gives (Starter Pack, Legend Pack) are kept only when Google Play confirms the purchase, so they can't be added by editing a save or a backup code.

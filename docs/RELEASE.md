@@ -119,6 +119,6 @@ The `site/` folder is the Soft-Game Brothers website: the studio page, the Polyg
 
 Every push to `main` that changes `site/` redeploys it. Edit `site/polygon-rush/privacy/index.html` and `src/meta/legal.ts` together so the web and in-app policies match.
 
-**AdMob:** once you have an AdMob account, add `site/app-ads.txt` with the line AdMob shows you (`google.com, pub-…, DIRECT, f08c47fec0942fa0`) and set the Play listing's website to `https://softgamebros.com`.
+**AdMob:** `site/app-ads.txt` lists the Soft-Game Brothers publisher id (`pub-8916807186236706`) and is served at `https://softgamebros.com/app-ads.txt`. Set the Play listing's website to `https://softgamebros.com` so AdMob can find it (it checks within about a day). If AdMob ever shows a different line, copy that one into the file.
 
 **Email:** Cloudflare → softgamebros.com → Email → Email Routing forwards `polygonrush@`, `privacy@` and `safety@` to the owner's inbox.

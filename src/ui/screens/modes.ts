@@ -3,6 +3,8 @@ import { store } from '../../state/store';
 import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, MAX_START_LEVEL, dailyRewardKey, dailySeed, dailyTwist, unlockedLevels, variantBestKey, VARIANT_INFO, type EndlessVariant } from '../../meta/modes';
 import { leagueFor } from '../../meta/economy';
 import { activeEvent } from '../../meta/events';
+import { attemptsLeft, HAUNTED_RULES } from '../../meta/haunted';
+import { openHauntedRun } from '../haunted-run';
 import { BaseScreen, titleBar } from '../components';
 import { fmt, h, ic } from '../dom';
 import type { IconName } from '../icons';
@@ -30,7 +32,23 @@ export class ModesScreen extends BaseScreen {
     const dailyDone = Boolean(d.best[dailyRewardKey()]);
     const unlocked = unlockedLevels(best('classic'));
     const haunted = activeEvent()?.id === 'halloween';
+    const hs = d.haunted;
+    const left = haunted ? attemptsLeft(hs) : 0;
     const cards: ModeCard[] = [
+      ...(haunted
+        ? [
+            {
+              id: 'haunted',
+              name: '🎃 Haunted Run',
+              blurb: 'A Halloween course charted to Swing Along. Very hard. Finish the song for a big gem bonus.',
+              icon: 'sparkle' as IconName,
+              color: 'orange spooky',
+              tag: left > 0 ? `${left} of ${HAUNTED_RULES.attempts} attempts` : hs.regens > 0 ? `${hs.regens} Heart Regen${hs.regens > 1 ? 's' : ''}` : 'Out of attempts',
+              stat: hs.best.hard || hs.best.easy ? `Best ${Math.floor(Math.max(hs.best.hard, hs.best.easy) * 100)}%` : 'Halloween only',
+              go: () => openHauntedRun(),
+            },
+          ]
+        : []),
       {
         id: 'endless',
         name: VARIANT_INFO.classic.name,
@@ -53,8 +71,8 @@ export class ModesScreen extends BaseScreen {
       },
       {
         id: 'daily',
-        name: haunted ? 'Haunted Daily Run' : VARIANT_INFO.daily.name,
-        blurb: `${haunted ? 'Halloween course and soundtrack, ghost saws included. No revives!' : VARIANT_INFO.daily.blurb} Today: ${dailyTwist(dailySeed(), haunted).labels.join(' · ')}.`,
+        name: VARIANT_INFO.daily.name,
+        blurb: `${VARIANT_INFO.daily.blurb} Today: ${dailyTwist(dailySeed(), false).labels.join(' · ')}.`,
         icon: 'gift',
         color: 'mint',
         tag: dailyDone ? 'Done today ✓' : `Reach ${DAILY_TARGET} m: +${DAILY_REWARD}`,
@@ -131,7 +149,7 @@ export class ModesScreen extends BaseScreen {
           null,
           cards.map((c) =>
             h(
-              `button.mode-card.${c.color}`,
+              `button.mode-card.${c.color.split(' ').join('.')}`,
               { 'data-mode': c.id, onclick: () => (ui.sfx('click'), c.go()) },
               h('span.mc-icon', null, ic(c.icon)),
               h('b.mc-name', null, c.name),

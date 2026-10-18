@@ -18,7 +18,7 @@ import { ui } from '../ui/ui';
 import { EndlessResultsScreen, GameHud, LevelResultsScreen, RaceResultsScreen, openPause, openRevive, type RacePlacement, type RaceResultsActions } from '../ui/screens/game-ui';
 import { roomChatPanel } from '../ui/room-chat';
 import { FREE_EMOTES, emoteIndex } from '../meta/emotes';
-import { decodeLevel, levelName, type LevelContent } from './level';
+import { decodeLevel, LEVEL_START_X, levelName, levelSpeed, type LevelContent } from './level';
 import type { Scene } from './scene';
 import { SECRET_LEVELS } from './generator';
 import { DIFFICULTY_GEM_RATE, DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED, endlessSpeedAt } from './constants';
@@ -26,8 +26,8 @@ import { activeEvent, SPOOKY } from '../meta/events';
 import { clampStartLevel, levelStart, levelWorld } from '../meta/modes';
 import { endlessBestKey } from '../state/save';
 import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, VARIANT_INFO, dailyRewardKey, dailySeed, dailyTwist, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
-import { HAUNTED_SONG } from '../core/songs';
-import { eventTracks, TRACK_BASE, TRACKS } from '../core/tracks';
+import { TRACK_BASE, TRACKS } from '../core/tracks';
+import { HAUNTED_TRACK, hauntedPayout } from '../meta/haunted';
 import { InputManager } from './input';
 import type { Racer, RacerSpec } from './racer';
 import { GameSession, type BoxItem, type SessionKind } from './session';
@@ -80,8 +80,6 @@ export class GameController {
   private biomeOffset = 0;
   private lastBiome = -1;
   private lastMilestone = 0;
-  /** This Daily Run is the Halloween one. */
-  private hauntedDaily = false;
   private scene: Scene | null = null;
   /** Build rooms outlive the race played in them. */
   private keepRoom = false;
@@ -221,11 +219,9 @@ export class GameController {
         // with its own twist each day (Halloween: the haunted course).
         const daily = v === 'daily';
         const seed = daily ? dailySeed() : (Math.random() * 2 ** 31) >>> 0;
-        const haunted = daily && activeEvent()?.id === 'halloween';
-        this.hauntedDaily = haunted;
-        const twist = daily ? dailyTwist(seed, haunted) : null;
+        const twist = daily ? dailyTwist(seed, false) : null;
         // Every run is built on the beat of the songs it will play.
-        music.resetPlan(true, daily ? { songs: haunted ? [HAUNTED_SONG, ...eventTracks('halloween')] : dailySoundtrack(), seed } : undefined);
+        music.resetPlan(true, daily ? { songs: dailySoundtrack(), seed } : undefined);
         this.session = new GameSession({
           kind: 'endless',
           seed,
@@ -323,7 +319,7 @@ export class GameController {
     } else if (this.kind === 'custom' && req.mode === 'custom') {
       music.level(req.level.music, req.level.theme);
       const track = trackOf(req.level.music);
-      if (track) ui.toast(`♪ ${track.title} by ${track.artist} (${track.license})`, 'music', 3000);
+      if (track && !req.haunted) ui.toast(`♪ ${track.title} by ${track.artist} (${track.license})`, 'music', 3000);
       audio.intensity = 0.7;
       this.go();
       hud.showHint(levelName(req.level), req.level.authors.length ? `by ${req.level.authors.join(', ')}` : 'Tap or hold to play!', 1800, '40%');
@@ -620,8 +616,9 @@ export class GameController {
 
   private paletteFor(x: number): Palette {
     const s = this.session;
-    // Spooky Season: the menu backdrop and the Daily Run are haunted.
-    if ((this.kind === 'attract' || (this.kind === 'endless' && this.variant === 'daily')) && activeEvent()?.id === 'halloween') return SPOOKY;
+    // Spooky Season: the menu backdrop and the Haunted Run are haunted.
+    if (this.kind === 'attract' && activeEvent()?.id === 'halloween') return SPOOKY;
+    if (this.kind === 'custom' && this.req?.mode === 'custom' && this.req.haunted) return SPOOKY;
     const level = this.level();
     if (level) return BIOMES[level.theme % BIOMES.length];
     if (s && s.raceLike) return BIOMES[(s.opts.seed >>> 0) % BIOMES.length];
@@ -682,6 +679,11 @@ export class GameController {
       audio.intensity = Math.min(1, 0.35 + me.distance / 3000);
     } else if (this.kind === 'custom') {
       audio.intensity = Math.min(1, 0.55 + me.distance / 600);
+      // Haunted Run: the course is charted to Swing Along, so keep the song exactly where the runner is.
+      const req = this.req;
+      if (req?.mode === 'custom' && req.haunted && this.phase === 'running' && ++this.syncTick % 10 === 0) {
+        audio.syncTo(HAUNTED_TRACK, Math.max(0, (me.x - (LEVEL_START_X + 0.5)) / levelSpeed(req.level)), 0.06, 900);
+      }
     } else if (this.kind !== 'attract') {
       audio.intensity = 0.8;
     }
@@ -719,7 +721,11 @@ export class GameController {
         for (const r of this.session.racers) if (r.kind === 'human') r.invuln = Math.max(r.invuln, 0.8);
         this.go();
       },
-      onRestart: online || this.kind === 'race' ? undefined : () => this.req && this.play(this.req),
+      onRestart: online || this.kind === 'race' ? undefined : () => {
+        const r = this.req;
+        if (r?.mode === 'custom' && r.onRetry) r.onRetry();
+        else if (r) this.play(r);
+      },
       onQuit: () => this.quitToMenu(),
       quitLabel: this.req?.mode === 'custom' ? (this.req.test ? 'Edit' : 'Back') : this.keepRoom ? 'Leave race' : undefined,
     });
@@ -779,7 +785,6 @@ export class GameController {
     if (v === 'classic' || v === 'oneheart') d.stats.bestDistance = Math.max(d.stats.bestDistance, distance);
     if (v === 'daily') {
       d.stats.dailyRuns += 1;
-      if (this.hauntedDaily) d.stats.hauntedBest = Math.max(d.stats.hauntedBest, distance);
     }
     const bonus: string[] = [];
     if (v === 'daily' && distance >= DAILY_TARGET && !d.best[dailyRewardKey()]) {
@@ -860,9 +865,21 @@ export class GameController {
     const report = (e: MissionEvent) => {
       for (const m of reportMission(d, e, 1)) missions.push(describe(m));
     };
-    if (completed && fromStart) {
+    if (completed && fromStart && !req.haunted) {
       if (req.test && verifiedNow) report('level_verify');
       else if (!req.test && level.origin !== 'mine' && level.length >= 60) report('custom_clear');
+    }
+    if (req.haunted) {
+      const diff = req.haunted;
+      const h = d.haunted;
+      const pay = hauntedPayout(diff, r.gems, completed);
+      if (pay > 0) store.addGems(pay);
+      h.best[diff] = Math.max(h.best[diff], progress);
+      if (completed) {
+        h.clears[diff] += 1;
+        missions.push(`Haunted Run cleared on ${diff === 'hard' ? 'Hard' : 'Easy'}! +${pay} gems`);
+      } else if (pay > 0) missions.push(`Haunted Run: +${pay} gems${diff === 'easy' ? ' (Easy pays half)' : ''}`);
+      d.stats.gemsCollected += r.gems;
     }
     if (missions.length) {
       ui.sfx('reward');
@@ -882,10 +899,11 @@ export class GameController {
         hits: r.hits,
         verifiedNow,
         missionsDone: missions,
+        notesTitle: req.haunted ? 'Haunted Run' : undefined,
         rate: req.rate,
       },
       {
-        onRetry: () => this.play(req),
+        onRetry: req.onRetry ?? (() => this.play(req)),
         onBack: () => this.quitToMenu(),
         backLabel: req.test ? 'Edit' : 'Back',
         backIcon: req.test ? 'edit' : 'back',

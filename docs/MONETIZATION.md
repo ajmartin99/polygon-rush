@@ -24,6 +24,8 @@ Polygon Rush earns from **optional rewarded videos**, **light interstitials**, a
 | `remove_ads` | non-consumable | No banners or interstitials |
 | `legend_pack` | non-consumable | Rainbow, Galaxy and Magma skins + Rainbow Road and Comet trails |
 | `gems_small` / `gems_medium` / `gems_large` | consumable | 600 / 2,000 / 6,000 gems |
+| `haunted_regen_1` | consumable | Heart Regen: refills the Haunted Run's 2 attempts now and restarts its 24-hour clock ($0.99) |
+| `haunted_regen_4` | consumable | 4 Heart Regens, used any time (unused ones keep until next Halloween) ($1.99) |
 
 * Prices always come from Google Play, localised.
 * Grants are idempotent and de-duplicated by order id. Non-consumables are restored automatically at launch and via *Restore purchases*.

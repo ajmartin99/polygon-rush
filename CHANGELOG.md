@@ -4,14 +4,23 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-10-18
+
+### Added
+- **🎃 Haunted Run (Spooky Season):** its own Halloween mode, separate from the Daily Run. Today's course is charted to Swing Along: every jump, flip, hop and Glider gate lands on the beat, the shape changes with the song's phrases, and the finish line is the end of the song (about 2:13). Very hard from the first beat.
+  - **Hard** (Turbo speed, one bump and out) pays 1× gems; **Easy** (slower, more room, 3 hearts) pays 0.5×. Finishing the song pays a 1,200-gem bonus on Hard (600 on Easy).
+  - **2 attempts every 24 hours**, shared by both difficulties; your best run counts. A new chart every day, the same for everyone.
+  - **Heart Regen** refills your attempts now and starts a fresh 24 hours: 1 for $0.99 or 4 for $1.99 (grown-up check first).
+  - New badges: Ghost Runner (finish it) and Nightmare Slayer (finish it on Hard).
+- **Studio card on launch:** the Soft-Game Brothers logo with softgamebros.com shows for about 2 seconds when the game opens (tap to skip), on Android's launch screen and in the app.
+- The Daily Run is back to its normal course and soundtrack during Halloween (the haunted version became the Haunted Run).
+
 ### Changed
 - The studio is now named **Soft-Game Brothers** everywhere (website, privacy policy, license, Play listing notes); softgamebros.com stays the web address.
 
 ### Fixed
 - The dice button on the name screen (and elsewhere) showed a dark blob: the dice is now white with dark dots on every button colour.
 
-### Added
-- **Studio card on launch:** the Soft-Game Brothers logo with softgamebros.com shows for about 2 seconds when the game opens (tap to skip), on Android's launch screen and in the app.
 
 ## [1.0.8] - 2026-10-18
 

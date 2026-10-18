@@ -373,6 +373,8 @@ export interface LevelResult {
   /** The builder just beat their level from the start. */
   verifiedNow: boolean;
   missionsDone: string[];
+  /** Heading for those lines (default "Mission complete!"). */
+  notesTitle?: string;
   /** Community levels: thumbs up/down. */
   rate?: LevelRating;
 }
@@ -440,7 +442,7 @@ export class LevelResultsScreen extends BaseScreen {
             h('div.card', null, h('b', null, formatTime(r.time)), h('span', null, 'Time')),
             h('div.card', null, h('b', null, fmt(r.hits)), h('span', null, 'Bumps')),
           ),
-          r.missionsDone.length ? h('div.card', { style: 'border-color:var(--yellow)' }, h('b', null, 'Mission complete!'), r.missionsDone.map((t) => h('p.small', null, `✓ ${t}`))) : null,
+          r.missionsDone.length ? h('div.card', { style: 'border-color:var(--yellow)' }, h('b', null, r.notesTitle ?? 'Mission complete!'), r.missionsDone.map((t) => h('p.small', null, `✓ ${t}`))) : null,
           r.rate ? ratingRow(r.rate) : null,
           h(
             'div.row',

@@ -27,6 +27,8 @@ export const PRODUCTS: ProductDef[] = [
   { id: P.removeAds, kind: 'nonconsumable', name: 'No Ads', desc: 'Remove banner & break ads forever', fallbackPrice: '$2.99' },
   { id: P.legendPack, kind: 'nonconsumable', name: 'Legend Pack', desc: '3 legendary skins + 2 legendary trails', fallbackPrice: '$3.99' },
   { id: P.gemsSmall, kind: 'consumable', name: 'Gem Pouch', desc: '600 gems', fallbackPrice: '$0.99', gems: 600 },
+  { id: P.hauntedRegen1, kind: 'consumable', name: 'Heart Regen', desc: 'Haunted Run: 2 fresh attempts now', fallbackPrice: '$0.99' },
+  { id: P.hauntedRegen4, kind: 'consumable', name: '4 Heart Regens', desc: 'Haunted Run: 4 refills, use them any time', fallbackPrice: '$1.99' },
   { id: P.gemsMedium, kind: 'consumable', name: 'Gem Chest', desc: '2,000 gems', fallbackPrice: '$2.99', gems: 2000, ribbon: 'Popular' },
   { id: P.gemsLarge, kind: 'consumable', name: 'Gem Vault', desc: '6,000 gems', fallbackPrice: '$6.99', gems: 6000, ribbon: 'Best value' },
 ];
@@ -82,6 +84,10 @@ export function grantProduct(save: SaveData, id: string): GrantResult {
       save.purchases.legend = true;
       LEGEND_PACK_SKINS.forEach(addSkin);
       LEGEND_PACK_TRAILS.forEach(addTrail);
+      break;
+    case P.hauntedRegen1:
+    case P.hauntedRegen4:
+      save.haunted.regens += id === P.hauntedRegen1 ? 1 : 4;
       break;
     default: {
       const def = productById(id);

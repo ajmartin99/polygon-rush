@@ -3,7 +3,7 @@ import { friends } from '../services/friends';
 import { formatHandle } from '../shared/handle';
 import { store } from '../state/store';
 import { leagueFor } from '../meta/economy';
-import { BADGES, BANNER_LEVELS, BANNERS, badgeById, DEFAULT_TITLE, earnedBadges, MAX_SHOWCASE, myCard, titleFor, type BadgeCtx, type ProfileCard } from '../meta/profile';
+import { BADGE_GROUPS, BADGES, BANNER_LEVELS, type BadgeGroup, BANNERS, badgeById, DEFAULT_TITLE, earnedBadges, MAX_SHOWCASE, myCard, titleFor, type BadgeCtx, type ProfileCard } from '../meta/profile';
 import type { NetPlayer } from '../services/net';
 import { BaseScreen, button, titleBar } from './components';
 import { fmt, h, ic } from './dom';
@@ -13,11 +13,43 @@ import { ui } from './ui';
 
 export function badgeCtx(): BadgeCtx {
   const mine = levels.list().filter((l) => l.origin !== 'code');
-  return { save: store.data, levelsBuilt: mine.length, levelsVerified: mine.filter((l) => l.verified).length };
+  return { save: store.data, levelsBuilt: mine.length, levelsVerified: mine.filter((l) => l.verified).length, levelsCoop: mine.filter((l) => l.origin === 'coop').length };
+}
+
+/**
+ * Announce badges as they're earned. The first check only records what the
+ * player already has, so nobody gets a pile of toasts after updating.
+ */
+export function watchBadges(): void {
+  let timer = 0;
+  const check = () => {
+    timer = 0;
+    const p = store.data.profile;
+    const earned = earnedBadges(badgeCtx()).map((b) => b.id);
+    const first = !p.badgesSeen.includes('*');
+    const fresh = first ? [] : earned.filter((id) => !p.badgesSeen.includes(id));
+    if (!first && !fresh.length) return;
+    p.badgesSeen = ['*', ...new Set([...p.badgesSeen.filter((id) => id !== '*'), ...earned])];
+    store.commit();
+    fresh.forEach((id, i) => {
+      const b = badgeById(id);
+      if (b) setTimeout(() => ui.toast(`Badge earned: ${b.name}! New title “${b.title}” in Profile.`, 'star', 3600), 1400 + i * 3800);
+    });
+  };
+  const soon = () => {
+    if (!timer) timer = window.setTimeout(check, 1500);
+  };
+  store.on('change', soon);
+  levels.on('change', soon);
+  soon();
 }
 
 export function localCard(): ProfileCard {
   return myCard(badgeCtx());
+}
+
+function progressBar([v, t]: [number, number]): HTMLElement {
+  return h('i.badge-bar', { 'aria-hidden': 'true' }, h('i', { style: `width:${Math.round((v / Math.max(1, t)) * 100)}%` }));
 }
 
 function badgeIcon(id: string, size = ''): HTMLElement | null {
@@ -129,10 +161,7 @@ export class ProfileScreen extends BaseScreen {
       }),
     );
 
-    const grid = h(
-      'div.badge-grid',
-      null,
-      BADGES.map((b) => {
+    const tile = (b: (typeof BADGES)[number]) => {
         const has = earned.has(b.id);
         const pinned = card.show.includes(b.id);
         return h(
@@ -140,7 +169,10 @@ export class ProfileScreen extends BaseScreen {
           {
             'aria-pressed': String(pinned),
             onclick: () => {
-              if (!has) return ui.toast(b.how, 'lock');
+              if (!has) {
+                const [v, t] = b.progress(ctx);
+                return ui.toast(`${b.how} (${fmt(v)}/${fmt(t)})`, 'lock');
+              }
               save(() => {
                 const cur = card.show.filter((id) => id !== b.id);
                 if (!pinned) {
@@ -153,8 +185,17 @@ export class ProfileScreen extends BaseScreen {
           },
           h('span.badge-ico.lg', { style: `--bc:${has ? b.color : '#666'}` }, ic(has ? b.icon : 'lock')),
           h('b', null, b.name),
+          has ? null : progressBar(b.progress(ctx)),
           h('span', null, has ? (pinned ? 'On your card' : 'Tap to show') : b.how),
         );
+    };
+    const grid = h(
+      'div.col',
+      { style: 'gap:0.7rem' },
+      (Object.keys(BADGE_GROUPS) as BadgeGroup[]).map((g) => {
+        const list = BADGES.filter((b) => b.group === g);
+        const got = list.filter((b) => earned.has(b.id)).length;
+        return h('div.col', { style: 'gap:0.35rem' }, h('h4.badge-group', null, BADGE_GROUPS[g], h('span.muted.small', null, ` ${got}/${list.length}`)), h('div.badge-grid', null, list.map(tile)));
       }),
     );
 

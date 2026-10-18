@@ -193,6 +193,10 @@ class FriendsService extends Emitter<{
     try {
       const res = await serverApi<Omit<FriendsState, 'error'>>('/api/friends/sync', { body: { key: deviceKey(), activity: this.activity() } });
       this.set({ ...res, error: '' });
+      if (res.friends.length > store.data.stats.friendsMax) {
+        store.data.stats.friendsMax = res.friends.length;
+        store.commit();
+      }
       for (const inv of res.invites) {
         if (this.seen.has(inv.id)) continue;
         this.seen.add(inv.id);
@@ -210,14 +214,25 @@ class FriendsService extends Emitter<{
     }
   }
 
-  private async call<T>(path: string, body: Record<string, unknown>): Promise<T> {
+  /** Call the server as this device's player (registers first if needed). */
+  async authed<T>(path: string, body: Record<string, unknown>): Promise<T> {
     if (!this.registered) {
       const r = await this.register();
       if (!r.ok) throw new ServerError(0, 'offline', r.message);
     }
-    const out = await serverApi<T>(path, {
-      body: { key: deviceKey(), ...body },
-    });
+    try {
+      return await serverApi<T>(path, { body: { key: deviceKey(), ...body } });
+    } catch (e) {
+      if (!(e instanceof ServerError) || e.code !== 'not_registered') throw e;
+      this.registered = false;
+      const r = await this.register();
+      if (!r.ok) throw new ServerError(0, 'offline', r.message);
+      return serverApi<T>(path, { body: { key: deviceKey(), ...body } });
+    }
+  }
+
+  private async call<T>(path: string, body: Record<string, unknown>): Promise<T> {
+    const out = await this.authed<T>(path, body);
     void this.sync();
     return out;
   }

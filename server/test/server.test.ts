@@ -6,6 +6,7 @@ import { Db } from '../src/db.ts';
 import { NameRegistry } from '../src/names.ts';
 import { PlayerService } from '../src/players.ts';
 import type { Mail, Mailer } from '../src/mailer.ts';
+import { levelChecksum } from '../../src/shared/level-code.ts';
 
 const sent: Mail[] = [];
 const mailer: Mailer = {
@@ -482,5 +483,104 @@ describe('review hardening', () => {
   test('web deletion answers the same for unknown addresses', async () => {
     const r = await api('POST', '/api/account/delete/start', { email: 'ghost@example.com' });
     assert.deepEqual(r.json, { ok: true });
+  });
+});
+
+describe('community levels', () => {
+  const k = (c: string) => `lvl${c}`.repeat(6);
+  const reg = (key: string, name: string, extra: Record<string, unknown> = {}) => api('POST', '/api/players/register', { key, name, ...extra });
+  /** A tiny v2 level code: `spikes` spikes, optional typed title. */
+  const code = (spikes: number, title = ''): string => {
+    const out = [2, 1, 0, (1 << 4) | 1, 100, 0, 3, 4, 0];
+    if (title) out.push(254, title.length, ...[...title].map((ch) => ch.charCodeAt(0)));
+    else out.push(0);
+    out.push(spikes);
+    for (let i = 0; i < spikes; i++) out.push(i === 0 ? 10 : 3, 2 << 4);
+    const c = levelChecksum(out);
+    out.push(c >> 8, c & 0xff);
+    return 'PR1-' + Buffer.from(out).toString('base64url');
+  };
+  const browse = (key: string, extra: Record<string, unknown> = {}) => api('POST', '/api/levels/browse', { key, ...extra });
+
+  test('share, list newest and top, play, like, unshare', async () => {
+    await reg(k('a'), 'Builder Bee');
+    await reg(k('b'), 'Racing Rhino');
+    assert.equal((await api('POST', '/api/levels/publish', { key: k('a'), localId: 'abc123def456', code: code(2) })).status, 400, 'too empty');
+    const pub = await api('POST', '/api/levels/publish', { key: k('a'), localId: 'abc123def456', code: code(8) });
+    assert.equal(pub.status, 200, JSON.stringify(pub.json));
+    // Sharing the same level again updates it in place.
+    const again = await api('POST', '/api/levels/publish', { key: k('a'), localId: 'abc123def456', code: code(9) });
+    assert.equal(again.json.id, pub.json.id);
+    assert.equal(again.json.updated, true);
+    const id = pub.json.id as string;
+    let list = await browse(k('b'), { tab: 'new' });
+    const seen = list.json.levels.find((l: any) => l.id === id);
+    assert.equal(seen.author, 'Builder Bee');
+    assert.equal(seen.mine, false);
+    assert.equal(seen.code, code(9));
+    // Suggested shows levels you haven't played yet.
+    assert.ok((await browse(k('b'), { tab: 'suggested' })).json.levels.some((l: any) => l.id === id));
+    assert.equal((await api('POST', `/api/levels/${id}/play`, { key: k('b'), cleared: false })).json.plays, 1);
+    const p2 = await api('POST', `/api/levels/${id}/play`, { key: k('b'), cleared: true });
+    assert.deepEqual(p2.json, { plays: 1, clears: 1 });
+    assert.ok(!(await browse(k('b'), { tab: 'suggested' })).json.levels.some((l: any) => l.id === id));
+    // Your own plays and likes don't count.
+    await api('POST', `/api/levels/${id}/play`, { key: k('a'), cleared: true });
+    assert.equal((await api('POST', `/api/levels/${id}/like`, { key: k('a') })).status, 400);
+    assert.equal((await api('POST', `/api/levels/${id}/like`, { key: k('b') })).json.likes, 1);
+    assert.equal((await api('POST', `/api/levels/${id}/like`, { key: k('b') })).json.likes, 1);
+    list = await browse(k('b'), { tab: 'top' });
+    const top = list.json.levels.find((l: any) => l.id === id);
+    assert.equal(top.liked, true);
+    assert.equal(top.played, true);
+    // The builder sees their numbers (for badges) and their own levels.
+    const mine = await browse(k('a'), { tab: 'top', scope: 'mine' });
+    assert.deepEqual(mine.json.stats, { shared: 1, plays: 1, clears: 1, likes: 1 });
+    assert.equal(mine.json.levels[0].mine, true);
+    assert.equal((await api('POST', `/api/levels/${id}/like`, { key: k('b'), like: false })).json.likes, 0);
+    assert.equal((await api('POST', `/api/levels/${id}/unpublish`, { key: k('b') })).status, 200);
+    assert.ok((await browse(k('b'), { tab: 'new' })).json.levels.some((l: any) => l.id === id), 'only the builder can unshare');
+    await api('POST', `/api/levels/${id}/unpublish`, { key: k('a') });
+    assert.ok(!(await browse(k('b'), { tab: 'new' })).json.levels.some((l: any) => l.id === id));
+  });
+
+  test('friends tab, blocks, kids and typed titles', async () => {
+    const a = await reg(k('c'), 'Comet Cat');
+    await reg(k('d'), 'Dizzy Duck');
+    await reg(k('e'), 'Speedy Panda 7', { kid: true });
+    assert.equal((await api('POST', '/api/levels/publish', { key: k('e'), localId: 'kidlevel0001', code: code(6, 'My Level') })).status, 400, 'typed titles are 13+');
+    assert.equal((await api('POST', '/api/levels/publish', { key: k('e'), localId: 'kidlevel0001', code: code(6) })).status, 200);
+    assert.equal((await api('POST', '/api/levels/publish', { key: k('c'), localId: 'catlevel0001', code: code(6, 'call 5551234') })).status, 400);
+    const pub = await api('POST', '/api/levels/publish', { key: k('c'), localId: 'catlevel0001', code: code(6, 'Spike Party') });
+    assert.equal(pub.status, 200);
+    assert.equal((await browse(k('d'), { scope: 'friends' })).json.levels.length, 0);
+    await api('POST', '/api/friends/add', { key: k('d'), handle: `Comet Cat#${a.json.tag}` });
+    const sync = await api('POST', '/api/friends/sync', { key: k('c') });
+    await api('POST', '/api/friends/respond', { key: k('c'), id: sync.json.incoming[0].id, accept: true });
+    const fr = await browse(k('d'), { scope: 'friends' });
+    assert.deepEqual(
+      fr.json.levels.map((l: any) => [l.id, l.friend]),
+      [[pub.json.id, true]],
+    );
+    // Blocking someone hides their levels.
+    await api('POST', '/api/friends/block', { key: k('d'), id: a.json.id });
+    assert.ok(!(await browse(k('d'), { tab: 'new' })).json.levels.some((l: any) => l.id === pub.json.id));
+  });
+
+  test('three reports hide a level until a moderator restores it', async () => {
+    await reg(k('f'), 'Funky Fox');
+    const pub = await api('POST', '/api/levels/publish', { key: k('f'), localId: 'foxlevel0001', code: code(7) });
+    const id = pub.json.id as string;
+    for (const c of ['g', 'h', 'i']) {
+      await reg(k(c), 'Grumpy Goat');
+      await api('POST', `/api/levels/${id}/report`, { key: k(c), reason: 'impossible' });
+    }
+    assert.ok(!(await browse(k('g'), { tab: 'new' })).json.levels.some((l: any) => l.id === id));
+    assert.equal((await api('POST', `/api/levels/${id}/play`, { key: k('g') })).status, 404);
+    const listed = await api('GET', '/api/admin/levels?filter=hidden', undefined, ADMIN);
+    assert.ok(listed.json.levels.some((l: any) => l.id === id && l.reasons[0].reason === 'impossible'));
+    assert.equal((await api('POST', `/api/admin/levels/${id}/hide`, { hidden: false }, ADMIN)).json.ok, true);
+    assert.ok((await browse(k('g'), { tab: 'new' })).json.levels.some((l: any) => l.id === id));
+    assert.equal((await api('GET', '/api/admin/levels')).status, 401);
   });
 });

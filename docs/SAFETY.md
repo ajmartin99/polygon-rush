@@ -86,6 +86,22 @@ needs a person, and what to do when something serious happens.
     minute, invites expire after 10 minutes, players unseen for 2 years are deleted.
   * "Delete friends data" on the Friends screen removes the player, friends,
     requests and invites from the server.
+* **Community levels (all ages):**
+  * A shared level is only its level code (pieces, generated or filtered name,
+    builder racer names) plus play, clear and like counts. No comments, no text.
+  * The author shows by racer name only, never the #number, so a shared level
+    can't be used to send a friend request.
+  * The server re-checks every code: under-13s can't share typed level names or
+    typed builder names; 13+ names and titles pass the name filter; banned names
+    are refused. Levels must be a real length and have at least 5 pieces.
+  * Levels by players you blocked don't show. Report (rude name, impossible,
+    copied, other) is on every level; 3 different reporters hide it until a
+    moderator restores it (`GET /api/admin/levels`, `POST /api/admin/levels/ID/hide
+    {hidden:false}`, `DELETE /api/admin/levels/ID`).
+  * Limits: 30 shared levels per player, 12 shares an hour. Plays, clears and
+    likes count once per player; your own plays don't count.
+  * Parents can switch Community levels off (Parental Controls). "Delete friends
+    data" also deletes the player's shared levels.
 * **Typed text in other scripts** (e.g. Cyrillic look-alike letters) and non-ASCII
   digits are refused, so the filter can't be dodged with look-alikes.
 * **Deleting an account** closes its live chat at once. A one-way email hash, the

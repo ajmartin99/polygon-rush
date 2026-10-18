@@ -2738,6 +2738,26 @@ button.player-slot {
   opacity: 0.6;
 }
 
+.badge-bar {
+  display: block;
+  width: 80%;
+  height: 0.28rem;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+}
+
+.badge-bar > i {
+  display: block;
+  height: 100%;
+  background: var(--mint);
+}
+
+.badge-group {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
 .badge-tile.on {
   border-color: var(--yellow);
   background: rgba(255, 210, 63, 0.16);
@@ -2747,6 +2767,33 @@ button.player-slot {
   .profile-page {
     grid-template-columns: 1fr;
   }
+}
+
+.tag.friend {
+  background: var(--cyan);
+  color: #04314a;
+  padding: 0.05rem 0.45rem;
+  border-radius: 1rem;
+  font-weight: 700;
+  font-size: 0.65rem;
+}
+
+.shared-card .level-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.5rem;
+}
+
+.shared-card .level-meta .icon,
+.shared-card .level-meta svg {
+  width: 0.85em;
+  height: 0.85em;
+}
+
+.community-tabs,
+.community-scopes {
+  justify-content: center;
 }
 
 .tag.pub {

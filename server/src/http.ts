@@ -8,6 +8,7 @@ import { DELETE_JS, deletePage, landingPage } from './pages.ts';
 import type { RoomDirectory } from './rooms.ts';
 import type { NameRegistry } from './names.ts';
 import type { PlayerService } from './players.ts';
+import type { LevelService } from './levels.ts';
 import { hmac, safeEqual } from './util.ts';
 
 export interface AppDeps {
@@ -18,6 +19,7 @@ export interface AppDeps {
   hub: ChatHub;
   names: NameRegistry;
   players: PlayerService;
+  levels: LevelService;
   mailer: Mailer;
   version: string;
 }
@@ -46,7 +48,7 @@ export function ipKeyFor(cfg: Config, ip: string | undefined): string {
 }
 
 export function createApp(d: AppDeps): express.Express {
-  const { cfg, db, accounts, rooms, hub, names, players } = d;
+  const { cfg, db, accounts, rooms, hub, names, players, levels } = d;
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', cfg.trustProxy ? 1 : false);
@@ -85,7 +87,7 @@ export function createApp(d: AppDeps): express.Express {
   // ------------------------------------------------------------ public API
   app.get(
     '/api/status',
-    route(() => ({ ok: true, version: d.version, freeChat: d.mailer.real || !cfg.production, publicRooms: true })),
+    route(() => ({ ok: true, version: d.version, freeChat: d.mailer.real || !cfg.production, publicRooms: true, sharedLevels: true })),
   );
 
   app.post('/api/account/start', route((req) => accounts.start(req.body ?? {}, ipKey(req))));
@@ -140,6 +142,19 @@ export function createApp(d: AppDeps): express.Express {
     '/api/friends/invite/dismiss',
     route((req) => {
       players.dismissInvite(req.body ?? {});
+      return { ok: true };
+    }),
+  );
+  // Community levels: share, browse, play, like and report. Authorised by the device key.
+  app.post('/api/levels/publish', route((req) => levels.publish(req.body ?? {}, ipKey(req))));
+  app.post('/api/levels/browse', route((req) => levels.browse(req.body ?? {})));
+  app.post('/api/levels/:id/play', route((req) => levels.play(req.params.id, req.body ?? {})));
+  app.post('/api/levels/:id/like', route((req) => levels.like(req.params.id, req.body ?? {})));
+  app.post('/api/levels/:id/report', route((req) => levels.report(req.params.id, req.body ?? {})));
+  app.post(
+    '/api/levels/:id/unpublish',
+    route((req) => {
+      levels.unpublish(req.params.id, req.body ?? {});
       return { ok: true };
     }),
   );
@@ -286,6 +301,30 @@ export function createApp(d: AppDeps): express.Express {
     route((req) => {
       const ok = rooms.hide(req.params.code, (req.body ?? {}).hidden !== false);
       db.audit(actor, 'hide_room', req.params.code, null, Date.now());
+      return { ok };
+    }),
+  );
+  admin.get(
+    '/levels',
+    route((req) => {
+      const filter = req.query.filter === 'hidden' || req.query.filter === 'all' ? req.query.filter : 'reported';
+      return { levels: levels.adminList(filter, Math.min(500, Number(req.query.limit) || 100)) };
+    }),
+  );
+  admin.post(
+    '/levels/:id/hide',
+    route((req) => {
+      const hidden = (req.body ?? {}).hidden !== false;
+      const ok = levels.setHidden(req.params.id, hidden);
+      db.audit(actor, hidden ? 'hide_level' : 'restore_level', req.params.id, null, Date.now());
+      return { ok };
+    }),
+  );
+  admin.delete(
+    '/levels/:id',
+    route((req) => {
+      const ok = levels.remove(req.params.id);
+      db.audit(actor, 'delete_level', req.params.id, null, Date.now());
       return { ok };
     }),
   );

@@ -14,6 +14,24 @@ describe('player profiles', () => {
     expect(ids).not.toContain('rush6k');
   });
 
+  it('creator, community and Extreme badges show progress', () => {
+    const save = createSave();
+    const ctx = { save, levelsBuilt: 3, levelsVerified: 1, levelsCoop: 1 };
+    const byId = (id: string) => BADGES.find((b) => b.id === id)!;
+    expect(byId('workshop').progress(ctx)).toEqual([3, 10]);
+    save.creator.sharedIds = ['abc123def456'];
+    save.creator.likes = 30;
+    save.stats.communityClears = 4;
+    save.best.endless_hard = 5200;
+    const ids = earnedBadges(ctx).map((b) => b.id);
+    expect(ids).toEqual(expect.arrayContaining(['builder', 'cobuild', 'published', 'fans', 'hard2k', 'extreme5k']));
+    expect(ids).not.toContain('hall');
+    expect(byId('explorer').progress(ctx)).toEqual([4, 10]);
+    // Progress never shows past the target.
+    expect(byId('fans').progress(ctx)).toEqual([25, 25]);
+    expect(new Set(BADGES.map((b) => b.id)).size).toBe(BADGES.length);
+  });
+
   it('only shows titles and badges you have earned', () => {
     const save = createSave();
     save.profile.title = 'legend';

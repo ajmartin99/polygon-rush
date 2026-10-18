@@ -79,6 +79,8 @@ export class GameController {
   private biomeOffset = 0;
   private lastBiome = -1;
   private lastMilestone = 0;
+  /** This Daily Run is the Halloween one. */
+  private hauntedDaily = false;
   private frameSkip = false;
   private scene: Scene | null = null;
   /** Build rooms outlive the race played in them. */
@@ -218,6 +220,7 @@ export class GameController {
         const daily = v === 'daily';
         const seed = daily ? dailySeed() : (Math.random() * 2 ** 31) >>> 0;
         const haunted = daily && activeEvent()?.id === 'halloween';
+        this.hauntedDaily = haunted;
         const twist = daily ? dailyTwist(seed, haunted) : null;
         // Every run is built on the beat of the songs it will play.
         music.resetPlan(true, daily ? { songs: haunted ? [HAUNTED_SONG, ...eventTracks('halloween')] : dailySoundtrack(), seed } : undefined);
@@ -747,8 +750,13 @@ export class GameController {
     d.stats.runs += 1;
     d.stats.totalDistance += distance;
     if (v === 'classic' || v === 'oneheart') d.stats.bestDistance = Math.max(d.stats.bestDistance, distance);
+    if (v === 'daily') {
+      d.stats.dailyRuns += 1;
+      if (this.hauntedDaily) d.stats.hauntedBest = Math.max(d.stats.hauntedBest, distance);
+    }
     const bonus: string[] = [];
     if (v === 'daily' && distance >= DAILY_TARGET && !d.best[dailyRewardKey()]) {
+      d.stats.dailyTargets += 1;
       d.best[dailyRewardKey()] = 1;
       store.addGems(DAILY_REWARD);
       bonus.push(`Daily Run: reached ${DAILY_TARGET} m! +${DAILY_REWARD} gems`);

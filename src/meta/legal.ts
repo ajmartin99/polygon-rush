@@ -37,6 +37,10 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
     body: 'Sharing a level creates a code containing only the level itself, its name and the racer names of the players who built it.',
   },
   {
+    title: 'Community levels',
+    body: 'When you share a level to Community, our server stores its level code (the level, its name and the racer names of its builders) linked to your player, plus how many players played, beat and liked it. Anyone using Community can play it and sees your racer name without your #number. We also store which community levels you played, beat, liked or reported, so counts stay fair and Suggested shows levels you haven’t played. There is no text besides level names, which for players 13+ pass the same filter as racer names. Players can report a level; several reports hide it until our safety team looks. You can unshare a level any time in Create > Community > My Shared. Parents can turn Community levels off in Settings > Parental Controls.',
+  },
+  {
     title: 'Public rooms and Quick Match (13+)',
     body: 'A host aged 13+ can list a race or build room publicly, and Quick Match joins one at random. The list shows the room code, a generated room name and colours, the host’s racer name and the number of players. Race rooms leave the list when the race starts. If someone reports a public build room, a snapshot of the level is sent to our safety team.',
   },
@@ -58,7 +62,7 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'Deleting your data',
-    body: `Use Settings > Reset Progress or uninstall the app to delete data on your device (delete levels in Create > My Levels). Delete your #number, friends list and invites from our server in Friends > Delete friends data. Delete a Free Chat account and its messages in Settings > Chat & Community > Delete chat account, or on the web at ${deletionUrl}. Ad-related data held by Google can be managed in your device’s Google settings.`,
+    body: `Use Settings > Reset Progress or uninstall the app to delete data on your device (delete levels in Create > My Levels). Delete your #number, friends list, invites and shared levels from our server in Friends > Delete friends data. Delete a Free Chat account and its messages in Settings > Chat & Community > Delete chat account, or on the web at ${deletionUrl}. Ad-related data held by Google can be managed in your device’s Google settings.`,
   },
   {
     title: 'Contact',

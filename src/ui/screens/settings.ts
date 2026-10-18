@@ -89,6 +89,9 @@ async function openParentalControls(): Promise<void> {
         serverAvailable()
           ? row('users', 'Friends', 'Add friends by their Name#number, see who’s online and get invites to their rooms. No messages.', toggle(s.friends, (v) => store.setSetting('friends', v), 'Friends'))
           : null,
+        serverAvailable()
+          ? row('build', 'Community levels', 'Play levels other players built and share your own. Levels carry no messages, and the builder shows by racer name only.', toggle(s.sharedLevels, (v) => store.setSetting('sharedLevels', v), 'Community levels'))
+          : null,
         row('chat', 'Quick Chat', 'Preset friendly phrases and emotes in online rooms. No typing.', toggle(s.quickChat, (v) => store.setSetting('quickChat', v), 'Quick Chat')),
         teenPlus && serverAvailable()
           ? row('public', 'Public build rooms', 'Let your teen find and join build rooms hosted by other players (13+).', toggle(s.publicRooms, (v) => store.setSetting('publicRooms', v), 'Public build rooms'))

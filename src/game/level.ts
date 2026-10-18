@@ -4,6 +4,7 @@ import { MAX_OBJ_W, World, type PickupType, type SolidRole, type WorldObj } from
 import { decodeName, encodeName } from '../meta/names';
 import { checkDisplayText } from '../shared/chat-filter';
 import { isAllowedName } from '../meta/names-policy';
+import { LEVEL_CODE_PREFIX, LEVEL_CODE_VERSION, LevelCodeFormatError, levelChecksum, readLevelCode, type RawLevelCode } from '../shared/level-code';
 
 /**
  * Player-made levels ("Create" mode). A level is a grid of pieces between the
@@ -405,15 +406,14 @@ export function pieceCount(l: Pick<LevelContent, 'pieces'>): number {
 
 // ------------------------------------------------------------------ share codes
 const TYPE_CODES: PieceType[] = ['block', 'platform', 'spike', 'saw', 'gem', 'pad', 'orb', 'portal'];
-/** v1: generated names only. v2: adds custom author names and an optional typed title. */
-const CODE_VERSION = 2;
+const CODE_VERSION = LEVEL_CODE_VERSION;
 /**
  * Highest music id a level can pick: synth songs and recorded tracks (see
  * core/tracks). The player's own files (200+) never go into a level.
  * v1 codes carry the song in 5 bits of the theme byte; v2 has a full byte.
  */
 export const MAX_LEVEL_SONG = 198;
-export const CODE_PREFIX = 'PR1-';
+export const CODE_PREFIX = LEVEL_CODE_PREFIX;
 
 function pieceByte(p: Piece): number {
   if (p.t === 'pickup') return ((8 + p.v) << 4) | (p.y << 1);
@@ -441,28 +441,10 @@ function pushVarint(out: number[], n: number): void {
   out.push(n);
 }
 
-function checksum(bytes: number[] | Uint8Array, n = bytes.length): number {
-  let a = 1;
-  let b = 0;
-  for (let i = 0; i < n; i++) {
-    a = (a + bytes[i]) % 251;
-    b = (b + a) % 251;
-  }
-  return (b << 8) | a;
-}
-
 function toBase64Url(bytes: number[]): string {
   let bin = '';
   for (const b of bytes) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-function fromBase64Url(s: string): Uint8Array {
-  const b64 = s.replace(/-/g, '+').replace(/_/g, '/');
-  const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
-  const out = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
 }
 
 /** Compact, copy-pasteable level code. Only level content travels — never personal data. */
@@ -489,7 +471,7 @@ export function encodeLevel(l: LevelContent): string {
     lastX = p.x;
     out.push(pieceByte(p));
   }
-  const c = checksum(out);
+  const c = levelChecksum(out);
   out.push(c >> 8, c & 0xff);
   return CODE_PREFIX + toBase64Url(out);
 }
@@ -502,76 +484,29 @@ function pushText(out: number[], text: string): void {
 export class LevelCodeError extends Error {}
 
 export function decodeLevel(code: string): LevelContent {
-  let s = code.trim().replace(/\s+/g, '');
-  if (s.toUpperCase().startsWith(CODE_PREFIX)) s = s.slice(CODE_PREFIX.length);
-  if (!s || !/^[A-Za-z0-9_-]+$/.test(s)) throw new LevelCodeError('That doesn’t look like a level code.');
-  let bytes: Uint8Array;
+  let raw: RawLevelCode;
   try {
-    bytes = fromBase64Url(s);
-  } catch {
-    throw new LevelCodeError('That doesn’t look like a level code.');
+    raw = readLevelCode(code);
+  } catch (e) {
+    throw new LevelCodeError(e instanceof LevelCodeFormatError ? e.message : 'That level code is damaged.');
   }
-  if (bytes.length < 11 + (bytes[0] >= 2 ? 2 : 0)) throw new LevelCodeError('That level code is incomplete.');
-  const n = bytes.length - 2;
-  if (checksum(bytes, n) !== ((bytes[n] << 8) | bytes[n + 1])) throw new LevelCodeError('That level code is incomplete or has a typo.');
-  const version = bytes[0];
-  if (version !== 1 && version !== CODE_VERSION) throw new LevelCodeError('This level needs a newer version of Polygon Rush.');
-  let i = 1;
-  const byte = () => {
-    if (i >= n) throw new LevelCodeError('That level code is incomplete.');
-    return bytes[i++];
-  };
-  const varint = () => {
-    let v = 0;
-    let shift = 0;
-    for (;;) {
-      const b = byte();
-      v |= (b & 0x7f) << shift;
-      if (!(b & 0x80)) return v >>> 0;
-      shift += 7;
-      if (shift > 21) throw new LevelCodeError('That level code is damaged.');
-    }
-  };
-  const tm = byte();
-  const theme = tm & 7;
-  const music = (version >= 2 ? byte() : tm >> 3) - 1;
-  const sh = byte();
-  const length = byte() | (byte() << 8);
-  const name: [number, number] = [byte(), byte()];
-  const text = () => {
-    const len = byte();
-    if (len > 32) throw new LevelCodeError('That level code is damaged.');
-    let t = '';
-    for (let k = 0; k < len; k++) t += String.fromCharCode(byte());
-    return t;
-  };
   const authors: string[] = [];
-  const na = byte();
-  for (let k = 0; k < na; k++) {
-    const first = byte();
-    if (version >= 2 && first === 254) {
-      const nm = text();
-      if (isAllowedName(nm)) authors.push(nm);
+  for (const a of raw.authors) {
+    if ('text' in a) {
+      if (isAllowedName(a.text)) authors.push(a.text);
     } else {
-      const nm = decodeName([first, byte(), byte()]);
+      const nm = decodeName(a.gen);
       if (nm) authors.push(nm);
     }
   }
-  let title: string | undefined;
-  if (version >= 2) {
-    const mark = byte();
-    if (mark === 254) title = text();
-  }
-  const count = varint();
-  if (count > MAX_PIECES) throw new LevelCodeError('That level is too big.');
   const pieces: Piece[] = [];
   let x = 0;
-  for (let k = 0; k < count; k++) {
-    x += varint();
-    const p = pieceFromByte(byte(), x);
+  for (const q of raw.pieces) {
+    x += q.dx;
+    const p = pieceFromByte(q.byte, x);
     if (p) pieces.push(p);
   }
-  const content = sanitizeContent({ name, title, authors, theme, music, speed: sh >> 4, hearts: HEART_OPTIONS[sh & 15] ?? 3, length, pieces });
+  const content = sanitizeContent({ name: raw.name, title: raw.title, authors, theme: raw.theme, music: raw.music, speed: raw.speed, hearts: HEART_OPTIONS[raw.hearts] ?? 3, length: raw.length, pieces });
   if (!content) throw new LevelCodeError('That level code is damaged.');
   return content;
 }

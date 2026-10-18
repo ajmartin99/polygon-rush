@@ -27,7 +27,7 @@ export const INVITE_MS = 10 * 60_000;
 const ACTIVITIES = ['menu', 'race', 'build', 'play'] as const;
 export type Activity = (typeof ACTIVITIES)[number];
 
-interface PlayerRow {
+export interface PlayerRow {
   id: string;
   key_hash: string;
   name: string;
@@ -139,7 +139,7 @@ export class PlayerService {
   }
 
   /** The caller, or 401 if this device hasn't registered yet. */
-  private me(body: Record<string, unknown>, now = Date.now()): PlayerRow {
+  me(body: Record<string, unknown>, now = Date.now()): PlayerRow {
     const row = this.q<PlayerRow>('SELECT * FROM players WHERE key_hash = ?', this.keyHash(body.key));
     if (!row) throw new ApiError(401, 'not_registered', 'Please restart the app.');
     // A moderator banned this name since: the app must pick a new one.
@@ -381,6 +381,16 @@ export class PlayerService {
   dismissInvite(body: Record<string, unknown>, now = Date.now()): void {
     const me = this.me(body, now);
     this.x('DELETE FROM invites WHERE id = ? AND to_id = ?', typeof body.id === 'string' ? body.id : '', me.id);
+  }
+
+  /** Ids of this player's friends. */
+  friendIds(id: string): string[] {
+    return this.qa<{ id: string }>('SELECT CASE WHEN a = ? THEN b ELSE a END AS id FROM friends WHERE a = ? OR b = ?', id, id, id).map((r) => r.id);
+  }
+
+  /** Ids of players this player blocked. */
+  blockedIds(id: string): string[] {
+    return this.qa<{ id: string }>('SELECT blocked_id AS id FROM blocks WHERE by_id = ?', id).map((r) => r.id);
   }
 
   /** Expired invites; players unseen for `inactiveDays` (and everything of theirs). */

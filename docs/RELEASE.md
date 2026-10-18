@@ -32,8 +32,8 @@ In **Settings → Secrets and variables → Actions → Variables** (not secrets
 | `ADMOB_BANNER_ID` | `ca-app-pub-1234…/1111` | Banner unit |
 | `ADMOB_INTERSTITIAL_ID` | `ca-app-pub-1234…/2222` | Interstitial unit |
 | `ADMOB_REWARDED_ID` | `ca-app-pub-1234…/3333` | Rewarded unit |
-| `PRIVACY_URL` | `https://ajmartin99.github.io/polygon-rush/privacy.html` | Shown in Settings |
-| `SUPPORT_EMAIL` | `you@example.com` | Shown in the privacy policy |
+| `PRIVACY_URL` | `https://softgamebros.com/polygon-rush/privacy/` (the default) | Shown in Settings |
+| `SUPPORT_EMAIL` | `polygonrush@softgamebros.com` (the default) | Shown in Settings |
 | `SERVER_URL` | `https://polygon-rush-server.onrender.com` | Optional community server: public build rooms, Free Chat and room signalling (see below) |
 | `PEER_HOST` / `PEER_PORT` / `PEER_PATH` / `PEER_KEY` | | Your own PeerJS server (optional; defaults to `SERVER_URL`, else the free PeerJS cloud) |
 | `TURN_URL` / `TURN_USERNAME` + secret `TURN_CREDENTIAL` | | Optional TURN relay for strict mobile networks |
@@ -53,8 +53,8 @@ reliable room signalling. Details: [server/README.md](../server/README.md).
    `PUBLIC_URL` and `SUPPORT_EMAIL`. Keep the generated `ADMIN_TOKEN` somewhere safe.
 3. **Connect the app:** repository variable `SERVER_URL` = the server's https URL,
    then rebuild. Without it, Free Chat and public rooms are hidden.
-4. **Privacy policy:** replace `https://YOUR-COMMUNITY-SERVER/account/delete` in
-   `docs/privacy.html` with your server's address.
+4. **Privacy policy:** the deletion link in `site/polygon-rush/privacy/index.html` points at
+   `https://polygon-rush.softgamebros.com/account/delete`; give the Render service that custom domain.
 5. **Moderation:** someone must review reports daily. Read [SAFETY.md](SAFETY.md).
 6. **Play Console** (only when `SERVER_URL` is set):
    * *Content rating*: answer **yes** to "users can interact or exchange information"
@@ -62,7 +62,7 @@ reliable room signalling. Details: [server/README.md](../server/README.md).
      content (player-made levels in public rooms).
    * *Data safety*: add the extra rows in [store/listing.md](../store/listing.md#data-safety-form).
    * *Account deletion*: the in-app path is Settings → Chat & Community → Delete chat
-     account; the web URL is `https://YOUR-SERVER/account/delete`.
+     account; the web URL is `https://polygon-rush.softgamebros.com/account/delete`.
    * *User-generated content*: in-app reporting, blocking/muting, Community Rules
      acceptance and moderation are built in (see SAFETY.md).
 
@@ -92,7 +92,7 @@ The version code is derived from the version: `1.0.0` → `10000`, `1.2.3` → `
 4. **Target audience & content:** see [MONETIZATION.md](MONETIZATION.md#google-play-families-policy). The game is designed for mixed audiences (kids and adults) with a neutral age screen.
 5. **Data safety:** answers are in [store/listing.md](../store/listing.md#data-safety-form).
 6. **Store listing:** text in `store/listing.md`; graphics in `store/` (icon 512, feature graphic 1024×500, screenshots 1920×1080).
-7. **Privacy policy URL:** enable GitHub Pages (Settings → Pages → Deploy from branch → `main` / `docs`), then use `https://ajmartin99.github.io/polygon-rush/privacy.html`.
+7. **Privacy policy URL:** `https://softgamebros.com/polygon-rush/privacy/` (the studio site in `site/`, see **Studio website** below). Developer website: `https://softgamebros.com`, email: `polygonrush@softgamebros.com`.
 8. Add license testers (Setup → License testing) to try purchases for free, then roll out to production.
 
 ## 5. Install the APK directly
@@ -107,3 +107,17 @@ Icons, splash screens and store graphics are drawn with the game's own renderer:
 npm run dev
 npx -y -p playwright@1 node scripts/generate-art.mjs
 ```
+
+## Studio website (softgamebros.com)
+
+The `site/` folder is the Soft Game Bros website: the studio page, the Polygon Rush page and its privacy policy. It is plain HTML and CSS (no build step), served by Cloudflare Pages:
+
+1. Cloudflare → **Workers & Pages** → Create → **Pages** → Connect to Git → `ajmartin99/polygon-rush`.
+2. Production branch `main`, framework preset **None**, build command empty, build output directory `site`.
+3. After the first deploy: the project → **Custom domains** → add `softgamebros.com` and `www.softgamebros.com`.
+
+Every push to `main` that changes `site/` redeploys it. Edit `site/polygon-rush/privacy/index.html` and `src/meta/legal.ts` together so the web and in-app policies match.
+
+**AdMob:** once you have an AdMob account, add `site/app-ads.txt` with the line AdMob shows you (`google.com, pub-…, DIRECT, f08c47fec0942fa0`) and set the Play listing's website to `https://softgamebros.com`.
+
+**Email:** Cloudflare → softgamebros.com → Email → Email Routing forwards `polygonrush@`, `privacy@` and `safety@` to the owner's inbox.

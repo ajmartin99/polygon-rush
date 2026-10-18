@@ -121,6 +121,7 @@ user-generated content).
 minor, attempts to obtain images): ban the account immediately, then:
 
 * **Imminent risk of harm:** contact local emergency services / police.
+* **Where reports from parents arrive:** `safety@softgamebros.com` (privacy and data requests: `privacy@softgamebros.com`).
 * **Suspected child sexual exploitation:** in the United States, online service
   providers must report apparent child sexual exploitation to the NCMEC
   CyberTipline (report.cybertip.org). Elsewhere, report to your national hotline

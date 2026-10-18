@@ -37,6 +37,10 @@ FEATURES
 
 Easy to learn, hard to master. How far can YOU rush?
 
+## Contact
+* Developer: Soft Game Bros · website `https://softgamebros.com` · email `polygonrush@softgamebros.com`
+* Privacy policy: `https://softgamebros.com/polygon-rush/privacy/`
+
 ## Category / tags
 Game → Arcade. Tags: Runner, Casual, Platformer, Racing, Kids, Rhythm.
 
@@ -68,7 +72,7 @@ Ages 5–8, 9–12, 13–15, 16–17, 18+ (mixed audience, with a neutral age sc
 * **Personal info → User IDs:** a random player id and a hashed random device key (no Google or ad id).
 * **App activity → Other actions:** friends list, friend requests, blocks, online status (menu / playing / building / in a room) and room invites (a room code). Purpose: app functionality. Deleted after 2 years unused, or in-app (Friends → Delete friends data).
 * **App activity → Other user-generated content:** a snapshot of a public build room's level when someone reports it.
-* Data is encrypted in transit (https/wss). Account deletion: in-app (Settings → Chat & Community) and web (`https://YOUR-SERVER/account/delete`).
+* Data is encrypted in transit (https/wss). Account deletion: in-app (Settings → Chat & Community) and web (`https://polygon-rush.softgamebros.com/account/delete`).
 
 ## Graphics
 * App icon 512×512: `store/icon-512.png`

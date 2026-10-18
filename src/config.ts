@@ -84,6 +84,6 @@ export const CONFIG = {
     roomPrefix: 'polygonrush-v1-',
     maxPlayers: 4,
   },
-  privacyUrl: str(env.VITE_PRIVACY_URL, 'https://ajmartin99.github.io/polygon-rush/privacy.html'),
-  supportEmail: str(env.VITE_SUPPORT_EMAIL, ''),
+  privacyUrl: str(env.VITE_PRIVACY_URL, 'https://softgamebros.com/polygon-rush/privacy/'),
+  supportEmail: str(env.VITE_SUPPORT_EMAIL, 'polygonrush@softgamebros.com'),
 } as const;

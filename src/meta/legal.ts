@@ -60,4 +60,8 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
     title: 'Deleting your data',
     body: `Use Settings > Reset Progress or uninstall the app to delete data on your device (delete levels in Create > My Levels). Delete your #number, friends list and invites from our server in Friends > Delete friends data. Delete a Free Chat account and its messages in Settings > Chat & Community > Delete chat account, or on the web at ${deletionUrl}. Ad-related data held by Google can be managed in your device’s Google settings.`,
   },
+  {
+    title: 'Contact',
+    body: 'Soft Game Bros. Data and privacy requests: privacy@softgamebros.com. Safety concerns: safety@softgamebros.com. Help with the game: polygonrush@softgamebros.com.',
+  },
 ];

@@ -4,6 +4,8 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-10-18
+
 ### Changed
 - **Battery:** nothing runs in the background any more (the music scheduler stops and Android pauses the game's web view when it leaves the screen). 90/120 Hz screens switch to 60 Hz while the game is open (it never draws faster), Auto graphics renders a little lower, the menu's bobbing animations play a few times and stop, and the menu backdrop demo rests after 45 seconds without a touch.
 - **Every Endless level is exactly one song long.** The level starts when its song starts and ends when the song ends, so the music never cuts off mid-song (or right at the drop): the "Level N" banner, the new world and the next song all arrive together. Levels now vary in length with their songs (about 45 seconds to 5 minutes; very short songs play twice). The Levels screen unlocks every level you've reached (older saves convert from their best distance), and each level still hides one Golden Shape.

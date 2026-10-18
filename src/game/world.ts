@@ -34,6 +34,20 @@ export interface Saw extends Base {
   x: number;
   y: number;
   r: number;
+  /**
+   * Moving saw: slides from y=`from` to y=`to` while the runner travels from
+   * `ax` to `bx`. Tied to the runner's position (not the clock), so it is
+   * the same for physics, the bot and the screen.
+   */
+  move?: { ax: number; bx: number; from: number; to: number };
+}
+
+/** Where a (possibly moving) saw is when the runner is at `runnerX`. */
+export function sawY(s: Saw, runnerX: number): number {
+  const m = s.move;
+  if (!m) return s.y;
+  const t = Math.min(1, Math.max(0, (runnerX - m.ax) / (m.bx - m.ax)));
+  return m.from + (m.to - m.from) * t * t * (3 - 2 * t);
 }
 
 export interface Gem extends Base {
@@ -79,6 +93,14 @@ export interface MysteryBox extends Base {
   y: number;
 }
 
+/** A hidden egg: one per Endless level (1-based), off the main path. */
+export interface Secret extends Base {
+  kind: 'secret';
+  x: number;
+  y: number;
+  level: number;
+}
+
 export interface Finish extends Base {
   kind: 'finish';
   x: number;
@@ -93,7 +115,7 @@ export interface Hint extends Base {
   key: string;
 }
 
-export type WorldObj = Solid | Spike | Saw | Gem | Pad | Orb | Portal | Pickup | MysteryBox | Finish | Hint;
+export type WorldObj = Solid | Spike | Saw | Gem | Pad | Orb | Portal | Pickup | MysteryBox | Finish | Hint | Secret;
 
 /** A stretch of track with one shape mode (used for rendering ceilings, music and bots). */
 export interface Section {

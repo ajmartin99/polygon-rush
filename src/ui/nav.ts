@@ -50,7 +50,16 @@ export type PlayRequest =
       /** Where Back / Quit goes (editor or level list). */
       exit: () => void;
       onResult?: (r: LevelRunResult) => void;
+      /** Community levels: thumbs up/down on the results screen. */
+      rate?: LevelRating;
     };
+
+export interface LevelRating {
+  /** 1 up, -1 down, 0 none. */
+  vote: number;
+  /** Send a vote; resolves to the vote the server kept. */
+  onVote: (vote: -1 | 0 | 1) => Promise<number>;
+}
 
 type Factory = (params?: Record<string, unknown>) => Screen;
 

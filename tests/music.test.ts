@@ -122,4 +122,23 @@ describe('music director', () => {
     music.level(-1, 4);
     expect(played.at(-1)).toBe(4);
   });
+
+  it('beat-synced runs: each level plays the song its course was built on', () => {
+    music.resetPlan(true);
+    const grids = [0, 1, 2, 3].map((l) => music.planLevel(l));
+    for (const g of grids) expect(g && g.bpm).toBeGreaterThan(40);
+    music.run(0, 0);
+    const first = played.at(-1)!;
+    expect(music.syncSong).toEqual({ id: first, level: 0 });
+    music.world(1, 1);
+    const second = played.at(-1)!;
+    expect(second).not.toBe(first);
+    expect(music.syncSong?.level).toBe(1);
+    // The song a level was planned with is the one that plays (same tempo as its course).
+    expect(music.planLevel(1)).toEqual(grids[1]);
+    // A song ending mid-level doesn't switch away from the level's song.
+    audio.onSongEnd?.();
+    expect(played.at(-1)).toBe(second);
+    music.resetPlan(false);
+  });
 });

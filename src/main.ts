@@ -9,8 +9,10 @@ import { ads } from './services/ads';
 import { iap } from './services/iap';
 import { account } from './services/account';
 import { ui } from './ui/ui';
+import { CONFIG } from './config';
+import { grantBeta } from './meta/beta';
 import { nav } from './ui/nav';
-import { localCard, ProfileScreen } from './ui/profile';
+import { localCard, ProfileScreen, watchBadges } from './ui/profile';
 import { ModesScreen } from './ui/screens/modes';
 import { LevelsScreen } from './ui/screens/levels';
 import { setLocalCard } from './services/net';
@@ -29,6 +31,8 @@ import { GameController } from './game/controller';
 import { audio } from './core/audio';
 import { music } from './core/music';
 import { myMusic } from './services/mymusic';
+import { serverAvailable, setServerFeatures } from './meta/community';
+import { serverApi } from './services/server';
 import { friends } from './services/friends';
 import { initFriendInvites } from './ui/friend-invites';
 import { SONGS } from './core/songs';
@@ -58,6 +62,8 @@ async function boot(): Promise<void> {
   registerRoutes();
   await Promise.all([store.load(), levels.load()]);
   ensureMissions(store.data);
+  // Beta builds (1.0.x): thank testers with exclusive items, once.
+  const betaGift = grantBeta(store.data, CONFIG.version);
   store.commit();
 
   document.documentElement.classList.toggle('reduced-motion', store.settings.reducedMotion);
@@ -78,6 +84,9 @@ async function boot(): Promise<void> {
   initFriendInvites();
   friends.on('notice', (msg) => ui.toast(msg, 'info', 4500));
   friends.start();
+  watchBadges();
+  if (betaGift) setTimeout(() => ui.toast('Thanks for beta testing! Beta Bot skin, Debug Pixels trail, 🧪 emote and 500 gems are yours forever.', 'gift', 6000), 2500);
+  if (serverAvailable()) void serverApi<{ freeChat?: boolean }>('/api/status').then(setServerFeatures, () => undefined);
   game.startAttract();
   if (import.meta.env.DEV) {
     // Dev-only hooks for automated audio checks and store screenshots.

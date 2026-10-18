@@ -142,7 +142,7 @@ export class FriendsScreen extends BaseScreen {
         'p.muted.small',
         { style: 'text-align:center;max-width:36rem' },
         publicOk
-          ? 'Private rooms: only people with the code. Public rooms and Quick Match: players 13+ can join. You only ever see racer names, skins and Quick Chat (plus Free Chat if you both verified).'
+          ? `Private rooms: only people with the code. Public rooms and Quick Match: players 13+ can join. You only ever see racer names, skins and Quick Chat${CONFIG.features.freeChat ? ' (plus Free Chat if you both verified)' : ''}.`
           : teen
             ? 'Quick Match and public rooms are switched off in Parental Controls.'
             : 'Players see each other’s racer name and skin, plus Quick Chat if it’s on. Building a level together? Use Create → Build Together.',

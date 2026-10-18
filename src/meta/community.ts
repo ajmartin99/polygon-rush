@@ -31,9 +31,24 @@ export function canUsePublicRooms(save: SaveData, now = new Date()): boolean {
   return serverAvailable() && save.settings.onlineAllowed && save.settings.publicRooms && ageOf(save.profile.birthYear, now) >= 13;
 }
 
+/** Community levels (play, like, share): server needed, online allowed and the parents' switch on. */
+export function canUseSharedLevels(save: SaveData): boolean {
+  return serverAvailable() && save.settings.onlineAllowed && save.settings.sharedLevels;
+}
+
 /** Free Chat can be offered (the player may start verification). */
+/**
+ * What the server says it can do (GET /api/status). Free Chat needs email
+ * for verification, so it stays hidden until the server reports it's live.
+ */
+const serverFeatures = { freeChat: false };
+
+export function setServerFeatures(f: { freeChat?: unknown }): void {
+  serverFeatures.freeChat = f.freeChat === true;
+}
+
 export function canOfferFreeChat(save: SaveData, now = new Date()): boolean {
-  return serverAvailable() && save.settings.onlineAllowed && freeChatPath(save.profile.birthYear, now) !== 'none';
+  return CONFIG.features.freeChat && serverAvailable() && serverFeatures.freeChat && save.settings.onlineAllowed && freeChatPath(save.profile.birthYear, now) !== 'none';
 }
 
 /** Verified, switched on and allowed right now. */

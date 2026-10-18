@@ -1,12 +1,13 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/config', async (importOriginal) => {
   const real = (await importOriginal()) as { CONFIG: Record<string, unknown> };
-  return { CONFIG: { ...real.CONFIG, server: { url: 'https://community.example' } } };
+  return { CONFIG: { ...real.CONFIG, server: { url: 'https://community.example' }, features: { freeChat: true } } };
 });
 
-const { ageOf, canOfferFreeChat, canUsePublicRooms, freeChatPath, freeChatReady } = await import('../src/meta/community');
+const { ageOf, canOfferFreeChat, canUsePublicRooms, freeChatPath, freeChatReady, setServerFeatures } = await import('../src/meta/community');
 const { createSave } = await import('../src/state/save');
+const { CONFIG } = await import('../src/config');
 
 const NOW = new Date('2026-10-14T12:00:00Z');
 const born = (age: number) => NOW.getFullYear() - age - 1;
@@ -18,6 +19,29 @@ function save(age: number) {
 }
 
 describe('community rules', () => {
+  beforeEach(() => {
+    (CONFIG.features as { freeChat: boolean }).freeChat = true;
+    setServerFeatures({ freeChat: true });
+  });
+
+  it('Free Chat stays off when the app is built without it', () => {
+    (CONFIG.features as { freeChat: boolean }).freeChat = false;
+    const s = save(20);
+    s.account.token = 't';
+    s.account.consent = 'self';
+    s.settings.freeChat = true;
+    expect(canOfferFreeChat(s, NOW)).toBe(false);
+    expect(freeChatReady(s, NOW)).toBe(false);
+  });
+
+  it('hides Free Chat until the server says email works', () => {
+    const s = save(16);
+    setServerFeatures({});
+    expect(canOfferFreeChat(s, NOW)).toBe(false);
+    setServerFeatures({ freeChat: true });
+    expect(canOfferFreeChat(s, NOW)).toBe(true);
+  });
+
   it('ages are conservative (birthday assumed later this year)', () => {
     expect(ageOf(2010, NOW)).toBe(15);
     expect(ageOf(null, NOW)).toBe(0);

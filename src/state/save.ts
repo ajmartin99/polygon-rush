@@ -28,6 +28,8 @@ export interface Settings {
   publicRooms: boolean;
   /** Parental control: friends list, online status and room invites. */
   friends: boolean;
+  /** Parental control: play, like and share levels in the Community tab. */
+  sharedLevels: boolean;
   /** Parental control: allow in-app purchases. */
   purchasesAllowed: boolean;
   showFps: boolean;
@@ -63,6 +65,33 @@ export interface Stats {
   onlinePlayed: number;
   onlineWon: number;
   playSeconds: number;
+  /** Daily Runs played, and how many reached the day's target. */
+  dailyRuns: number;
+  dailyTargets: number;
+  /** Best distance in a Haunted Daily (Halloween). */
+  hauntedBest: number;
+  /** Community levels beaten from the start (each counted once). */
+  communityClears: number;
+  /** Most friends at once. */
+  friendsMax: number;
+}
+
+/** Level builder numbers for badges (community numbers come from the server). */
+export interface CreatorProgress {
+  /** Levels shared to Community right now. */
+  shared: number;
+  /** Plays, clears and likes your shared levels got (best seen). */
+  plays: number;
+  clears: number;
+  likes: number;
+  /** Local ids of levels you shared at some point. */
+  sharedIds: string[];
+  /** Community level ids you beat (so each counts once). */
+  clearedIds: string[];
+}
+
+export function emptyCreator(): CreatorProgress {
+  return { shared: 0, plays: 0, clears: 0, likes: 0, sharedIds: [], clearedIds: [] };
 }
 
 export interface SaveData {
@@ -82,6 +111,8 @@ export interface SaveData {
     nameKey: string;
     /** 4-digit tag after the name ("Neon Fox#0427"), given by the server; 0 = none yet. */
     tag: number;
+    /** Badges already announced ('*' first once the baseline is set). */
+    badgesSeen: string[];
   };
   gems: number;
   xp: number;
@@ -91,8 +122,15 @@ export interface SaveData {
   trails: { owned: string[]; equipped: string };
   /** Emotes for podiums and lobbies (free ones are always owned). */
   emotes: { owned: string[] };
+  /** Quick Chat phrase packs bought in the Shop. */
+  phrases: { owned: string[] };
+  /** Secret eggs found: Endless level numbers (1-based). */
+  secrets: { found: number[] };
+  /** Played the beta (1.0.x): exclusive rewards granted. */
+  beta: { tester: boolean; version: string; at: number };
   best: Record<string, number>;
   stats: Stats;
+  creator: CreatorProgress;
   missions: { active: MissionState[]; completed: number; counter: number };
   daily: { lastClaim: string | null; day: number; cycles: number };
   purchases: { noAds: boolean; starter: boolean; legend: boolean; gemPacks: number; tx: string[] };
@@ -137,6 +175,7 @@ export const DEFAULT_SETTINGS: Settings = {
   freeChat: false,
   publicRooms: true,
   friends: true,
+  sharedLevels: true,
   purchasesAllowed: true,
   showFps: false,
   musicOff: [],
@@ -160,6 +199,11 @@ export function emptyStats(): Stats {
     onlinePlayed: 0,
     onlineWon: 0,
     playSeconds: 0,
+    dailyRuns: 0,
+    dailyTargets: 0,
+    hauntedBest: 0,
+    communityClears: 0,
+    friendsMax: 0,
   };
 }
 
@@ -167,7 +211,7 @@ export function createSave(now = Date.now()): SaveData {
   return {
     v: SAVE_VERSION,
     createdAt: now,
-    profile: { name: '', birthYear: null, ageGroup: null, title: '', banner: 0, showcase: [], nameKey: '', tag: 0 },
+    profile: { name: '', birthYear: null, ageGroup: null, title: '', banner: 0, showcase: [], nameKey: '', tag: 0, badgesSeen: [] },
     gems: 100,
     xp: 0,
     level: 1,
@@ -175,8 +219,12 @@ export function createSave(now = Date.now()): SaveData {
     skins: { owned: ['classic'], equipped: 'classic' },
     trails: { owned: ['none'], equipped: 'none' },
     emotes: { owned: [...FREE_EMOTES] },
+    phrases: { owned: [] },
+    secrets: { found: [] },
+    beta: { tester: false, version: '', at: 0 },
     best: {},
     stats: emptyStats(),
+    creator: emptyCreator(),
     missions: { active: [], completed: 0, counter: 0 },
     daily: { lastClaim: null, day: 0, cycles: 0 },
     purchases: { noAds: false, starter: false, legend: false, gemPacks: 0, tx: [] },
@@ -244,7 +292,7 @@ function clamp01(n: number): number {
   return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 1;
 }
 
-export const DIFFICULTY_NAMES: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+export const DIFFICULTY_NAMES: Record<Difficulty, string> = { easy: 'Easy', medium: 'Normal', hard: 'Extreme' };
 
 /** Endless records are kept per difficulty (medium keeps the original key). */
 export function endlessBestKey(s: Pick<Settings, 'kidMode' | 'difficulty'>): string {

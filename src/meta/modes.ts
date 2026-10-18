@@ -63,7 +63,7 @@ export function pruneDaily(best: Record<string, number>, now = new Date()): void
 
 export const VARIANT_INFO: Record<EndlessVariant, { name: string; blurb: string }> = {
   classic: { name: 'Endless', blurb: 'The classic rush. How far can you go?' },
-  daily: { name: 'Daily Run', blurb: 'One course for everyone today. No revives!' },
+  daily: { name: 'Daily Run', blurb: 'A new course every day, the same for everyone, with its own soundtrack. No revives!' },
   oneheart: { name: 'One Heart', blurb: 'One bump and it’s over. For pros.' },
   gemrush: { name: 'Gem Rush', blurb: `${GEM_RUSH_SECONDS} seconds. Grab every gem, and bumps drop 5!` },
 };
@@ -92,4 +92,56 @@ export function levelWorld(level: number): number {
 export function clampStartLevel(level: number | undefined, bestDistance: number): number {
   const n = Math.floor(level ?? 1);
   return n >= 1 && n <= unlockedLevels(bestDistance) ? n : 1;
+}
+
+export interface DailyTwist {
+  /** The shape today's course starts in. */
+  startMode: 'square' | 'triangle' | 'hexagon' | 'diamond';
+  /** Moving saws from the start (heat never drops below this). */
+  heatFloor: number;
+  /** Shape sections are this long (shorter = more shape changes). */
+  sectionScale: number;
+  gemChance?: number;
+  /** Short labels for the Daily card ("Glider start · Saw Storm"). */
+  labels: string[];
+}
+
+const START_NAMES = { square: 'Jumper', triangle: 'Glider', hexagon: 'Roller', diamond: 'Hopper' } as const;
+
+/**
+ * Each day's course has its own character, not just a new layout: a
+ * starting shape and one twist, picked from the day's seed (so everyone
+ * gets the same). Spooky Season always brings the ghost saws.
+ */
+export function dailyTwist(seed: number, haunted: boolean): DailyTwist {
+  let h = (seed ^ 0x2545f491) >>> 0;
+  const next = () => {
+    h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d) >>> 0;
+    h = (h ^ (h >>> 12)) >>> 0;
+    return h / 4294967296;
+  };
+  const modes = ['square', 'triangle', 'hexagon', 'diamond'] as const;
+  const startMode = modes[Math.floor(next() * modes.length)];
+  const t: DailyTwist = { startMode, heatFloor: 0, sectionScale: 1, labels: [`${START_NAMES[startMode]} start`] };
+  if (haunted) {
+    t.heatFloor = 0.35;
+    t.labels.push('Ghost saws');
+    return t;
+  }
+  const twist = Math.floor(next() * 4);
+  if (twist === 0) {
+    t.heatFloor = 0.3;
+    t.labels.push('Saw Storm');
+  } else if (twist === 1) {
+    t.sectionScale = 0.55;
+    t.labels.push('Shape Shifter');
+  } else if (twist === 2) {
+    t.gemChance = 0.75;
+    t.labels.push('Gem Shower');
+  } else {
+    t.heatFloor = 0.15;
+    t.sectionScale = 0.8;
+    t.labels.push('Remix');
+  }
+  return t;
 }

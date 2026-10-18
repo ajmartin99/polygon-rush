@@ -22,5 +22,7 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     environment: 'node',
+    // The long level-solvability runs take a few seconds each; leave room on busy CI machines.
+    testTimeout: 20_000,
   },
 });

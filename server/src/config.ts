@@ -12,6 +12,8 @@ export interface Config {
   /** Bearer token for the moderation API (disabled when empty). */
   adminToken: string;
   smtpUrl: string;
+  /** Typed Free Chat (accounts, email codes, /chat). Off unless FREE_CHAT=true. */
+  freeChat: boolean;
   mailFrom: string;
   /** Public base URL of this server (used in emails and the deletion page). */
   publicUrl: string;
@@ -27,6 +29,8 @@ export interface Config {
   supportEmail: string;
   /** Email codes one IP may request per hour (verification attempts get 4x). */
   ipLimitPerHour: number;
+  /** Email a note here for each beta tester sign-up (needs SMTP_URL). */
+  testerNotify: string;
 }
 
 const DEFAULT_ORIGINS = ['https://localhost', 'http://localhost', 'capacitor://localhost', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:4173'];
@@ -51,6 +55,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     secret,
     adminToken: env.ADMIN_TOKEN && env.ADMIN_TOKEN.length >= 24 ? env.ADMIN_TOKEN : '',
     smtpUrl: env.SMTP_URL || '',
+    freeChat: env.FREE_CHAT === 'true',
     mailFrom: env.MAIL_FROM || 'Polygon Rush <no-reply@localhost>',
     publicUrl: (env.PUBLIC_URL || `http://localhost:${int(env.PORT, 8080)}`).replace(/\/+$/, ''),
     allowedOrigins: env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean) : DEFAULT_ORIGINS,
@@ -62,5 +67,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     inactiveAccountDays: int(env.INACTIVE_ACCOUNT_DAYS, 730),
     supportEmail: env.SUPPORT_EMAIL || '',
     ipLimitPerHour: int(env.IP_LIMIT_PER_HOUR, 8),
+    testerNotify: env.TESTER_NOTIFY || '',
   };
 }

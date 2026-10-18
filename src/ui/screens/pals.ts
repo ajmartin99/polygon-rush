@@ -235,7 +235,7 @@ export class PalsScreen extends BaseScreen {
           if (
             !(await confirm(
               'Delete friends data?',
-              'Removes your #number, friends list, requests and invites from our server. You get a new #number and start with no friends.',
+              'Removes your #number, friends list, requests, invites and shared Community levels from our server. You get a new #number and start with no friends.',
               'Delete',
               'Keep',
               true,

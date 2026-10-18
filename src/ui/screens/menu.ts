@@ -10,6 +10,8 @@ import { h, ic, fmt } from '../dom';
 import { nav } from '../nav';
 import { previewCanvas } from '../preview';
 import { ui } from '../ui';
+import { audio } from '../../core/audio';
+import { haptics } from '../../core/haptics';
 import { openDailyGift } from './missions';
 import { DIFFICULTY_NAMES, endlessBestKey } from '../../state/save';
 import { activeEvent } from '../../meta/events';
@@ -23,7 +25,7 @@ let eventPromptShown = false;
 
 export class MenuScreen extends BaseScreen {
   constructor() {
-    super();
+    super('.menu');
     const d = store.data;
     const kid = d.settings.kidMode;
     const bestKey = endlessBestKey(d.settings);
@@ -87,7 +89,7 @@ export class MenuScreen extends BaseScreen {
           'div.menu-left',
           null,
           h('div.logo', null, h('span.l1', null, 'POLYGON'), h('span.l2', null, 'RUSH')),
-          previewCanvas({ skin: d.skins.equipped, animate: true, scale: 0.62 }, 'hero-preview'),
+          heroPreview(),
           h('div.best-line', null, ic('crown'), 'Best', h('b', null, `${fmt(best)} m`)),
         ),
         h(
@@ -170,4 +172,19 @@ export class MenuScreen extends BaseScreen {
     });
     return true;
   }
+}
+
+/** The player's character on the home screen: tap it and it hops. */
+function heroPreview(): HTMLCanvasElement {
+  const c = previewCanvas({ skin: store.data.skins.equipped, animate: true, scale: 0.62 }, 'hero-preview tap');
+  c.setAttribute('role', 'button');
+  c.setAttribute('aria-label', 'Your racer');
+  c.addEventListener('click', () => {
+    c.classList.remove('hop');
+    void c.offsetWidth;
+    c.classList.add('hop');
+    audio.play('jump');
+    haptics.light();
+  });
+  return c;
 }

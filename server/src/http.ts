@@ -4,10 +4,12 @@ import type { ChatHub } from './chat.ts';
 import type { Config } from './config.ts';
 import type { Db } from './db.ts';
 import type { Mailer } from './mailer.ts';
-import { DELETE_JS, deletePage, landingPage } from './pages.ts';
+import { BETA_ADMIN_JS, BETA_JS, betaAdminPage, betaPage, DELETE_JS, deletePage, landingPage } from './pages.ts';
 import type { RoomDirectory } from './rooms.ts';
 import type { NameRegistry } from './names.ts';
 import type { PlayerService } from './players.ts';
+import type { LevelService } from './levels.ts';
+import type { TesterService } from './testers.ts';
 import { hmac, safeEqual } from './util.ts';
 
 export interface AppDeps {
@@ -18,6 +20,8 @@ export interface AppDeps {
   hub: ChatHub;
   names: NameRegistry;
   players: PlayerService;
+  levels: LevelService;
+  testers: TesterService;
   mailer: Mailer;
   version: string;
 }
@@ -46,7 +50,7 @@ export function ipKeyFor(cfg: Config, ip: string | undefined): string {
 }
 
 export function createApp(d: AppDeps): express.Express {
-  const { cfg, db, accounts, rooms, hub, names, players } = d;
+  const { cfg, db, accounts, rooms, hub, names, players, levels, testers } = d;
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', cfg.trustProxy ? 1 : false);
@@ -80,14 +84,24 @@ export function createApp(d: AppDeps): express.Express {
   app.get('/', (_req, res) => html(res, landingPage(cfg)));
   app.get('/account/delete', (_req, res) => html(res, deletePage(cfg)));
   app.get('/account/delete.js', (_req, res) => res.type('application/javascript').send(DELETE_JS));
+  app.get('/beta', (_req, res) => html(res, betaPage()));
+  app.get('/beta.js', (_req, res) => res.type('application/javascript').send(BETA_JS));
+  app.get('/beta/admin', (_req, res) => html(res, betaAdminPage()));
+  app.get('/beta/admin.js', (_req, res) => res.type('application/javascript').send(BETA_ADMIN_JS));
   app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
   // ------------------------------------------------------------ public API
   app.get(
     '/api/status',
-    route(() => ({ ok: true, version: d.version, freeChat: d.mailer.real || !cfg.production, publicRooms: true })),
+    route(() => ({ ok: true, version: d.version, freeChat: cfg.freeChat && (d.mailer.real || !cfg.production), publicRooms: true, sharedLevels: true })),
   );
 
+  // Free Chat sign-up is switched off unless FREE_CHAT=true (deleting an old account always works).
+  const freeChatOn = (_req: Request, res: Response, next: NextFunction) => {
+    if (cfg.freeChat) return next();
+    res.status(403).json({ error: 'free_chat_off', message: 'Free Chat isn’t available.' });
+  };
+  app.use(['/api/account/start', '/api/account/verify'], freeChatOn);
   app.post('/api/account/start', route((req) => accounts.start(req.body ?? {}, ipKey(req))));
   app.post('/api/account/verify', route((req) => accounts.verify(req.body ?? {}, ipKey(req))));
   app.get('/api/account/me', route((req) => ({ account: publicAccount(accounts.auth(bearer(req))) })));
@@ -140,6 +154,22 @@ export function createApp(d: AppDeps): express.Express {
     '/api/friends/invite/dismiss',
     route((req) => {
       players.dismissInvite(req.body ?? {});
+      return { ok: true };
+    }),
+  );
+  // Beta tester sign-ups from /beta.
+  app.post('/api/testers', route((req) => testers.signup(req.body ?? {}, ipKey(req))));
+
+  // Community levels: share, browse, play, like and report. Authorised by the device key.
+  app.post('/api/levels/publish', route((req) => levels.publish(req.body ?? {}, ipKey(req))));
+  app.post('/api/levels/browse', route((req) => levels.browse(req.body ?? {})));
+  app.post('/api/levels/:id/play', route((req) => levels.play(req.params.id, req.body ?? {})));
+  app.post('/api/levels/:id/like', route((req) => levels.like(req.params.id, req.body ?? {})));
+  app.post('/api/levels/:id/report', route((req) => levels.report(req.params.id, req.body ?? {})));
+  app.post(
+    '/api/levels/:id/unpublish',
+    route((req) => {
+      levels.unpublish(req.params.id, req.body ?? {});
       return { ok: true };
     }),
   );
@@ -286,6 +316,43 @@ export function createApp(d: AppDeps): express.Express {
     route((req) => {
       const ok = rooms.hide(req.params.code, (req.body ?? {}).hidden !== false);
       db.audit(actor, 'hide_room', req.params.code, null, Date.now());
+      return { ok };
+    }),
+  );
+  admin.get(
+    '/levels',
+    route((req) => {
+      const filter = req.query.filter === 'hidden' || req.query.filter === 'all' ? req.query.filter : 'reported';
+      return { levels: levels.adminList(filter, Math.min(500, Number(req.query.limit) || 100)) };
+    }),
+  );
+  admin.post(
+    '/levels/:id/hide',
+    route((req) => {
+      const hidden = (req.body ?? {}).hidden !== false;
+      const ok = levels.setHidden(req.params.id, hidden);
+      db.audit(actor, hidden ? 'hide_level' : 'restore_level', req.params.id, null, Date.now());
+      return { ok };
+    }),
+  );
+  admin.delete(
+    '/levels/:id',
+    route((req) => {
+      const ok = levels.remove(req.params.id);
+      db.audit(actor, 'delete_level', req.params.id, null, Date.now());
+      return { ok };
+    }),
+  );
+  admin.get('/testers', route((req) => ({ testers: testers.list(typeof req.query.status === 'string' ? req.query.status : undefined) })));
+  admin.get('/testers.csv', (_req, res) => {
+    res.type('text/csv').set('Content-Disposition', 'attachment; filename="polygon-rush-testers.csv"').send(testers.csv());
+  });
+  admin.post('/testers/:id', route((req) => ({ ok: testers.setStatus(req.params.id, (req.body ?? {}).status) })));
+  admin.delete(
+    '/testers/:id',
+    route((req) => {
+      const ok = testers.remove(req.params.id);
+      db.audit(actor, 'delete_tester', req.params.id, null, Date.now());
       return { ok };
     }),
   );

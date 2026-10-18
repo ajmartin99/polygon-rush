@@ -1,7 +1,7 @@
 import { Emitter } from '../core/emitter';
 import { Rng } from '../core/rng';
 import { DT, ENDLESS_TUNING, MODE_INDEX, PLAYER_HALF, RACE_SPEED, endlessSpeedAt, type Difficulty } from './constants';
-import { LevelGen } from './generator';
+import { LevelGen, type GenOptions } from './generator';
 import { buildWorld, levelSpeed, modeAt, type LevelContent } from './level';
 import { newEvents, stepBody } from './physics';
 import { Racer, type RacerSpec } from './racer';
@@ -31,6 +31,14 @@ export interface SessionOptions {
   stunOnly?: boolean;
   /** Endless: start this many metres in (a later level); distance counts from 0. */
   startDistance?: number;
+  /** Endless: build each level on its song's beat (see LevelGen). */
+  beat?: GenOptions['beat'];
+  /** Endless: Daily Run twists (see LevelGen). */
+  startMode?: GenOptions['startMode'];
+  heatFloor?: number;
+  sectionScale?: number;
+  /** Endless: hide a secret egg in each level. */
+  secrets?: boolean;
   tutorial?: boolean;
   /** Race length (race/duel/online). */
   length?: number;
@@ -49,6 +57,7 @@ export interface GameEvents extends Record<string, unknown> {
   shieldPop: { racer: Racer };
   gem: { racer: Racer; value: number; x: number; y: number };
   pickup: { racer: Racer; type: PickupType; x: number; y: number };
+  secret: { racer: Racer; level: number; x: number; y: number };
   box: { racer: Racer; item: BoxItem; x: number; y: number };
   snowed: { racer: Racer; from: Racer | null };
   portal: { racer: Racer; mode: ShapeMode };
@@ -106,6 +115,11 @@ export class GameSession extends Emitter<GameEvents> {
         difficulty: raceLike ? opts.difficulty ?? 0.35 : undefined,
         startX: START_X + offset,
         offset,
+        beat: raceLike ? undefined : opts.beat,
+        startMode: opts.startMode,
+        heatFloor: opts.heatFloor,
+        sectionScale: opts.sectionScale,
+        secrets: !raceLike && opts.secrets,
       });
       startX = START_X + offset;
       this.fixedSpeed = raceLike ? RACE_SPEED : null;
@@ -346,6 +360,14 @@ export class GameSession extends Emitter<GameEvents> {
             const value = o.big ? 5 : 1;
             r.gems += value;
             this.emit('gem', { racer: r, value, x: o.x, y: o.y });
+          }
+          break;
+        }
+        case 'secret': {
+          if (r.collected.has(o.id) || r.kind !== 'human') break;
+          if (Math.abs(o.x - b.x) < 0.85 && Math.abs(o.y - b.y) < 0.95) {
+            r.collected.add(o.id);
+            this.emit('secret', { racer: r, level: o.level, x: o.x, y: o.y });
           }
           break;
         }

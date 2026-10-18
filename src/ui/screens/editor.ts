@@ -14,6 +14,7 @@ import { TOOLS, type Tool } from '../../editor/tools';
 import { store } from '../../state/store';
 import { BaseScreen, button, confirm, parentalGate, segmented } from '../components';
 import { append, clear, h, ic } from '../dom';
+import type { IconName } from '../icons';
 import { nav } from '../nav';
 import { ui } from '../ui';
 import { ChatPanel } from '../chat-panel';
@@ -178,6 +179,7 @@ export class EditorScreen extends BaseScreen {
         ? (this.publicBtn = button({ icon: 'public', cls: 'icon ghost', aria: 'Make room public', onClick: () => void this.togglePublic() }))
         : null,
       room && !room.isHost && session.publicRoom ? button({ icon: 'report', cls: 'icon red', aria: 'Report this room', onClick: () => this.reportRoom() }) : null,
+      button({ icon: 'info', cls: 'icon ghost', aria: 'How to build', onClick: () => openEditorGuide() }),
       button({ icon: 'flag', cls: 'icon cyan', aria: 'Test from here', onClick: () => this.test(true) }),
       button({ label: 'Test', icon: 'play', cls: 'mint', onClick: () => this.test(false) }),
       room?.isHost ? button({ label: 'Race!', icon: 'users', cls: 'yellow', onClick: () => this.race() }) : null,
@@ -220,7 +222,7 @@ export class EditorScreen extends BaseScreen {
     else if (!store.data.tutorial.editor_intro) {
       store.data.tutorial.editor_intro = true;
       store.commit();
-      this.hint('Pick a piece, then tap or drag on the grid. Two fingers move around.', 5200);
+      openEditorGuide();
     }
   }
 
@@ -741,4 +743,35 @@ function askTitle(current: string): Promise<string | null> {
     );
     setTimeout(() => input.focus(), 50);
   });
+}
+
+const GUIDE: { icon: IconName; title: string; text: string }[] = [
+  { icon: 'build', title: 'Pick a piece', text: 'The bar at the bottom holds blocks, spikes, saws, gems, jump pads, rings and shape portals. Tap a piece you placed again to flip it or change its type.' },
+  { icon: 'hand', title: 'Place and move around', text: 'Tap or drag on the grid to place. Use the eraser to remove pieces, and undo / redo if you slip. Drag with two fingers to look around.' },
+  { icon: 'play', title: 'Test it', text: 'Test plays your level from the start. The flag button tests from the spot you’re looking at, great for tricky parts.' },
+  { icon: 'verified', title: 'Beat it, then share', text: 'Beat your level from the start to get the ✓. Then share its code with friends or put it in Community. Tap the level name to change its world, music, speed and length.' },
+];
+
+/** A short step-by-step guide to the editor (first visit, and the ? button). */
+export function openEditorGuide(): void {
+  let i = 0;
+  const body = h('div.col.guide', { style: 'gap:0.6rem;align-items:center;text-align:center' });
+  const render = () => {
+    clear(body);
+    const g = GUIDE[i];
+    body.append(
+      h('span.guide-icon', null, ic(g.icon)),
+      h('h2', null, g.title),
+      h('p.muted', { style: 'max-width:26rem' }, g.text),
+      h('div.guide-dots', null, GUIDE.map((_, k) => h(`i${k === i ? '.on' : ''}`))),
+      h(
+        'div.actions',
+        null,
+        i > 0 ? button({ label: 'Back', cls: 'ghost', onClick: () => (i--, render()) }) : button({ label: 'Skip', cls: 'ghost', onClick: () => m.close() }),
+        i < GUIDE.length - 1 ? button({ label: 'Next', icon: 'next', cls: 'mint', onClick: () => (i++, render()) }) : button({ label: 'Let’s build!', icon: 'build', cls: 'yellow', onClick: () => m.close() }),
+      ),
+    );
+  };
+  render();
+  const m = ui.modal(body, { showClose: true });
 }

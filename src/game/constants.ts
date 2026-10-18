@@ -66,8 +66,29 @@ export interface EndlessTuning {
 export const ENDLESS_TUNING: Record<Difficulty, EndlessTuning> = {
   easy: { speedStart: 8.0, speedMax: 11.4, speedRamp: 5000, dBase: 0, dScale: 0.75, dFrom: 200, dTo: 6000, runway: 1.18, hearts: 4 },
   medium: { speedStart: 8.6, speedMax: 12.8, speedRamp: 3600, dBase: 0, dScale: 1, dFrom: 120, dTo: 4000, runway: 1, hearts: 3 },
-  hard: { speedStart: 9.4, speedMax: 13.4, speedRamp: 3000, dBase: 0.22, dScale: 0.78, dFrom: 0, dTo: 3000, runway: 0.86, hearts: 3 },
+  hard: { speedStart: 9.6, speedMax: 14.2, speedRamp: 4000, dBase: 0.3, dScale: 0.7, dFrom: 0, dTo: 2200, runway: 0.84, hearts: 3 },
 };
+
+/**
+ * Heat: how chaotic Endless gets past the normal difficulty curve, like a
+ * run in Jetpack Joyride. It unlocks moving hazards and tougher patterns,
+ * chains patterns back to back, shortens breathers and shifts shapes more
+ * often. Easy (kid friendly) barely heats up; Extreme keeps climbing.
+ */
+const HEAT: Record<Difficulty, { max: number; from: number; to: number; speed: number }> = {
+  easy: { max: 0.2, from: 3000, to: 9000, speed: 0 },
+  medium: { max: 0.7, from: 1500, to: 7000, speed: 0.8 },
+  hard: { max: 1, from: 400, to: 4500, speed: 1.2 },
+};
+
+export function endlessHeatAt(x: number, kid: boolean, diff: Difficulty = 'medium'): number {
+  const h = HEAT[diff];
+  const v = h.max * smoothstep(h.from, h.to, x);
+  return kid ? v * 0.4 : v;
+}
+
+/** Gems paid out per difficulty: Extreme pays 1.3x, Easy a bit less. */
+export const DIFFICULTY_GEM_RATE: Record<Difficulty, number> = { easy: 0.8, medium: 1, hard: 1.3 };
 
 export const ENDLESS_SPEED_START = ENDLESS_TUNING.medium.speedStart;
 export const ENDLESS_SPEED_MAX = ENDLESS_TUNING.medium.speedMax;
@@ -83,7 +104,8 @@ export function smoothstep(e0: number, e1: number, x: number): number {
 
 export function endlessSpeedAt(x: number, kid: boolean, diff: Difficulty = 'medium'): number {
   const k = ENDLESS_TUNING[diff];
-  const v = k.speedStart + (k.speedMax - k.speedStart) * smoothstep(0, k.speedRamp, x);
+  // Past the normal ramp, heat keeps adding speed.
+  const v = k.speedStart + (k.speedMax - k.speedStart) * smoothstep(0, k.speedRamp, x) + HEAT[diff].speed * endlessHeatAt(x, false, diff);
   return kid ? v * KID_SPEED_FACTOR : v;
 }
 

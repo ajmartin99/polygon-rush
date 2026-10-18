@@ -6,6 +6,7 @@ import { Db } from '../src/db.ts';
 import { NameRegistry } from '../src/names.ts';
 import { PlayerService } from '../src/players.ts';
 import type { Mail, Mailer } from '../src/mailer.ts';
+import { levelChecksum } from '../../src/shared/level-code.ts';
 
 const sent: Mail[] = [];
 const mailer: Mailer = {
@@ -20,7 +21,7 @@ let srv: Server;
 let base = '';
 
 before(async () => {
-  const cfg = loadConfig({ NODE_ENV: 'test', DB_FILE: ':memory:', TOKEN_SECRET: 's'.repeat(48), ADMIN_TOKEN: ADMIN, PORT: '0', IP_LIMIT_PER_HOUR: '1000' });
+  const cfg = loadConfig({ NODE_ENV: 'test', DB_FILE: ':memory:', TOKEN_SECRET: 's'.repeat(48), ADMIN_TOKEN: ADMIN, PORT: '0', IP_LIMIT_PER_HOUR: '1000', FREE_CHAT: 'true' });
   srv = createServer(cfg, { mailer, log: () => {} });
   const port = await srv.listen(0);
   base = `http://127.0.0.1:${port}`;
@@ -482,5 +483,189 @@ describe('review hardening', () => {
   test('web deletion answers the same for unknown addresses', async () => {
     const r = await api('POST', '/api/account/delete/start', { email: 'ghost@example.com' });
     assert.deepEqual(r.json, { ok: true });
+  });
+});
+
+describe('community levels', () => {
+  const k = (c: string) => `lvl${c}`.repeat(6);
+  const reg = (key: string, name: string, extra: Record<string, unknown> = {}) => api('POST', '/api/players/register', { key, name, ...extra });
+  /** A tiny v2 level code: `spikes` spikes, optional typed title. */
+  const code = (spikes: number, title = ''): string => {
+    const out = [2, 1, 0, (1 << 4) | 1, 100, 0, 3, 4, 0];
+    if (title) out.push(254, title.length, ...[...title].map((ch) => ch.charCodeAt(0)));
+    else out.push(0);
+    out.push(spikes);
+    for (let i = 0; i < spikes; i++) out.push(i === 0 ? 10 : 3, 2 << 4);
+    const c = levelChecksum(out);
+    out.push(c >> 8, c & 0xff);
+    return 'PR1-' + Buffer.from(out).toString('base64url');
+  };
+  const browse = (key: string, extra: Record<string, unknown> = {}) => api('POST', '/api/levels/browse', { key, ...extra });
+
+  test('share, list newest and top, play, like, unshare', async () => {
+    await reg(k('a'), 'Builder Bee');
+    await reg(k('b'), 'Racing Rhino');
+    assert.equal((await api('POST', '/api/levels/publish', { key: k('a'), localId: 'abc123def456', code: code(2) })).status, 400, 'too empty');
+    const pub = await api('POST', '/api/levels/publish', { key: k('a'), localId: 'abc123def456', code: code(8) });
+    assert.equal(pub.status, 200, JSON.stringify(pub.json));
+    // Sharing the same level again updates it in place.
+    const again = await api('POST', '/api/levels/publish', { key: k('a'), localId: 'abc123def456', code: code(9) });
+    assert.equal(again.json.id, pub.json.id);
+    assert.equal(again.json.updated, true);
+    const id = pub.json.id as string;
+    let list = await browse(k('b'), { tab: 'new' });
+    const seen = list.json.levels.find((l: any) => l.id === id);
+    assert.equal(seen.author, 'Builder Bee');
+    assert.equal(seen.mine, false);
+    assert.equal(seen.code, code(9));
+    // Suggested shows levels you haven't played yet.
+    assert.ok((await browse(k('b'), { tab: 'suggested' })).json.levels.some((l: any) => l.id === id));
+    assert.equal((await api('POST', `/api/levels/${id}/play`, { key: k('b'), cleared: false })).json.plays, 1);
+    const p2 = await api('POST', `/api/levels/${id}/play`, { key: k('b'), cleared: true });
+    assert.deepEqual(p2.json, { plays: 1, clears: 1 });
+    assert.ok(!(await browse(k('b'), { tab: 'suggested' })).json.levels.some((l: any) => l.id === id));
+    // Your own plays and likes don't count.
+    await api('POST', `/api/levels/${id}/play`, { key: k('a'), cleared: true });
+    assert.equal((await api('POST', `/api/levels/${id}/like`, { key: k('a') })).status, 400);
+    assert.equal((await api('POST', `/api/levels/${id}/like`, { key: k('b') })).json.likes, 1);
+    assert.equal((await api('POST', `/api/levels/${id}/like`, { key: k('b') })).json.likes, 1);
+    list = await browse(k('b'), { tab: 'top' });
+    const top = list.json.levels.find((l: any) => l.id === id);
+    assert.equal(top.liked, true);
+    assert.equal(top.played, true);
+    // The builder sees their numbers (for badges) and their own levels.
+    const mine = await browse(k('a'), { tab: 'top', scope: 'mine' });
+    assert.deepEqual(mine.json.stats, { shared: 1, plays: 1, clears: 1, likes: 1 });
+    assert.equal(mine.json.levels[0].mine, true);
+    assert.equal((await api('POST', `/api/levels/${id}/like`, { key: k('b'), like: false })).json.likes, 0);
+    assert.equal((await api('POST', `/api/levels/${id}/unpublish`, { key: k('b') })).status, 200);
+    assert.ok((await browse(k('b'), { tab: 'new' })).json.levels.some((l: any) => l.id === id), 'only the builder can unshare');
+    await api('POST', `/api/levels/${id}/unpublish`, { key: k('a') });
+    assert.ok(!(await browse(k('b'), { tab: 'new' })).json.levels.some((l: any) => l.id === id));
+  });
+
+  test('friends tab, blocks, kids and typed titles', async () => {
+    const a = await reg(k('c'), 'Comet Cat');
+    await reg(k('d'), 'Dizzy Duck');
+    await reg(k('e'), 'Speedy Panda 7', { kid: true });
+    assert.equal((await api('POST', '/api/levels/publish', { key: k('e'), localId: 'kidlevel0001', code: code(6, 'My Level') })).status, 400, 'typed titles are 13+');
+    assert.equal((await api('POST', '/api/levels/publish', { key: k('e'), localId: 'kidlevel0001', code: code(6) })).status, 200);
+    assert.equal((await api('POST', '/api/levels/publish', { key: k('c'), localId: 'catlevel0001', code: code(6, 'call 5551234') })).status, 400);
+    const pub = await api('POST', '/api/levels/publish', { key: k('c'), localId: 'catlevel0001', code: code(6, 'Spike Party') });
+    assert.equal(pub.status, 200);
+    assert.equal((await browse(k('d'), { scope: 'friends' })).json.levels.length, 0);
+    await api('POST', '/api/friends/add', { key: k('d'), handle: `Comet Cat#${a.json.tag}` });
+    const sync = await api('POST', '/api/friends/sync', { key: k('c') });
+    await api('POST', '/api/friends/respond', { key: k('c'), id: sync.json.incoming[0].id, accept: true });
+    const fr = await browse(k('d'), { scope: 'friends' });
+    assert.deepEqual(
+      fr.json.levels.map((l: any) => [l.id, l.friend]),
+      [[pub.json.id, true]],
+    );
+    // Blocking someone hides their levels.
+    await api('POST', '/api/friends/block', { key: k('d'), id: a.json.id });
+    assert.ok(!(await browse(k('d'), { tab: 'new' })).json.levels.some((l: any) => l.id === pub.json.id));
+  });
+
+  test('thumbs up and down: Highest Rated and Trending', async () => {
+    await reg(k('r1'), 'Rated Robin');
+    await reg(k('r2'), 'Rated Raven');
+    const good = (await api('POST', '/api/levels/publish', { key: k('r1'), localId: 'goodlevel001', code: code(10) })).json.id as string;
+    const meh = (await api('POST', '/api/levels/publish', { key: k('r1'), localId: 'mehlevel0001', code: code(11) })).json.id as string;
+    // Rating needs a play first.
+    assert.equal((await api('POST', `/api/levels/${good}/like`, { key: k('r2'), vote: 1 })).status, 400);
+    const voters = ['v1', 'v2', 'v3', 'v4'];
+    for (const v of voters) {
+      await reg(k(v), 'Voting Vole');
+      await api('POST', `/api/levels/${good}/play`, { key: k(v), cleared: true });
+      await api('POST', `/api/levels/${meh}/play`, { key: k(v), cleared: false });
+      await api('POST', `/api/levels/${good}/like`, { key: k(v), vote: 1 });
+    }
+    // Two thumbs down on meh, one changes its mind to up.
+    assert.deepEqual((await api('POST', `/api/levels/${meh}/like`, { key: k('v1'), vote: -1 })).json, { liked: false, vote: -1, likes: 0, dislikes: 1 });
+    await api('POST', `/api/levels/${meh}/like`, { key: k('v2'), vote: -1 });
+    assert.deepEqual((await api('POST', `/api/levels/${meh}/like`, { key: k('v2'), vote: 1 })).json, { liked: true, vote: 1, likes: 1, dislikes: 1 });
+    const rated = (await browse(k('r2'), { tab: 'top' })).json.levels.map((l: any) => l.id);
+    assert.ok(rated.indexOf(good) < rated.indexOf(meh));
+    const mine = (await browse(k('v1'), { tab: 'top' })).json.levels.find((l: any) => l.id === meh);
+    assert.equal(mine.vote, -1);
+    assert.equal(mine.dislikes, 1);
+    const trending = (await browse(k('r2'), { tab: 'trending' })).json.levels.map((l: any) => l.id);
+    assert.equal(trending[0], good);
+    // Taking a vote back.
+    assert.equal((await api('POST', `/api/levels/${meh}/like`, { key: k('v1'), vote: 0 })).json.dislikes, 0);
+  });
+
+  test('three reports hide a level until a moderator restores it', async () => {
+    await reg(k('f'), 'Funky Fox');
+    const pub = await api('POST', '/api/levels/publish', { key: k('f'), localId: 'foxlevel0001', code: code(7) });
+    const id = pub.json.id as string;
+    for (const c of ['g', 'h', 'i']) {
+      await reg(k(c), 'Grumpy Goat');
+      await api('POST', `/api/levels/${id}/report`, { key: k(c), reason: 'impossible' });
+    }
+    assert.ok(!(await browse(k('g'), { tab: 'new' })).json.levels.some((l: any) => l.id === id));
+    assert.equal((await api('POST', `/api/levels/${id}/play`, { key: k('g') })).status, 404);
+    const listed = await api('GET', '/api/admin/levels?filter=hidden', undefined, ADMIN);
+    assert.ok(listed.json.levels.some((l: any) => l.id === id && l.reasons[0].reason === 'impossible'));
+    assert.equal((await api('POST', `/api/admin/levels/${id}/hide`, { hidden: false }, ADMIN)).json.ok, true);
+    assert.ok((await browse(k('g'), { tab: 'new' })).json.levels.some((l: any) => l.id === id));
+    assert.equal((await api('GET', '/api/admin/levels')).status, 401);
+  });
+});
+
+describe('free chat switched off', () => {
+  test('without FREE_CHAT=true there is no sign-up and no chat socket', async () => {
+    const cfg = loadConfig({ NODE_ENV: 'test', DB_FILE: ':memory:', TOKEN_SECRET: 't'.repeat(48), PORT: '0' });
+    const off = createServer(cfg, { mailer, log: () => {} });
+    const port = await off.listen(0);
+    const url = `http://127.0.0.1:${port}`;
+    try {
+      const status = (await (await fetch(url + '/api/status')).json()) as Record<string, unknown>;
+      assert.equal(status.freeChat, false);
+      const start = await fetch(url + '/api/account/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'x@example.com', birthYear: YEAR - 30 }) });
+      assert.equal(start.status, 403);
+      const ws = new WebSocket(url.replace('http', 'ws') + '/chat');
+      const opened = await new Promise<boolean>((r) => {
+        ws.addEventListener('open', () => r(true));
+        ws.addEventListener('error', () => r(false));
+        ws.addEventListener('close', () => r(false));
+      });
+      assert.equal(opened, false);
+      // Friends still work.
+      assert.equal((await fetch(url + '/api/players/register', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: 'z'.repeat(20), name: 'Neon Fox' }) })).status, 200);
+    } finally {
+      await off.close();
+    }
+  });
+});
+
+describe('beta tester sign-ups', () => {
+  test('sign up from the website, grown-ups only; the studio lists, updates and exports them', async () => {
+    const page = await fetch(base + '/beta');
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /Test Polygon Rush early/);
+    assert.equal((await api('POST', '/api/testers', { email: 'kid@example.com', channel: 'apk' })).status, 400, 'adult box required');
+    assert.equal((await api('POST', '/api/testers', { email: 'nope', adult: true })).status, 400);
+    const ok = await api('POST', '/api/testers', { email: 'Tester@Example.com', name: 'Sam', device: 'Pixel 8', channel: 'apk', note: '=cmd|calc', adult: true });
+    assert.equal(ok.status, 200);
+    // Same email again updates instead of duplicating; bots filling the honeypot are ignored.
+    await api('POST', '/api/testers', { email: 'tester@example.com', name: 'Sam', channel: 'play', note: '=cmd|calc', adult: true });
+    await api('POST', '/api/testers', { email: 'bot@example.com', adult: true, website: 'spam' });
+    assert.equal((await api('GET', '/api/admin/testers')).status, 401);
+    let list = (await api('GET', '/api/admin/testers', undefined, ADMIN)).json.testers;
+    assert.equal(list.length, 1);
+    assert.equal(list[0].channel, 'play');
+    assert.equal(list[0].status, 'new');
+    assert.equal((await api('POST', `/api/admin/testers/${list[0].id}`, { status: 'apk_sent' }, ADMIN)).json.ok, true);
+    assert.equal((await api('POST', `/api/admin/testers/${list[0].id}`, { status: 'whatever' }, ADMIN)).status, 400);
+    const csv = await (await fetch(base + '/api/admin/testers.csv', { headers: { authorization: `Bearer ${ADMIN}` } })).text();
+    assert.match(csv, /^email,name,phone,wants,status,note,signed_up/);
+    assert.match(csv, /"apk_sent"/);
+    assert.match(csv, /"'=cmd\|calc"/, 'formulas are neutralised');
+    list = (await api('GET', '/api/admin/testers?status=apk_sent', undefined, ADMIN)).json.testers;
+    assert.equal(list.length, 1);
+    assert.equal((await api('DELETE', `/api/admin/testers/${list[0].id}`, undefined, ADMIN)).json.ok, true);
+    assert.equal((await api('GET', '/api/admin/testers', undefined, ADMIN)).json.testers.length, 0);
   });
 });

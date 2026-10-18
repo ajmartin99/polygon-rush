@@ -70,6 +70,8 @@ function parseSong(def: SongDef): ParsedSong {
 }
 
 const PARSED = SONGS.map(parseSong);
+/** Seconds two recorded songs overlap when one hands over to the next. */
+const CROSSFADE = 2.5;
 
 class AudioEngine {
   ctx: BaseAudioContext | null = null;
@@ -194,53 +196,131 @@ class AudioEngine {
 
   suspend(): void {
     this.trackEl?.pause();
+    if (this.audible && this.audible.el !== this.trackEl) this.audible.el.pause();
     const ctx = this.ctx as AudioContext | null;
     if (ctx && ctx.state === 'running' && 'suspend' in ctx) void ctx.suspend();
   }
 
   resume(): void {
     if (this.trackEl) void this.trackEl.play().catch(() => {});
+    if (this.audible && this.audible.el !== this.trackEl) void this.audible.el.play().catch(() => {});
     const ctx = this.ctx as AudioContext | null;
     if (ctx && ctx.state === 'suspended' && 'resume' in ctx) void ctx.resume();
   }
 
   // ------------------------------------------------------------------ recorded tracks
+  /** The track we want (may still be loading). */
   private trackEl: HTMLAudioElement | null = null;
   private trackGain: GainNode | null = null;
   private trackId = -1;
   private trackOffset = 0;
+  /** The track you can actually hear (the old one keeps playing while the next loads). */
+  private audible: { el: HTMLAudioElement; g: GainNode } | null = null;
+  /** Tracks loaded ahead of time so the next song starts instantly. */
+  private prefetched = new Map<string, HTMLAudioElement>();
   /** Called when a recorded track fails to load (the director moves on). */
   onTrackError: ((id: number) => void) | null = null;
 
   /**
+   * Start loading a track that is likely to play next, so the switch at the
+   * next level is a smooth crossfade instead of a gap while it downloads.
+   */
+  prefetch(url: string): void {
+    if (typeof Audio === 'undefined' || this.prefetched.has(url)) return;
+    const el = new Audio();
+    el.preload = 'auto';
+    el.src = url;
+    el.load();
+    this.prefetched.set(url, el);
+    // Keep at most two waiting.
+    while (this.prefetched.size > 2) {
+      const [oldUrl, old] = this.prefetched.entries().next().value as [string, HTMLAudioElement];
+      this.prefetched.delete(oldUrl);
+      old.removeAttribute('src');
+      old.load();
+    }
+  }
+
+  /** Equal-power fade of a gain from its current level to `to` over `secs`. */
+  private fade(g: GainNode, to: number, secs: number): void {
+    const ctx = this.ctx as AudioContext;
+    const now = ctx.currentTime;
+    const from = Math.max(0.0001, g.gain.value);
+    const curve = new Float32Array(32);
+    for (let i = 0; i < curve.length; i++) {
+      const x = i / (curve.length - 1);
+      // Rising fades follow sin, falling ones cos: the sum stays at constant power.
+      curve[i] = to > from ? from + (to - from) * Math.sin((x * Math.PI) / 2) : to + (from - to) * Math.cos((x * Math.PI) / 2);
+    }
+    g.gain.cancelScheduledValues(now);
+    g.gain.setValueAtTime(from, now);
+    g.gain.setValueCurveAtTime(curve, now, Math.max(0.05, secs));
+  }
+
+  /** Fade a track out and free it. */
+  private release(el: HTMLAudioElement, g: GainNode, secs: number): void {
+    if (!this.ctx) return;
+    this.fade(g, 0.0001, secs);
+    setTimeout(
+      () => {
+        el.pause();
+        el.removeAttribute('src');
+        el.load();
+        g.disconnect();
+      },
+      secs * 1000 + 200,
+    );
+  }
+
+  /**
    * Play recorded music (a bundled track or one of the player's own files).
    * Streams through a media element (low memory) into the music bus, so the
-   * music volume and pause-menu ducking apply. Crossfades from whatever
-   * was playing.
+   * music volume and pause-menu ducking apply. Whatever is playing keeps
+   * playing until the new track actually starts, then the two crossfade.
    */
   playTrack(id: number, url: string, bpm = 120, offset = 0, gainDb = 0): void {
     this.unlock();
     if (!this.ctx || typeof Audio === 'undefined') return;
     if (this.trackId === id && this.trackEl) return;
-    if (this.playing) this.stopSynth();
     const ctx = this.ctx as AudioContext;
-    this.fadeOutTrack();
-    const el = new Audio();
-    el.preload = 'auto';
-    el.src = url;
+    // A track asked for earlier that never started: drop it silently.
+    if (this.trackEl && this.trackEl !== this.audible?.el && this.trackGain) this.release(this.trackEl, this.trackGain, 0.05);
+    const el = this.prefetched.get(url) ?? new Audio();
+    this.prefetched.delete(url);
+    if (!el.src) {
+      el.preload = 'auto';
+      el.src = url;
+    }
     const g = ctx.createGain();
     g.gain.value = 0.0001;
     ctx.createMediaElementSource(el).connect(g).connect(this.musicBus);
     const target = Math.pow(10, gainDb / 20);
-    el.addEventListener('playing', () => g.gain.setTargetAtTime(target, ctx.currentTime, 0.25), { once: true });
+    let begun = false;
+    let endSignalled = false;
+    const begin = () => {
+      if (begun || this.trackEl !== el) return;
+      begun = true;
+      const prev = this.audible;
+      this.audible = { el, g };
+      this.fade(g, target, prev || this.playing ? CROSSFADE : 0.8);
+      if (prev && prev.el !== el) this.release(prev.el, prev.g, CROSSFADE);
+      // From the synth: let its last notes ring under the fade-in.
+      if (this.playing) this.stopSynth();
+    };
+    el.addEventListener('playing', begin);
+    // Hand over to the next song a little before this one ends, so they overlap.
+    el.addEventListener('timeupdate', () => {
+      if (this.trackEl !== el || endSignalled || !isFinite(el.duration) || el.duration < CROSSFADE * 4) return;
+      if (el.duration - el.currentTime > CROSSFADE + 0.4) return;
+      endSignalled = true;
+      this.onSongEnd?.();
+    });
     el.addEventListener('ended', () => {
       if (this.trackEl !== el) return;
-      this.onSongEnd?.();
-      // Nobody picked something else: loop it.
-      if (this.trackEl === el) {
-        el.currentTime = 0;
-        void el.play().catch(() => {});
-      }
+      // Nobody picked something else (a level's own song): loop it.
+      endSignalled = false;
+      el.currentTime = 0;
+      void el.play().catch(() => {});
     });
     el.addEventListener('error', () => {
       if (this.trackEl === el) this.onTrackError?.(id);
@@ -251,22 +331,54 @@ class AudioEngine {
     this.trackOffset = offset;
     this.beatLength = 60 / Math.max(40, bpm);
     void el.play().catch(() => {});
+    // Very slow connection: don't keep the old song going forever.
+    setTimeout(() => {
+      if (!begun && this.trackEl === el && this.audible && this.audible.el !== el) {
+        this.release(this.audible.el, this.audible.g, 1.5);
+        this.audible = null;
+      }
+    }, 6000);
   }
 
-  private fadeOutTrack(): void {
+  private lastSync = 0;
+
+  /**
+   * Beat-synced levels: keep the recorded track at the song time the runner's
+   * position calls for. Only nudges when it has drifted (a slow-down, a
+   * boost, a loop or a late start), with a quick dip so the jump isn't heard.
+   */
+  syncTo(id: number, seconds: number): void {
     const el = this.trackEl;
-    const g = this.trackGain;
+    if (!el || !this.ctx || this.trackId !== id || this.audible?.el !== el || el.seeking || !isFinite(el.duration) || el.duration <= 0) return;
+    const want = seconds % el.duration;
+    const drift = Math.abs(el.currentTime - want);
+    if (drift < 0.3 || drift > el.duration - 0.3) return;
+    const now = performance.now();
+    if (now - this.lastSync < 3000) return;
+    this.lastSync = now;
+    const g = this.audible.g;
+    const level = g.gain.value;
+    const t = this.ctx.currentTime;
+    g.gain.cancelScheduledValues(t);
+    g.gain.setValueAtTime(level, t);
+    g.gain.linearRampToValueAtTime(0.0001, t + 0.06);
+    setTimeout(() => {
+      if (this.trackEl !== el || !this.ctx) return;
+      el.currentTime = want + 0.12;
+      const t2 = this.ctx.currentTime;
+      g.gain.cancelScheduledValues(t2);
+      g.gain.setValueAtTime(0.0001, t2);
+      g.gain.linearRampToValueAtTime(Math.max(level, 0.0001), t2 + 0.25);
+    }, 70);
+  }
+
+  private fadeOutTrack(secs = CROSSFADE): void {
+    if (this.trackEl && this.trackGain && this.trackEl !== this.audible?.el) this.release(this.trackEl, this.trackGain, 0.05);
+    if (this.audible) this.release(this.audible.el, this.audible.g, secs);
+    this.audible = null;
     this.trackEl = null;
     this.trackGain = null;
     this.trackId = -1;
-    if (!el || !g || !this.ctx) return;
-    g.gain.setTargetAtTime(0.0001, this.ctx.currentTime, 0.3);
-    setTimeout(() => {
-      el.pause();
-      el.removeAttribute('src');
-      el.load();
-      g.disconnect();
-    }, 1600);
   }
 
   /** Is recorded music (not the synth) playing? */
@@ -318,7 +430,7 @@ class AudioEngine {
   }
 
   stopMusic(): void {
-    this.fadeOutTrack();
+    this.fadeOutTrack(1.2);
     this.stopSynth();
   }
 

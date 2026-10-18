@@ -11,6 +11,8 @@ import { createMailer, type Mailer } from './mailer.ts';
 import { RoomDirectory } from './rooms.ts';
 import { NameRegistry } from './names.ts';
 import { PlayerService } from './players.ts';
+import { LevelService } from './levels.ts';
+import { TesterService } from './testers.ts';
 
 export const VERSION = '1.0.0';
 
@@ -22,6 +24,8 @@ export interface Server {
   hub: ChatHub;
   names: NameRegistry;
   players: PlayerService;
+  levels: LevelService;
+  testers: TesterService;
   listen(port?: number): Promise<number>;
   close(): Promise<void>;
 }
@@ -34,9 +38,11 @@ export function createServer(cfg: Config, opts: { mailer?: Mailer; log?: (msg: s
   const accounts = new AccountService(db, mailer, cfg);
   const names = new NameRegistry(db);
   const players = new PlayerService(db, cfg.secret, names);
+  const levels = new LevelService(db, players, names);
+  const testers = new TesterService(db, mailer, cfg, log);
   const rooms = new RoomDirectory(db, names);
   const hub = new ChatHub(db, accounts, names);
-  const app = createApp({ cfg, db, accounts, rooms, hub, names, players, mailer, version: VERSION });
+  const app = createApp({ cfg, db, accounts, rooms, hub, names, players, levels, testers, mailer, version: VERSION });
   const server = http.createServer(app);
 
   // PeerJS signalling for online rooms, on the same port. Its WebSocket and
@@ -92,6 +98,10 @@ export function createServer(cfg: Config, opts: { mailer?: Mailer; log?: (msg: s
   server.on('upgrade', (req: http.IncomingMessage, socket: Duplex, head: Buffer) => {
     const { pathname } = new URL(req.url ?? '/', 'http://localhost');
     if (pathname === '/chat') {
+      if (!cfg.freeChat) {
+        socket.destroy();
+        return;
+      }
       const origin = req.headers.origin;
       if (origin && !cfg.allowedOrigins.includes(origin)) {
         socket.destroy();
@@ -128,6 +138,8 @@ export function createServer(cfg: Config, opts: { mailer?: Mailer; log?: (msg: s
     hub,
     names,
     players,
+    levels,
+    testers,
     listen(port = cfg.port) {
       return new Promise((resolve) => {
         server.listen(port, () => {

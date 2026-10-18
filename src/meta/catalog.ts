@@ -38,6 +38,8 @@ export type Unlock =
   | { kind: 'daily' }
   | { kind: 'starter' }
   | { kind: 'legend' }
+  /** Given to beta testers (1.0.x) only; never sold. */
+  | { kind: 'beta' }
   /** Seasonal: buyable (or the free gift) only while the event is on; owned forever. */
   | { kind: 'event'; event: 'halloween'; price: number };
 
@@ -108,6 +110,8 @@ export const SKINS: SkinDef[] = [
   { id: 'neon', name: 'Neon Glow', rarity: 'legendary', unlock: gems(3500), body: '#18122e', accent: '#39ffe1', outline: '#39ffe1', pattern: 'neon', face: 'cool' },
   { id: 'magma', name: 'Magma', rarity: 'legendary', unlock: { kind: 'legend' }, body: '#ff6a2b', accent: '#ffd23f', outline: '#3d0a00', pattern: 'lava', face: 'happy' },
   { id: 'golden', name: 'Golden', rarity: 'legendary', unlock: { kind: 'starter' }, body: '#ffd84a', accent: '#ffb300', outline: '#5a3b00', pattern: 'gold', face: 'cool' },
+  // Beta testers only (1.0.x)
+  { id: 'betabot', name: 'Beta Bot', rarity: 'legendary', unlock: { kind: 'beta' }, body: '#1b0f3d', accent: '#3ee6b0', outline: '#3ee6b0', pattern: 'neon', face: 'robot' },
   // Halloween (Spooky Season)
   { id: 'witch', name: 'Wicked Witch', rarity: 'epic', unlock: spooky(0), body: '#7b3fd1', accent: '#3ee6b0', outline: '#1d0b4a', pattern: 'dots', face: 'wink', topper: 'witch' },
   { id: 'boo', name: 'Boo', rarity: 'rare', unlock: spooky(700), body: '#f4f1ff', accent: '#c9c2ff', outline: '#3a3260', pattern: 'wisp', face: 'ghost' },
@@ -137,6 +141,7 @@ export const TRAILS: TrailDef[] = [
   { id: 'comet', name: 'Comet', rarity: 'legendary', unlock: { kind: 'legend' }, colors: ['#ffffff', '#8fe9ff', '#5f8bff'], style: 'comet' },
   // Halloween (Spooky Season)
   { id: 'candycorn', name: 'Candy Corn', rarity: 'rare', unlock: spooky(500), colors: ['#ffd23f', '#ff8a1f', '#ffffff'], style: 'candycorn' },
+  { id: 'debug', name: 'Debug Pixels', rarity: 'legendary', unlock: { kind: 'beta' }, colors: ['#3ee6b0', '#7b5cff', '#ffffff'], style: 'pixels' },
   { id: 'bats', name: 'Bat Swarm', rarity: 'epic', unlock: spooky(1000), colors: ['#1c1030', '#3a1f5a'], style: 'bats' },
   { id: 'mist', name: 'Ghostly Mist', rarity: 'epic', unlock: spooky(1000), colors: ['#c9ffd9', '#b9a8ff', '#ffffff'], style: 'mist' },
 ];
@@ -158,6 +163,8 @@ export function unlockLabel(u: Unlock): string {
       return 'Starter Pack';
     case 'legend':
       return 'Legend Pack';
+    case 'beta':
+      return 'Beta testers';
     case 'event':
       return u.price ? `🎃 ${u.price}` : '🎃 Free gift';
   }

@@ -27,3 +27,7 @@ All tracks from OpenGameArt.org. Loudness-normalised and re-encoded to MP3 (no o
 "Pixel Sprinter" by Zane Little Music - CC0 (https://creativecommons.org/publicdomain/zero/1.0/) - https://opengameart.org/content/pixel-sprinter
 "Hyperflight Racing" by cynicmusic - CC0 (https://creativecommons.org/publicdomain/zero/1.0/) - https://opengameart.org/content/hyperflight-racing
 "Trance Boss Battle" by MintoDog - CC0 (https://creativecommons.org/publicdomain/zero/1.0/) - https://opengameart.org/content/trance-boss-battle
+"8-bit Haunted House" by Wolfgang_ - CC0 (https://creativecommons.org/publicdomain/zero/1.0/) - https://opengameart.org/content/8-bit-haunted-house-theme
+"Doll House" by Alexandr Zhelanov - CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/) - https://opengameart.org/content/doll-house
+"Dissonant Waltz" by Yubatake - CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/) - https://opengameart.org/content/dissonant-waltz
+"The 9th Circle" by Joth - CC0 (https://creativecommons.org/publicdomain/zero/1.0/) - https://opengameart.org/content/the-9th-circle

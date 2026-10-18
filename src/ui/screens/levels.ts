@@ -3,6 +3,7 @@ import { DIFFICULTY_NAMES, endlessBestKey } from '../../state/save';
 import { store } from '../../state/store';
 import { LEVEL_LENGTH, MAX_START_LEVEL, levelStart, levelWorld, unlockedLevels } from '../../meta/modes';
 import { BaseScreen, titleBar } from '../components';
+import { SECRET_LEVELS } from '../../game/generator';
 import { fmt, h, ic } from '../dom';
 import { nav } from '../nav';
 import { ui } from '../ui';
@@ -18,6 +19,7 @@ export class LevelsScreen extends BaseScreen {
     const d = store.data;
     const best = d.best[endlessBestKey(d.settings)] ?? 0;
     const unlocked = unlockedLevels(best);
+    const found = new Set(d.secrets.found);
     // Show what's open plus a peek at the next few.
     const shown = Math.min(MAX_START_LEVEL, Math.max(6, unlocked + 3));
     const tiles: HTMLElement[] = [];
@@ -25,6 +27,7 @@ export class LevelsScreen extends BaseScreen {
       const pal = BIOMES[levelWorld(n)];
       const open = n <= unlocked;
       const reached = best >= levelStart(n + 1);
+      const egg = found.has(n);
       tiles.push(
         h(
           `button.level-tile${open ? '' : '.locked'}${n === unlocked ? '.current' : ''}`,
@@ -41,6 +44,7 @@ export class LevelsScreen extends BaseScreen {
           h('span.lt-world', null, pal.name),
           h('span.lt-dist', null, `${fmt(levelStart(n))} m`),
           !open ? h('span.lt-lock', null, ic('lock')) : reached ? h('span.lt-done', null, ic('check')) : h('span.lt-tag', null, 'NEXT'),
+          n <= SECRET_LEVELS ? h(`span.lt-egg${egg ? '.found' : ''}`, { title: egg ? 'Secret egg found!' : 'A secret egg hides in this level' }, ic('egg')) : null,
         ),
       );
     }
@@ -50,6 +54,13 @@ export class LevelsScreen extends BaseScreen {
         'p.muted.small.levels-intro',
         null,
         `${d.settings.kidMode ? 'Kid Mode' : DIFFICULTY_NAMES[d.settings.difficulty]} · Best ${fmt(best)} m · Start from any level you have reached. Every ${LEVEL_LENGTH} m opens a new one.`,
+      ),
+      h(
+        'p.small.levels-eggs',
+        null,
+        ic('egg'),
+        ` Secret eggs ${found.size}/${SECRET_LEVELS}`,
+        h('span.muted', null, ' · One hides in every level, high above a jump ring. Find it in Endless on any difficulty.'),
       ),
       h('div.scroll.grow', { style: 'min-height:0' }, h('div.level-grid', null, tiles)),
     );

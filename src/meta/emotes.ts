@@ -40,6 +40,8 @@ export const EMOTES: EmoteDef[] = [
   { id: 'pumpkin', name: 'Pumpkin Pop', glyph: '🎃', anim: 'pop', rarity: 'rare', unlock: spooky(300) },
   { id: 'bat', name: 'Bat Flap', glyph: '🦇', anim: 'wave', rarity: 'epic', unlock: spooky(500) },
   { id: 'candy', name: 'Trick or Treat', glyph: '🍬', anim: 'spin', rarity: 'epic', unlock: spooky(500) },
+  // Beta testers only (1.0.x)
+  { id: 'tester', name: 'Beta Tester', glyph: '🧪', anim: 'bounce', rarity: 'legendary', unlock: { kind: 'beta' } },
 ];
 
 export function emoteIndex(id: string): number {

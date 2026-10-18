@@ -4,15 +4,40 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
-## [1.0.4] - 2026-10-17
+## [1.0.7] - 2026-10-18
 
 ### Added
-- **Online lobby after every race:** Back to lobby or Leave from the results; the host's rematch pulls everyone in, even from the podium. The host picks the next track (random, a world, a featured level or one of their own).
-- **Podium and emotes:** top 3 on a podium after races, 16 emotes (4 free, 8 in the new Emotes shop tab, 4 Halloween), Quick Chat on the results screen.
-- **New classic synth songs:** Arcade Sunrise, Bass Drop Boulevard (dubstep), Neon Nights (EDM), Pixel Drop (chipstep), Skyline Keys (piano house) and Coin Combo (8-bit).
-- **Halloween body shapes:** Phantom (ghost), Pumpkin Patch, Tombstone, Bone Head (skull) and Candy Corn Kid change your racer's outline. Same hitbox, and the Glider keeps its arrow.
-- **Mid-air flips:** the Roller can flip gravity any time, even in the air (short cooldown so it can't hover).
-- **Swipe down to drop:** Jumper and Hopper slam to the ground, the Glider dives (Down arrow or S on keyboards).
+- **Beat-synced levels:** each Endless level is built on the beat of the song that plays in it. Obstacles arrive on the beat, and fast songs (drum & bass) feel different from chill ones. Daily Run and races stay identical for everyone.
+- **Endless heats up:** the further you run, the more chaotic it gets. Moving saws drop from the sky, rise from the ground, sweep tunnels and chase the Roller. Patterns come back to back, gaps tighten and the speed keeps climbing.
+- **Difficulty tiers:** Easy (kid friendly, pays 80% gems), Normal, and Extreme (keeps getting harder and pays 1.3x gems).
+- **Haunted Daily:** in October the Daily Run plays only Halloween music (4 new licensed spooky tracks plus Haunted Hop and Swing Along), its course is built on their beat, and it looks the part: moon, bats, fog, pumpkin saws and ghost saws from the start.
+- **Daily twists:** every day's course has its own starting shape and twist (Saw Storm, Shape Shifter, Gem Shower or Remix), shown on the Daily card. The Daily also has its own fixed soundtrack, the same for everyone.
+
+- **Community levels:** share levels you built and beat to Create → Community. Browse Top Levels (everyone or just friends), Suggested (levels you haven't played yet) and Newest; play, like, save a copy or report. My Shared shows your levels with their plays, clears and likes, and you can update or unshare them. Parents can switch it off in Parental Controls.
+- **More badges:** 36 badges in 5 groups (Running, Racing, Level Creator, Friends & Community, Collecting), each with a progress bar, and a toast when you earn one. New ones cover 10,000 m, Extreme 5,000 m, Daily Runs, the Haunted Daily, shape portals, building 10 levels, building together, sharing levels, plays and likes on your levels, beating Community levels and having 5 friends.
+
+- **Quick Chat phrase packs:** buy more things to say with gems in Shop → Emotes & Chat: Good Sport, Hype Squad, Slang Pack ("No cap!", "Sheesh!", "GOAT!"), Builder Talk and, for Halloween, Spooky Sayings. Everyone in the room can read them; still preset phrases only, no typing.
+
+- **Secret eggs:** a golden egg hides in each of the 40 Endless levels, high above a jump ring after a launch pad. Tap on the ring at the top of the launch to grab it. Found eggs show on the Levels screen and on your profile card (Secret eggs 12/40), with three new badges: Egg Hunter, Treasure Seeker and Secret Keeper.
+
+- **Beta tester rewards:** everyone who plays a 1.0.x build gets the Beta Bot skin, Debug Pixels trail, 🧪 Beta Tester emote, the Founding Tester badge and title, and 500 gems. They can't be bought and stop being given out at 1.1.0; testers keep them forever.
+
+- **Rate levels:** thumbs up or down at the end of a Community level (or from its card). Community now has **Trending** (most played and liked this week), **Highest Rated**, Suggested, Newest and My Shared; Trending and Highest Rated can show just your friends' levels.
+- **Editor guide:** a 4-step walkthrough the first time you open the level editor (pick a piece, place and move, test, beat it and share), and a ? button to see it again.
+- **Livelier home screen:** the logo sways, the menu buttons pop in, and tapping your character makes it hop.
+
+- **Beta sign-up page:** "I'm interested in testing" on softgamebros.com leads to a sign-up form (Google Play closed test or sideloaded APK); sign-ups are listed for the studio at `/beta/admin`.
+
+### Changed
+- Songs no longer cut out between levels: the next song preloads and the two crossfade.
+- Typed Free Chat is switched off: players chat only with Quick Chat phrases and emotes. It's still built in and can be turned on later (`VITE_FREE_CHAT` in the app, `FREE_CHAT` on the server). The privacy policy no longer lists chat accounts, emails or messages.
+
+## [1.0.6] - 2026-10-18
+
+Includes 1.0.5 (a rebuild of 1.0.4).
+
+### Added
+- **Studio website and support email:** softgamebros.com with the Polygon Rush page and privacy policy; support at polygonrush@softgamebros.com.
 - **Friends:** every racer gets a #number after their name (Neon Fox#0427), so lots of people can share a name. Add friends by Name#number, accept or decline requests, see who's online, and invite friends straight into your race or Build Together room. 13+ can also add someone from their player card in a room. Kid-safe: under-13s add only by a typed Name#number, there's no search and no text, Block is on every friend, and parents can switch friends off.
 - **Move to a new phone:** Settings makes a backup code with your progress, levels, name and friends; paste it on the new phone. Purchases come back with Restore purchases.
 - **My Music:** add your own songs (MP3, WAV, OGG, M4A) in Settings → Soundtrack and play them Off, Mixed in, or Only mine. They stay on the device and are never shared.
@@ -22,11 +47,24 @@ All notable changes to Polygon Rush are documented here.
 - **Map music library:** custom levels can pick any recorded track or classic song, and the credit shows when the level starts. Level codes (v2) carry it; older codes still load.
 
 ### Changed
+- The chat filter also catches stretched swears ("fuuuuck").
+- Level names: 12,500 generated combinations (was a few hundred), and twice as many words for generated racer names (100 × 100).
+- The game server now runs at polygon-rush.softgamebros.com.
+
+## [1.0.4] - 2026-10-17
+
+### Added
+- **Online lobby after every race:** Back to lobby or Leave from the results; the host's rematch pulls everyone in, even from the podium. The host picks the next track (random, a world, a featured level or one of their own).
+- **Podium and emotes:** top 3 on a podium after races, 16 emotes (4 free, 8 in the new Emotes shop tab, 4 Halloween), Quick Chat on the results screen.
+- **New classic synth songs:** Arcade Sunrise, Bass Drop Boulevard (dubstep), Neon Nights (EDM), Pixel Drop (chipstep), Skyline Keys (piano house) and Coin Combo (8-bit).
+- **Halloween body shapes:** Phantom (ghost), Pumpkin Patch, Tombstone, Bone Head (skull) and Candy Corn Kid change your racer's outline. Same hitbox, and the Glider keeps its arrow.
+- **Mid-air flips:** the Roller can flip gravity any time, even in the air (short cooldown so it can't hover).
+- **Swipe down to drop:** Jumper and Hopper slam to the ground, the Glider dives (Down arrow or S on keyboards).
+
+### Changed
 - Bat Swarm trail: bats flap off in their own directions with a flutter.
 - Every new Endless level switches to a different song (shuffled, no repeats until all have played) instead of cycling the six world themes. Menu songs never play during runs.
 - Results: the HOST tag no longer cuts off names, and online races no longer show "+0" trophies.
-- The chat filter also catches stretched swears ("fuuuuck").
-- Level names: 12,500 generated combinations (was a few hundred), and twice as many words for generated racer names (100 × 100).
 
 ## [1.0.3] - 2026-10-15
 

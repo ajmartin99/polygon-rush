@@ -20,6 +20,7 @@ import { previewCanvas, updatePreview } from '../preview';
 import { ui } from '../ui';
 import { activeEvent, eventEndLabel } from '../../meta/events';
 import { EMOTES } from '../../meta/emotes';
+import { packLines, PHRASE_PACKS } from '../../meta/quickchat';
 
 type Tab = 'skins' | 'trails' | 'emotes' | 'gems';
 
@@ -128,7 +129,7 @@ export class ShopScreen extends BaseScreen {
     const tabs: [Tab, string][] = [
       ['skins', 'Skins'],
       ['trails', 'Trails'],
-      ['emotes', 'Emotes'],
+      ['emotes', 'Emotes & Chat'],
       ['gems', 'Gems & Packs'],
     ];
     for (const [id, label] of tabs) {
@@ -195,7 +196,7 @@ export class ShopScreen extends BaseScreen {
         const card = h(
           'div.item',
           { 'data-id': item.id, style: `--rc:${RARITY_COLORS[item.rarity]}` },
-          equipped ? h('span.equipped-tag', null, 'EQUIPPED') : isEvent(item) && ev && !owned ? h('span.equipped-tag.spooky', null, 'HALLOWEEN') : null,
+          equipped ? h('span.equipped-tag', null, 'EQUIPPED') : isEvent(item) && ev && !owned ? h('span.equipped-tag.spooky', null, 'HALLOWEEN') : item.unlock.kind === 'beta' ? h('span.equipped-tag.beta', null, 'BETA') : null,
           isSkin
             ? previewCanvas({ skin: item.id, scale: 0.62 })
             : previewCanvas({ skin: store.data.skins.equipped, scale: 0.5, trail: item.id, animate: true }),
@@ -297,6 +298,10 @@ export class ShopScreen extends BaseScreen {
         info.textContent = 'Exclusive to the Starter Pack.';
         wrap.appendChild(button({ label: 'See Starter Pack', icon: 'star', cls: 'yellow', onClick: () => this.goGems() }));
         break;
+      case 'beta':
+        info.textContent = 'A thank-you for beta testers. It can’t be bought, and it’s gone for good after the beta.';
+        wrap.appendChild(button({ label: 'Beta testers only', icon: 'lock', cls: 'ghost', disabled: true }));
+        break;
       case 'legend':
         info.textContent = 'Part of the Legend Pack.';
         wrap.appendChild(button({ label: 'See Legend Pack', icon: 'crown', cls: 'yellow', onClick: () => this.goGems() }));
@@ -363,6 +368,7 @@ export class ShopScreen extends BaseScreen {
       const price = u.kind === 'gems' || u.kind === 'event' ? u.price : 0;
       const buy = () => {
         if (has) return;
+        if (u.kind === 'beta') return void ui.toast('A thank-you for beta testers only.', 'lock');
         if (price > 0 && !store.spendGems(price)) {
           ui.sfx('error');
           ui.toast('Not enough gems — rush for more or visit the gem shop!', 'gem');
@@ -378,17 +384,61 @@ export class ShopScreen extends BaseScreen {
         h(
           `button.emote-card${has ? '.owned' : ''}`,
           { style: `--rc:${RARITY_COLORS[e.rarity]}`, onclick: buy, 'aria-label': has ? `${e.name}, owned` : `Buy ${e.name}` },
-          u.kind === 'event' && !has ? h('span.equipped-tag.spooky', null, 'HALLOWEEN') : null,
+          u.kind === 'event' && !has ? h('span.equipped-tag.spooky', null, 'HALLOWEEN') : u.kind === 'beta' ? h('span.equipped-tag.beta', null, 'BETA') : null,
           h(`span.emote-glyph.e-${e.anim}`, null, e.glyph),
           h('b', null, e.name),
-          has ? h('span.state', null, 'Owned') : h('span.price', null, ic('gem'), price ? fmt(price) : 'Free'),
+          has ? h('span.state', null, 'Owned') : u.kind === 'beta' ? h('span.price', null, ic('lock'), 'Beta only') : h('span.price', null, ic('gem'), price ? fmt(price) : 'Free'),
         ),
       );
     }
     this.body.append(
-      h('p.muted.small', { style: 'margin:0.5rem 0' }, 'Pop emotes on the podium after races and in online lobbies. Everyone in the room sees them.'),
-      h('div.scroll', { style: 'min-height:0' }, grid),
+      h(
+        'div.scroll',
+        { style: 'min-height:0' },
+        h('p.muted.small', { style: 'margin:0.5rem 0' }, 'Pop emotes on the podium after races and in online lobbies. Everyone in the room sees them.'),
+        grid,
+        h('h3', { style: 'margin:1rem 0 0.3rem' }, ic('chat'), ' Quick Chat phrase packs'),
+        h('p.muted.small', { style: 'margin:0 0 0.5rem' }, 'More things to say in online rooms. Everyone in the room can read them, even without the pack.'),
+        this.phrasePacks(),
+      ),
     );
+  }
+
+  private phrasePacks(): HTMLElement {
+    const ev = activeEvent();
+    const owned = new Set(store.data.phrases.owned);
+    const grid = h('div.pack-grid');
+    for (const p of PHRASE_PACKS) {
+      const has = owned.has(p.id);
+      if (p.event && !has && ev?.id !== p.event) continue;
+      const lines = packLines(p.id);
+      const buy = () => {
+        if (has) return;
+        if (!store.spendGems(p.price)) {
+          ui.sfx('error');
+          ui.toast('Not enough gems — rush for more or visit the gem shop!', 'gem');
+          return;
+        }
+        store.data.phrases.owned.push(p.id);
+        store.commit();
+        ui.sfx('reward');
+        ui.toast(`${p.name} unlocked! Find the new phrases in Quick Chat.`, 'chat');
+        this.render();
+      };
+      grid.append(
+        h(
+          `button.pack-card${has ? '.owned' : ''}`,
+          { onclick: buy, 'aria-label': has ? `${p.name}, owned` : `Buy ${p.name} for ${p.price} gems` },
+          p.event && !has ? h('span.equipped-tag.spooky', null, 'HALLOWEEN') : null,
+          h('b', null, p.name),
+          h('span.muted.small', null, p.blurb),
+          h('div.pack-lines', null, lines.slice(0, 6).map((l) => h('span', null, l.text))),
+          h('span.small.muted', null, `${lines.length} phrases & emotes`),
+          has ? h('span.state', null, 'Owned') : h('span.price', null, ic('gem'), fmt(p.price)),
+        ),
+      );
+    }
+    return grid;
   }
 
   private goGems(): void {

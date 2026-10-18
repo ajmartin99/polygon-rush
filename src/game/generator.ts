@@ -1,5 +1,5 @@
 import { Rng } from '../core/rng';
-import { CEIL, ENDLESS_TUNING, JUMP_TIME, RACE_SPEED, endlessDifficultyAt, endlessSpeedAt, type Difficulty } from './constants';
+import { CEIL, ENDLESS_TUNING, JUMP_TIME, RACE_SPEED, endlessDifficultyAt, endlessHeatAt, endlessSpeedAt, type Difficulty } from './constants';
 import type { ShapeMode } from './shapes';
 import type { PickupType, SolidRole, World, WorldObj } from './world';
 import { MAX_OBJ_W } from './world';
@@ -24,13 +24,42 @@ export interface GenOptions {
   startX?: number;
   /** Endless: distance already covered at the start (starting from a later level). */
   offset?: number;
+  /**
+   * Endless: the beat of the song that will play in each level (0-based level
+   * index from the run's very start). Gaps between patterns snap to it, so
+   * obstacles arrive on the beat. Leave unset where every player must get
+   * the same course whatever music they hear (Daily Run, races).
+   */
+  beat?: (level: number) => BeatGrid | null;
+  /** Endless: the shape the course starts in (Daily Run twists). */
+  startMode?: ShapeMode;
+  /** Endless: heat never drops below this (moving hazards from the start). */
+  heatFloor?: number;
+  /** Endless: scale shape sections (shorter = more shape changes). */
+  sectionScale?: number;
+  /** Endless: hide a secret egg somewhere in each level (classic Endless only). */
+  secrets?: boolean;
 }
+
+/** Levels that have a secret egg (matches the Levels screen). */
+export const SECRET_LEVELS = 40;
+
+export interface BeatGrid {
+  bpm: number;
+  /** Seconds from the song's start to its first beat. */
+  offset: number;
+}
+
+/** Metres per level: each level gets its own song and beat grid. */
+export const BEAT_LEVEL_LENGTH = 500;
 
 interface Pattern {
   id: string;
   mode: ShapeMode;
   minD: number;
   maxD?: number;
+  /** Endless only: appears once the run is this hot (see endlessHeatAt). */
+  minHeat?: number;
   weight: (d: number) => number;
   run: (g: LevelGen) => void;
 }
@@ -62,6 +91,19 @@ export class LevelGen {
   private tutorialStep = 0;
   private lastPattern = '';
   patternsPlaced = 0;
+  /** Beat grid cache: level, its grid, and a running (x, seconds since the level began) point. */
+  private beatLevel = -1;
+  private beatGrid: BeatGrid | null = null;
+  private beatX = 0;
+  private beatT = 0;
+  /** Pattern starts placed on a beat (for tests and tuning). */
+  beatsHit = 0;
+  /** Secret eggs: own RNG so they don't reshuffle the rest of the course. */
+  private readonly secretRng: Rng;
+  private secretLevel = 0;
+  private secretX = Infinity;
+  /** Eggs placed (for tests). */
+  secretsPlaced = 0;
 
   constructor(world: World, opts: GenOptions) {
     this.world = world;
@@ -72,14 +114,23 @@ export class LevelGen {
     this.groundFrom = start - (opts.offset ? 40 : 12);
     this.x = start + (opts.kind === 'race' ? 18 : 14);
     const off = opts.offset ?? 0;
-    this.sectionEnd = opts.kind === 'race' ? this.x + this.rng.range(150, 200) : off + 240 + this.rng.range(0, 60);
+    this.sectionEnd = opts.kind === 'race' ? this.x + this.rng.range(150, 200) : off + (240 + this.rng.range(0, 60)) * (opts.sectionScale ?? 1);
     this.nextPickup = opts.kind === 'endless' ? off + 160 + this.rng.range(0, 80) : Infinity;
     this.nextBox = opts.kind === 'race' ? this.x + 30 : Infinity;
     world.sections.push({ x0: -Infinity, x1: Infinity, mode: 'square', ceiling: false });
     if (opts.kind === 'race' && opts.length) world.finishX = opts.length;
     // Opening runway with a few welcoming gems.
     this.gemLine(start + 5, this.x - 1, 1.1, 1.5);
+    if (opts.kind === 'endless' && opts.startMode && opts.startMode !== 'square') this.transition(opts.startMode);
+    this.secretRng = new Rng((opts.seed ^ 0x5ec2e7) >>> 0);
+    if (opts.kind === 'endless' && opts.secrets) this.planSecret(Math.floor(off / BEAT_LEVEL_LENGTH));
     this.flush();
+  }
+
+  /** Pick where level `level`'s egg goes (0-based level index). */
+  private planSecret(level: number): void {
+    this.secretLevel = level;
+    this.secretX = level < SECRET_LEVELS ? this.origin + level * BEAT_LEVEL_LENGTH + this.secretRng.range(50, 330) : Infinity;
   }
 
   // ------------------------------------------------------------------ tuning
@@ -91,7 +142,8 @@ export class LevelGen {
     if (this.opts.difficulty !== undefined) return this.opts.difficulty;
     // The first-run tutorial stays gentle whatever the mode.
     if (this.opts.tutorial && this.tutorialStep < TUTORIAL.length) return 0;
-    return endlessDifficultyAt(x, !!this.opts.kid, this.opts.diff);
+    // Heat pushes past the normal ceiling: tighter gaps, more of the hardest patterns.
+    return endlessDifficultyAt(x, !!this.opts.kid, this.opts.diff) + 0.6 * endlessHeatAt(x, !!this.opts.kid, this.opts.diff);
   }
 
   /** Horizontal distance of a normal square jump at x. */
@@ -105,6 +157,12 @@ export class LevelGen {
 
   get d(): number {
     return this.difficultyAt(this.x);
+  }
+
+  /** Endless chaos 0..1 past the normal curve (0 in races and the tutorial). */
+  get heat(): number {
+    if (this.opts.kind !== 'endless' || (this.opts.tutorial && this.tutorialStep < TUTORIAL.length)) return 0;
+    return Math.max(this.opts.heatFloor ?? 0, endlessHeatAt(this.x, !!this.opts.kid, this.opts.diff));
   }
 
   // ------------------------------------------------------------------ main
@@ -127,12 +185,59 @@ export class LevelGen {
       this.flush();
       return;
     }
+    if (this.x >= this.secretX) {
+      // Too late in the level (or never in Jumper shape there): this level's egg is skipped.
+      const levelEnd = this.origin + (this.secretLevel + 1) * BEAT_LEVEL_LENGTH;
+      const room = this.v * 1.4 + 4;
+      if (this.x + room > levelEnd) this.planSecret(this.secretLevel + 1);
+      else if (this.mode === 'square' && this.x + room < this.sectionEnd && !(this.opts.tutorial && this.tutorialStep <= TUTORIAL.length)) {
+        this.secretNook();
+        this.planSecret(this.secretLevel + 1);
+        this.runway();
+        this.flush();
+        return;
+      }
+    }
     const p = this.pickPattern();
     this.lastPattern = p.id;
     p.run(this);
     this.patternsPlaced++;
+    // Hot runs: another pattern (or two) right behind it, with only a short breath between.
+    const heat = this.heat;
+    let extra = heat > 0 && this.rng.chance(Math.min(0.85, heat * 1.1)) ? 1 + (heat > 0.6 && this.rng.chance(heat - 0.4) ? 1 : 0) : 0;
+    while (extra-- > 0 && this.x < this.sectionEnd) {
+      this.x += Math.max(3, this.v * 0.38);
+      const q = this.pickPattern();
+      this.lastPattern = q.id;
+      q.run(this);
+      this.patternsPlaced++;
+    }
     this.runway();
     this.flush();
+  }
+
+  /**
+   * A secret: a launch pad sends you up past a jump ring, and the egg floats
+   * above the ring. Only a tap on the ring right at the top reaches it; the
+   * plain launch lands safely on clear ground. A few gems hint the way up.
+   */
+  private secretNook(): void {
+    const v = this.v;
+    const P = { pad: 26.5, orb: 18.6, g: 74, base: 0.43 };
+    const yAt = (t: number, vy: number, y0: number) => y0 + vy * t - (P.g / 2) * t * t;
+    const x = this.x + 1.5;
+    this.pad(x);
+    for (const t of [0.09, 0.16, 0.22]) this.gem(x + v * t, yAt(t, P.pad, P.base));
+    const tOrb = 0.3;
+    const orbX = x + v * tOrb;
+    const orbY = yAt(tOrb, P.pad, P.base) - 0.05;
+    this.orb(orbX, orbY);
+    const tEgg = 0.24;
+    const egg = { x: orbX + v * tEgg, y: yAt(tEgg, P.orb, orbY) - 0.1 };
+    this.pending.push({ id: this.world.newId(), kind: 'secret', x: egg.x, y: egg.y, level: this.secretLevel + 1, x0: egg.x - 0.5, x1: egg.x + 0.5, y0: egg.y - 0.6, y1: egg.y + 0.6 });
+    this.secretsPlaced++;
+    // Clear landing for the boosted jump (about a second of air).
+    this.x = x + v * 1.25 + 1;
   }
 
   private pickPattern(): Pattern {
@@ -141,10 +246,12 @@ export class LevelGen {
       const id = TUTORIAL[this.tutorialStep++];
       return PATTERNS.find((p) => p.id === id)!;
     }
-    const fits = (p: Pattern) => p.mode === this.mode && d >= p.minD && (p.maxD === undefined || d <= p.maxD);
+    const heat = this.heat;
+    const fits = (p: Pattern) => p.mode === this.mode && d >= p.minD && (p.maxD === undefined || d <= p.maxD) && (p.minHeat === undefined || heat >= p.minHeat);
     let pool = PATTERNS.filter((p) => fits(p) && p.id !== this.lastPattern);
     if (!pool.length) pool = PATTERNS.filter(fits);
-    return this.rng.weighted(pool, (p) => p.weight(d));
+    // The hotter the run, the more the chaos patterns crowd out the classics.
+    return this.rng.weighted(pool, (p) => p.weight(d) * (p.minHeat !== undefined ? 0.6 + 2.2 * heat : 1));
   }
 
   /** Breathing room between patterns, sometimes with gems / pickups / boxes. */
@@ -153,7 +260,10 @@ export class LevelGen {
     const d = this.d;
     const tutorial = this.opts.tutorial && this.tutorialStep <= TUTORIAL.length;
     const secs = this.rng.range(0.42, 0.75) * (1.25 - 0.45 * d) * (tutorial ? 1.6 : 1) * (this.opts.kid ? 1.25 : 1) * (this.opts.kind === 'endless' ? ENDLESS_TUNING[this.opts.diff ?? 'medium'].runway : 1);
-    const len = Math.max(3, v * secs);
+    // Hot runs: shorter breathers, and sometimes patterns come back to back.
+    const heat = this.heat;
+    const raw = v * secs * (1 - 0.4 * heat);
+    const len = this.onBeat(Math.max(3, raw));
     const x0 = this.x;
     const midY = this.mode === 'square' ? 1.0 : this.mode === 'hexagon' ? (this.side < 0 ? 0.5 : CEIL - 0.5) : MID;
     if (x0 >= this.nextPickup && len >= 4) {
@@ -168,6 +278,52 @@ export class LevelGen {
       this.gemLine(x0 + 1, x0 + len - 1, midY, 1.2);
     }
     this.x += len;
+  }
+
+  // ------------------------------------------------------------------ beat sync
+  /** World x where the run's distance is 0 (level boundaries are measured from here). */
+  private get origin(): number {
+    return (this.opts.startX ?? 0) - (this.opts.offset ?? 0);
+  }
+
+  /** Seconds a runner needs from the start of x's level to x (speed ramps, so integrate). */
+  private secondsIntoLevel(x: number): { level: number; t: number; grid: BeatGrid | null } {
+    const level = Math.floor(Math.max(0, x - this.origin) / BEAT_LEVEL_LENGTH);
+    if (level !== this.beatLevel) {
+      this.beatLevel = level;
+      this.beatGrid = this.opts.beat?.(level) ?? null;
+      this.beatX = this.origin + level * BEAT_LEVEL_LENGTH;
+      this.beatT = 0;
+    }
+    if (x < this.beatX) return { level, t: this.beatT, grid: this.beatGrid };
+    // Cursor only moves forward, so keep a running total in 1-tile steps.
+    while (this.beatX + 1 <= x) {
+      this.beatT += 1 / this.speedAt(this.beatX + 0.5);
+      this.beatX += 1;
+    }
+    return { level, t: this.beatT + (x - this.beatX) / this.speedAt(this.beatX), grid: this.beatGrid };
+  }
+
+  /**
+   * Stretch (or shorten a little) a runway so the next pattern starts on a
+   * beat of this level's song. Never shorter than 80 % of the planned gap.
+   */
+  private onBeat(len: number): number {
+    if (!this.opts.beat || this.opts.kind !== 'endless' || (this.opts.tutorial && this.tutorialStep <= TUTORIAL.length)) return len;
+    // Snap to the nearest beat, but never below 70 % of the planned gap.
+    const minX = this.x + Math.max(3, len * 0.7);
+    const at = this.secondsIntoLevel(minX);
+    if (!at.grid || !(at.grid.bpm > 30)) return len;
+    let unit = 60 / at.grid.bpm;
+    if (unit > 0.62) unit /= 2; // slow songs: half beats
+    else if (unit < 0.3) unit *= 2; // very fast: every other beat
+    const v = this.speedAt(minX);
+    const planned = at.t + (len - (minX - this.x)) / v;
+    let k = Math.round((planned - at.grid.offset) / unit);
+    if (at.grid.offset + k * unit < at.t - 1e-6) k = Math.ceil((at.t - at.grid.offset) / unit - 1e-6);
+    const target = at.grid.offset + k * unit;
+    this.beatsHit++;
+    return minX - this.x + Math.max(0, target - at.t) * v;
   }
 
   private transition(force?: ShapeMode): void {
@@ -189,12 +345,14 @@ export class LevelGen {
     this.mode = next;
     this.side = -1;
     // Settle-in runway after the portal.
-    const settle = v * (next === 'square' ? 1.3 : 1.0);
+    // Hot runs give less time to settle after a shape change.
+    const settle = v * (next === 'square' ? 1.3 : 1.0) * (1 - 0.55 * this.heat);
     if (next === 'triangle' || next === 'diamond') this.gemLine(px + 2, px + settle, MID - 1, 1.3);
     this.x = px + settle;
     const race = this.opts.kind === 'race';
     const span = next === 'square' ? (race ? this.rng.range(110, 170) : this.rng.range(220, 360)) : race ? this.rng.range(100, 150) : this.rng.range(140, 230);
-    this.sectionEnd = this.x + span;
+    // Hot runs switch shapes more often.
+    this.sectionEnd = this.x + span * (1 - 0.3 * this.heat) * (this.opts.kind === 'endless' ? this.opts.sectionScale ?? 1 : 1);
   }
 
   private pickNextMode(prev: ShapeMode): ShapeMode {
@@ -287,6 +445,22 @@ export class LevelGen {
     this.pending.push({ id: this.world.newId(), kind: 'saw', x, y, r, x0: x - r, x1: x + r, y0: y - r, y1: y + r });
   }
 
+  /** A saw that slides from y=`from` to y=`to` while the runner covers x in [ax, bx]. */
+  movingSaw(x: number, from: number, to: number, r: number, ax: number, bx: number): void {
+    this.pending.push({
+      id: this.world.newId(),
+      kind: 'saw',
+      x,
+      y: to,
+      r,
+      move: { ax, bx, from, to },
+      x0: x - r,
+      x1: x + r,
+      y0: Math.min(from, to) - r,
+      y1: Math.max(from, to) + r,
+    });
+  }
+
   gem(x: number, y: number, big = false): void {
     this.pending.push({ id: this.world.newId(), kind: 'gem', x, y, big, x0: x - 0.4, x1: x + 0.4, y0: y - 0.4, y1: y + 0.4 });
   }
@@ -334,6 +508,112 @@ const w = (base: number, grow = 0) => (d: number) => Math.max(0.05, base + grow 
 const TUTORIAL = ['sq_single', 'sq_block', 'sq_single', 'sq_pit', 'sq_double', 'sq_block', 'sq_pit'];
 
 const PATTERNS: Pattern[] = [
+  // ------------------------------------------------------------ Heat (endless chaos)
+  {
+    // A saw drops out of the sky and lands just ahead: jump it like a spike.
+    id: 'sq_drop_saw',
+    mode: 'square',
+    minD: 0,
+    minHeat: 0.08,
+    weight: w(0.9),
+    run: (g) => {
+      const x = g.x + 2 + g.v * 0.4;
+      g.movingSaw(x, CEIL + 1.5, 0.75, 0.65, x - g.v * 1.3, x - g.v * 0.55);
+      g.gemArc(x - g.jumpLen() / 2, g.jumpLen(), 0.9, 1.9, 4);
+      g.x = x + 1.5;
+    },
+  },
+  {
+    // A saw rises out of the ground as you arrive: jump early and you meet it.
+    id: 'sq_rising_saw',
+    mode: 'square',
+    minD: 0.2,
+    minHeat: 0.25,
+    weight: w(0.7),
+    run: (g) => {
+      const x = g.x + 3;
+      g.movingSaw(x, 0.7, 5.6, 0.7, x - g.v * 0.35, x - 0.5);
+      // Then a spike right after: land, then jump.
+      const sx = x + g.jumpLen() * 0.9 + 1;
+      g.spike(sx);
+      g.gemLine(x - 1, x + 1, 1.0, 1);
+      g.x = sx + 1.5;
+    },
+  },
+  {
+    // Two falling saws in a row, a beat apart.
+    id: 'sq_drop_pair',
+    mode: 'square',
+    minD: 0.3,
+    minHeat: 0.4,
+    weight: w(0.6),
+    run: (g) => {
+      const a = g.x + 2 + g.v * 0.4;
+      const b = a + g.jumpLen() + 2.2;
+      g.movingSaw(a, CEIL + 1.5, 0.75, 0.65, a - g.v * 1.3, a - g.v * 0.55);
+      g.movingSaw(b, CEIL + 1.5, 0.75, 0.65, b - g.v * 1.3, b - g.v * 0.55);
+      g.x = b + 1.5;
+    },
+  },
+  {
+    // Glider: a saw sweeps across the tunnel as you approach. Fly the side it leaves.
+    id: 'tr_sweeper',
+    mode: 'triangle',
+    minD: 0,
+    minHeat: 0.12,
+    weight: w(0.9),
+    run: (g) => {
+      const n = g.rng.int(1, 3);
+      let x = g.x + 3 + g.v * 0.5;
+      let down = g.rng.chance(0.5);
+      for (let i = 0; i < n; i++) {
+        const top = CEIL - 1.5;
+        const bot = 1.5;
+        g.movingSaw(x, down ? top : bot, down ? bot : top, 1.0, x - g.v * 1.1, x - g.v * 0.35);
+        g.gem(x, down ? CEIL - 1.6 : 1.6);
+        down = !down;
+        x += g.v * 0.95;
+      }
+      g.x = x;
+    },
+  },
+  {
+    // Hopper: saws slam down from the roof onto the hop line.
+    id: 'di_crusher',
+    mode: 'diamond',
+    minD: 0.2,
+    minHeat: 0.2,
+    weight: w(0.8),
+    run: (g) => {
+      const n = g.rng.int(2, 3);
+      let x = g.x + 3 + g.v * 0.4;
+      for (let i = 0; i < n; i++) {
+        const low = g.rng.chance(0.5);
+        g.movingSaw(x, low ? CEIL - 1.4 : 1.4, low ? 1.4 : CEIL - 1.4, 1.0, x - g.v * 1.0, x - g.v * 0.4);
+        g.gem(x, low ? CEIL - 1.5 : 1.5);
+        x += g.v * 0.95;
+      }
+      g.x = x;
+    },
+  },
+  {
+    // Roller: a saw slides along the wall you are on; flip away in time.
+    id: 'hx_chaser',
+    mode: 'hexagon',
+    minD: 0.2,
+    minHeat: 0.2,
+    weight: w(0.8),
+    run: (g) => {
+      const x = g.x + 3 + g.v * 0.5;
+      const onFloor = g.side < 0;
+      // It moves onto your surface just before you arrive.
+      g.movingSaw(x, onFloor ? CEIL - 1.0 : 1.0, onFloor ? 1.0 : CEIL - 1.0, 1.0, x - g.v * 1.2, x - g.v * 0.45);
+      g.gem(x, onFloor ? CEIL - 0.6 : 0.6);
+      // You end up on the other wall.
+      g.side = onFloor ? 1 : -1;
+      g.x = x + 2;
+    },
+  },
   // ------------------------------------------------------------ Jumper (square)
   {
     id: 'sq_single',
@@ -865,7 +1145,8 @@ const PATTERNS: Pattern[] = [
     run: (g) => {
       const n = g.rng.int(3, 4);
       // Hops are coarse (~2 tiles each), so gates stay roomy even when fast.
-      const gap = Math.max(4.3, 5.0 - g.d * 0.8);
+      // Faster hops cover more ground, so very fast runs keep the gates a touch wider.
+      const gap = Math.max(4.3 + Math.max(0, g.v - 12.5) * 0.35, 5.0 - g.d * 0.8);
       let c = MID + g.rng.range(-1, 0.6);
       let x = g.x + 2;
       for (let i = 0; i < n; i++) {

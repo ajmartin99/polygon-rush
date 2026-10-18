@@ -155,9 +155,9 @@ export class NameScreen extends BaseScreen {
 }
 
 const DIFFICULTY_INFO: Record<Difficulty, { blurb: string; detail: string; color: string }> = {
-  easy: { blurb: 'Take it easy', detail: 'Slower start, gentle ramp and 4 hearts.', color: 'mint' },
-  medium: { blurb: 'The classic rush', detail: 'Speeds up as you go. Gets tricky after a few worlds.', color: 'yellow' },
-  hard: { blurb: 'Bring it on!', detail: 'Fast from the start with tough combos right away.', color: 'red' },
+  easy: { blurb: 'Kid friendly', detail: 'Slower, gentle and 4 hearts. Gems pay 80%.', color: 'mint' },
+  medium: { blurb: 'The classic rush', detail: 'Speeds up as you go, and moving hazards join the deeper you get.', color: 'yellow' },
+  hard: { blurb: 'Extreme!', detail: 'Fast, chaotic and it never stops getting harder. Gems pay 1.3x.', color: 'red' },
 };
 
 /** Difficulty cards (first launch and Settings). */
@@ -184,7 +184,7 @@ export function difficultyPicker(value: Difficulty, onPick: (d: Difficulty) => v
   return h('div.diff-cards', null, cards);
 }
 
-/** First launch: pick Easy / Medium / Hard (Medium is preselected). */
+/** First launch: pick Easy / Normal / Extreme (Normal is preselected). */
 export class DifficultyScreen extends BaseScreen {
   constructor(params?: Record<string, unknown>) {
     super('.solid');

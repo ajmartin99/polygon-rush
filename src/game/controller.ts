@@ -20,11 +20,14 @@ import { roomChatPanel } from '../ui/room-chat';
 import { FREE_EMOTES, emoteIndex } from '../meta/emotes';
 import { decodeLevel, levelName, type LevelContent } from './level';
 import type { Scene } from './scene';
-import { DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED } from './constants';
+import { SECRET_LEVELS } from './generator';
+import { DIFFICULTY_GEM_RATE, DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED, endlessSpeedAt } from './constants';
 import { activeEvent, SPOOKY } from '../meta/events';
 import { clampStartLevel, levelStart, levelWorld } from '../meta/modes';
 import { endlessBestKey } from '../state/save';
-import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, VARIANT_INFO, dailyRewardKey, dailySeed, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
+import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, VARIANT_INFO, dailyRewardKey, dailySeed, dailyTwist, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
+import { HAUNTED_SONG } from '../core/songs';
+import { eventTracks, TRACK_BASE, TRACKS } from '../core/tracks';
 import { InputManager } from './input';
 import type { Racer, RacerSpec } from './racer';
 import { GameSession, type BoxItem, type SessionKind } from './session';
@@ -72,10 +75,13 @@ export class GameController {
   private frameTimes: number[] = [];
   private lowPerfStrikes = 0;
   private songBiome = -1;
+  private syncTick = 0;
   private offs: (() => void)[] = [];
   private biomeOffset = 0;
   private lastBiome = -1;
   private lastMilestone = 0;
+  /** This Daily Run is the Halloween one. */
+  private hauntedDaily = false;
   private frameSkip = false;
   private scene: Scene | null = null;
   /** Build rooms outlive the race played in them. */
@@ -210,19 +216,31 @@ export class GameController {
         const v = (this.variant = req.variant ?? 'classic');
         // Classic runs can start from any level already reached on this difficulty.
         const level = (this.startLevel = v === 'classic' ? clampStartLevel(req.level, d.best[endlessBestKey(d.settings)] ?? 0) : 1);
-        // The Daily Run is the same course and rules for everyone.
+        // The Daily Run is the same course, rules and soundtrack for everyone,
+        // with its own twist each day (Halloween: the haunted course).
         const daily = v === 'daily';
+        const seed = daily ? dailySeed() : (Math.random() * 2 ** 31) >>> 0;
+        const haunted = daily && activeEvent()?.id === 'halloween';
+        this.hauntedDaily = haunted;
+        const twist = daily ? dailyTwist(seed, haunted) : null;
+        // Every run is built on the beat of the songs it will play.
+        music.resetPlan(true, daily ? { songs: haunted ? [HAUNTED_SONG, ...eventTracks('halloween')] : dailySoundtrack(), seed } : undefined);
         this.session = new GameSession({
           kind: 'endless',
-          seed: daily ? dailySeed() : (Math.random() * 2 ** 31) >>> 0,
+          seed,
+          startMode: twist?.startMode,
+          heatFloor: twist?.heatFloor,
+          sectionScale: twist?.sectionScale,
           kid: daily ? false : d.settings.kidMode,
           diff: daily ? 'medium' : d.settings.difficulty,
           tutorial: v === 'classic' && level === 1 && d.stats.runs < 2,
+          secrets: v === 'classic',
           hearts: v === 'oneheart' ? 1 : undefined,
           noHearts: v === 'oneheart',
           stunOnly: v === 'gemrush',
-          gemChance: v === 'gemrush' ? 0.9 : undefined,
+          gemChance: v === 'gemrush' ? 0.9 : twist?.gemChance,
           startDistance: levelStart(level),
+          beat: (l: number) => music.planLevel(l),
           racers: [me],
         });
         break;
@@ -293,8 +311,8 @@ export class GameController {
     const level = this.level();
     if (this.kind === 'endless') {
       const world = levelWorld(this.startLevel);
-      music.run(world);
-      this.songBiome = world;
+      music.run(world, this.startLevel - 1);
+      this.songBiome = this.startLevel - 1;
       // Starting from a later level: no "World 1" banner or milestones for metres already behind us.
       this.lastBiome = this.startLevel - 1;
       this.lastMilestone = levelStart(this.startLevel);
@@ -407,6 +425,21 @@ export class GameController {
         if (!local(racer)) return;
         audio.play(value > 1 ? 'bigGem' : 'gem');
         if (value > 1) haptics.light();
+      }),
+      s.on('secret', ({ racer, level, x, y }) => {
+        if (!local(racer)) return;
+        const d = store.data;
+        if (d.secrets.found.includes(level)) {
+          this.renderer.fx.text(x + 1.5, y - 1.4, 'Found it before!', '#ffe9a8', 0.7, 1.1);
+          audio.play('gem');
+          return;
+        }
+        d.secrets.found = [...d.secrets.found, level].sort((a, b) => a - b);
+        store.commit();
+        this.renderer.fx.text(x + 1.5, y - 1.4, 'SECRET EGG!', '#ffd23f', 1.1, 1.6);
+        audio.play('levelUp');
+        haptics.success();
+        this.hud?.showHint(`Secret egg found! Level ${level}`, `${d.secrets.found.length}/${SECRET_LEVELS} · see Levels and your profile`, 2200, '18%');
       }),
       s.on('pickup', ({ racer, type, x, y }) => {
         if (local(racer)) this.renderer.fx.pickup(x, y, type === 'heart' ? '+1 ♥' : type === 'shield' ? 'Shield!' : 'Magnet!', type === 'heart' ? '#ff7a95' : type === 'shield' ? '#7fe9ff' : '#ff8a8a');
@@ -560,6 +593,8 @@ export class GameController {
       beat: audio.beatPhase(),
       dim: this.kind === 'attract',
       markers,
+      haunted: this.paletteFor(this.session?.racers[0]?.x ?? 0) === SPOOKY,
+      secretsFound: store.data.secrets.found,
     });
     if (this.kind === 'attract' || this.phase === 'results') return;
     const ctx = this.renderer.ctx;
@@ -621,10 +656,19 @@ export class GameController {
     const s = this.session!;
     const me = s.racers.find((r) => r.kind === 'human') ?? s.racers[0];
     if (this.kind === 'endless') {
-      const biome = Math.floor(me.distance / BIOME_LENGTH) % WORLD_SONGS;
-      if (biome !== this.songBiome && this.phase === 'running') {
-        this.songBiome = biome;
-        music.world(biome);
+      const level = Math.floor(me.distance / BIOME_LENGTH);
+      if (level !== this.songBiome && this.phase === 'running') {
+        this.songBiome = level;
+        music.world(level % WORLD_SONGS, level);
+      }
+      // Beat-synced runs: keep the song at the time the runner's position calls for.
+      const sync = music.syncSong;
+      if (sync && this.phase === 'running' && ++this.syncTick % 15 === 0) {
+        const d = s.opts.diff;
+        const kid = !!s.opts.kid;
+        let t = 0;
+        for (let x = sync.level * BIOME_LENGTH; x + 1 <= me.distance; x++) t += 1 / endlessSpeedAt(x + START_X + 0.5, kid, d);
+        audio.syncTo(sync.id, t);
       }
       audio.intensity = Math.min(1, 0.35 + me.distance / 3000);
     } else if (this.kind === 'custom') {
@@ -724,8 +768,13 @@ export class GameController {
     d.stats.runs += 1;
     d.stats.totalDistance += distance;
     if (v === 'classic' || v === 'oneheart') d.stats.bestDistance = Math.max(d.stats.bestDistance, distance);
+    if (v === 'daily') {
+      d.stats.dailyRuns += 1;
+      if (this.hauntedDaily) d.stats.hauntedBest = Math.max(d.stats.hauntedBest, distance);
+    }
     const bonus: string[] = [];
     if (v === 'daily' && distance >= DAILY_TARGET && !d.best[dailyRewardKey()]) {
+      d.stats.dailyTargets += 1;
       d.best[dailyRewardKey()] = 1;
       store.addGems(DAILY_REWARD);
       bonus.push(`Daily Run: reached ${DAILY_TARGET} m! +${DAILY_REWARD} gems`);
@@ -740,7 +789,12 @@ export class GameController {
     missions.unshift(...bonus);
     const ups = this.grantXp(xp);
     // Gem Rush is all gems, so it pays out half of them (keeps the shop fair).
-    const payout = v === 'gemrush' ? Math.ceil(r.gems / 2) : r.gems;
+    // Extreme pays 1.3x, Easy a little less (the Daily Run is the same for everyone).
+    const diff = v === 'daily' ? 'medium' : d.settings.difficulty;
+    const rate = d.settings.kidMode ? 1 : DIFFICULTY_GEM_RATE[diff];
+    const base = v === 'gemrush' ? Math.ceil(r.gems / 2) : r.gems;
+    const payout = Math.round(base * rate);
+    if (rate !== 1 && base > 0) missions.push(rate > 1 ? `Extreme bonus: ${base} → ${payout} gems` : `Easy pays ${Math.round(rate * 100)}% gems`);
     store.addGems(payout);
     store.commit();
     void store.flush();
@@ -819,6 +873,7 @@ export class GameController {
         hits: r.hits,
         verifiedNow,
         missionsDone: missions,
+        rate: req.rate,
       },
       {
         onRetry: () => this.play(req),
@@ -1099,4 +1154,11 @@ export class GameController {
       Math.round(me.speed * 10) / 10,
     ]);
   }
+}
+
+/** The Daily Run's soundtrack outside events: every regular recorded run track (not the player's own picks, so the beat is the same for everyone). */
+function dailySoundtrack(): number[] {
+  return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
+    .filter(({ t }) => t.role === 'run' && !t.event)
+    .map(({ id }) => id);
 }

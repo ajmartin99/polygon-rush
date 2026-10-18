@@ -9,6 +9,8 @@ import { ads } from './services/ads';
 import { iap } from './services/iap';
 import { account } from './services/account';
 import { ui } from './ui/ui';
+import { CONFIG } from './config';
+import { grantBeta } from './meta/beta';
 import { nav } from './ui/nav';
 import { localCard, ProfileScreen, watchBadges } from './ui/profile';
 import { ModesScreen } from './ui/screens/modes';
@@ -60,6 +62,8 @@ async function boot(): Promise<void> {
   registerRoutes();
   await Promise.all([store.load(), levels.load()]);
   ensureMissions(store.data);
+  // Beta builds (1.0.x): thank testers with exclusive items, once.
+  const betaGift = grantBeta(store.data, CONFIG.version);
   store.commit();
 
   document.documentElement.classList.toggle('reduced-motion', store.settings.reducedMotion);
@@ -81,6 +85,7 @@ async function boot(): Promise<void> {
   friends.on('notice', (msg) => ui.toast(msg, 'info', 4500));
   friends.start();
   watchBadges();
+  if (betaGift) setTimeout(() => ui.toast('Thanks for beta testing! Beta Bot skin, Debug Pixels trail, 🧪 emote and 500 gems are yours forever.', 'gift', 6000), 2500);
   if (serverAvailable()) void serverApi<{ freeChat?: boolean }>('/api/status').then(setServerFeatures, () => undefined);
   game.startAttract();
   if (import.meta.env.DEV) {

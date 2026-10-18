@@ -3539,3 +3539,8 @@ button.player-slot {
   width: 1.1rem;
   height: 1.1rem;
 }
+
+.equipped-tag.beta {
+  background: linear-gradient(90deg, #3ee6b0, #7b5cff);
+  color: #fff;
+}

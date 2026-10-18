@@ -98,6 +98,7 @@ export const BADGES: Badge[] = [
   badge({ id: 'gems10k', name: 'Treasure Hoard', title: 'Treasure Keeper', how: 'Collect 10,000 gems', icon: 'gem', color: '#ff5fa2', group: 'collect', value: (c) => c.save.stats.gemsCollected, target: 10000 }),
   badge({ id: 'collector', name: 'Collector', title: 'Collector', how: 'Own 8 skins', icon: 'sparkle', color: '#c27bff', group: 'collect', value: (c) => c.save.skins.owned.length, target: 8 }),
   badge({ id: 'spooky', name: 'Trick or Treat', title: 'Pumpkin King', how: 'Collect 3 Halloween skins or trails', icon: 'sparkle', color: '#ff7a2f', group: 'collect', value: halloween, target: 3 }),
+  badge({ id: 'beta', name: 'Founding Tester', title: 'Founding Tester', how: 'Beta testers only: played Polygon Rush before the full release', icon: 'verified', color: '#3ee6b0', group: 'collect', value: (c) => (c.save.beta.tester ? 1 : 0), target: 1 }),
   badge({ id: 'veteran', name: 'Veteran', title: 'Veteran', how: 'Play for 5 hours', icon: 'star', color: '#ffd23f', group: 'collect', value: (c) => c.save.stats.playSeconds, target: 5 * 3600 }),
 ];
 

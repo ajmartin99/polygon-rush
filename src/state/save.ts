@@ -126,6 +126,8 @@ export interface SaveData {
   phrases: { owned: string[] };
   /** Secret eggs found: Endless level numbers (1-based). */
   secrets: { found: number[] };
+  /** Played the beta (1.0.x): exclusive rewards granted. */
+  beta: { tester: boolean; version: string; at: number };
   best: Record<string, number>;
   stats: Stats;
   creator: CreatorProgress;
@@ -219,6 +221,7 @@ export function createSave(now = Date.now()): SaveData {
     emotes: { owned: [...FREE_EMOTES] },
     phrases: { owned: [] },
     secrets: { found: [] },
+    beta: { tester: false, version: '', at: 0 },
     best: {},
     stats: emptyStats(),
     creator: emptyCreator(),

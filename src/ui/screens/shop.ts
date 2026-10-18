@@ -196,7 +196,7 @@ export class ShopScreen extends BaseScreen {
         const card = h(
           'div.item',
           { 'data-id': item.id, style: `--rc:${RARITY_COLORS[item.rarity]}` },
-          equipped ? h('span.equipped-tag', null, 'EQUIPPED') : isEvent(item) && ev && !owned ? h('span.equipped-tag.spooky', null, 'HALLOWEEN') : null,
+          equipped ? h('span.equipped-tag', null, 'EQUIPPED') : isEvent(item) && ev && !owned ? h('span.equipped-tag.spooky', null, 'HALLOWEEN') : item.unlock.kind === 'beta' ? h('span.equipped-tag.beta', null, 'BETA') : null,
           isSkin
             ? previewCanvas({ skin: item.id, scale: 0.62 })
             : previewCanvas({ skin: store.data.skins.equipped, scale: 0.5, trail: item.id, animate: true }),
@@ -298,6 +298,10 @@ export class ShopScreen extends BaseScreen {
         info.textContent = 'Exclusive to the Starter Pack.';
         wrap.appendChild(button({ label: 'See Starter Pack', icon: 'star', cls: 'yellow', onClick: () => this.goGems() }));
         break;
+      case 'beta':
+        info.textContent = 'A thank-you for beta testers. It can’t be bought, and it’s gone for good after the beta.';
+        wrap.appendChild(button({ label: 'Beta testers only', icon: 'lock', cls: 'ghost', disabled: true }));
+        break;
       case 'legend':
         info.textContent = 'Part of the Legend Pack.';
         wrap.appendChild(button({ label: 'See Legend Pack', icon: 'crown', cls: 'yellow', onClick: () => this.goGems() }));
@@ -364,6 +368,7 @@ export class ShopScreen extends BaseScreen {
       const price = u.kind === 'gems' || u.kind === 'event' ? u.price : 0;
       const buy = () => {
         if (has) return;
+        if (u.kind === 'beta') return void ui.toast('A thank-you for beta testers only.', 'lock');
         if (price > 0 && !store.spendGems(price)) {
           ui.sfx('error');
           ui.toast('Not enough gems — rush for more or visit the gem shop!', 'gem');
@@ -379,10 +384,10 @@ export class ShopScreen extends BaseScreen {
         h(
           `button.emote-card${has ? '.owned' : ''}`,
           { style: `--rc:${RARITY_COLORS[e.rarity]}`, onclick: buy, 'aria-label': has ? `${e.name}, owned` : `Buy ${e.name}` },
-          u.kind === 'event' && !has ? h('span.equipped-tag.spooky', null, 'HALLOWEEN') : null,
+          u.kind === 'event' && !has ? h('span.equipped-tag.spooky', null, 'HALLOWEEN') : u.kind === 'beta' ? h('span.equipped-tag.beta', null, 'BETA') : null,
           h(`span.emote-glyph.e-${e.anim}`, null, e.glyph),
           h('b', null, e.name),
-          has ? h('span.state', null, 'Owned') : h('span.price', null, ic('gem'), price ? fmt(price) : 'Free'),
+          has ? h('span.state', null, 'Owned') : u.kind === 'beta' ? h('span.price', null, ic('lock'), 'Beta only') : h('span.price', null, ic('gem'), price ? fmt(price) : 'Free'),
         ),
       );
     }

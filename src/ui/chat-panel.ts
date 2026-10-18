@@ -1,4 +1,4 @@
-import { quickLinesFor } from '../meta/quickchat';
+import { PHRASE_PACKS, quickLinesFor } from '../meta/quickchat';
 import type { ChatLine, ChatLog } from '../services/chatlog';
 import { PLAYER_COLORS } from '../editor/session';
 import { store } from '../state/store';
@@ -197,7 +197,7 @@ export class ChatPanel {
       this.pop = null;
       return;
     }
-    const items = quickLinesFor(this.opts.where);
+    const items = quickLinesFor(this.opts.where, store.data.phrases.owned);
     const phrases = items.filter((i) => !i.line.emote);
     const emotes = items.filter((i) => i.line.emote);
     const pick = (n: number) => {
@@ -210,6 +210,7 @@ export class ChatPanel {
       null,
       h('div.quick-emotes', null, emotes.map(({ n, line }) => h('button', { onclick: () => pick(n), 'aria-label': `Send ${line.text}` }, line.text))),
       h('div.quick-grid', null, phrases.map(({ n, line }) => h('button', { onclick: () => pick(n) }, line.text))),
+      PHRASE_PACKS.some((p) => !p.event && !store.data.phrases.owned.includes(p.id)) ? h('p.quick-more', null, 'More phrases: Shop → Emotes & Chat') : null,
     );
     this.el.appendChild(this.pop);
   }

@@ -122,6 +122,8 @@ export interface SaveData {
   trails: { owned: string[]; equipped: string };
   /** Emotes for podiums and lobbies (free ones are always owned). */
   emotes: { owned: string[] };
+  /** Quick Chat phrase packs bought in the Shop. */
+  phrases: { owned: string[] };
   best: Record<string, number>;
   stats: Stats;
   creator: CreatorProgress;
@@ -213,6 +215,7 @@ export function createSave(now = Date.now()): SaveData {
     skins: { owned: ['classic'], equipped: 'classic' },
     trails: { owned: ['none'], equipped: 'none' },
     emotes: { owned: [...FREE_EMOTES] },
+    phrases: { owned: [] },
     best: {},
     stats: emptyStats(),
     creator: emptyCreator(),

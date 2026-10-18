@@ -14,6 +14,8 @@ All notable changes to Polygon Rush are documented here.
 - **Community levels:** share levels you built and beat to Create → Community. Browse Top Levels (everyone or just friends), Suggested (levels you haven't played yet) and Newest; play, like, save a copy or report. My Shared shows your levels with their plays, clears and likes, and you can update or unshare them. Parents can switch it off in Parental Controls.
 - **More badges:** 31 badges in 5 groups (Running, Racing, Level Creator, Friends & Community, Collecting), each with a progress bar, and a toast when you earn one. New ones cover 10,000 m, Extreme 5,000 m, Daily Runs, the Haunted Daily, shape portals, building 10 levels, building together, sharing levels, plays and likes on your levels, beating Community levels and having 5 friends.
 
+- **Quick Chat phrase packs:** buy more things to say with gems in Shop → Emotes & Chat: Good Sport, Hype Squad, Slang Pack ("No cap!", "Sheesh!", "GOAT!"), Builder Talk and, for Halloween, Spooky Sayings. Everyone in the room can read them; still preset phrases only, no typing.
+
 ### Changed
 - Songs no longer cut out between levels: the next song preloads and the two crossfade.
 - Typed Free Chat is switched off: players chat only with Quick Chat phrases and emotes. It's still built in and can be turned on later (`VITE_FREE_CHAT` in the app, `FREE_CHAT` on the server). The privacy policy no longer lists chat accounts, emails or messages.

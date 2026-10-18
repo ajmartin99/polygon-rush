@@ -20,6 +20,7 @@ import { previewCanvas, updatePreview } from '../preview';
 import { ui } from '../ui';
 import { activeEvent, eventEndLabel } from '../../meta/events';
 import { EMOTES } from '../../meta/emotes';
+import { packLines, PHRASE_PACKS } from '../../meta/quickchat';
 
 type Tab = 'skins' | 'trails' | 'emotes' | 'gems';
 
@@ -128,7 +129,7 @@ export class ShopScreen extends BaseScreen {
     const tabs: [Tab, string][] = [
       ['skins', 'Skins'],
       ['trails', 'Trails'],
-      ['emotes', 'Emotes'],
+      ['emotes', 'Emotes & Chat'],
       ['gems', 'Gems & Packs'],
     ];
     for (const [id, label] of tabs) {
@@ -386,9 +387,53 @@ export class ShopScreen extends BaseScreen {
       );
     }
     this.body.append(
-      h('p.muted.small', { style: 'margin:0.5rem 0' }, 'Pop emotes on the podium after races and in online lobbies. Everyone in the room sees them.'),
-      h('div.scroll', { style: 'min-height:0' }, grid),
+      h(
+        'div.scroll',
+        { style: 'min-height:0' },
+        h('p.muted.small', { style: 'margin:0.5rem 0' }, 'Pop emotes on the podium after races and in online lobbies. Everyone in the room sees them.'),
+        grid,
+        h('h3', { style: 'margin:1rem 0 0.3rem' }, ic('chat'), ' Quick Chat phrase packs'),
+        h('p.muted.small', { style: 'margin:0 0 0.5rem' }, 'More things to say in online rooms. Everyone in the room can read them, even without the pack.'),
+        this.phrasePacks(),
+      ),
     );
+  }
+
+  private phrasePacks(): HTMLElement {
+    const ev = activeEvent();
+    const owned = new Set(store.data.phrases.owned);
+    const grid = h('div.pack-grid');
+    for (const p of PHRASE_PACKS) {
+      const has = owned.has(p.id);
+      if (p.event && !has && ev?.id !== p.event) continue;
+      const lines = packLines(p.id);
+      const buy = () => {
+        if (has) return;
+        if (!store.spendGems(p.price)) {
+          ui.sfx('error');
+          ui.toast('Not enough gems — rush for more or visit the gem shop!', 'gem');
+          return;
+        }
+        store.data.phrases.owned.push(p.id);
+        store.commit();
+        ui.sfx('reward');
+        ui.toast(`${p.name} unlocked! Find the new phrases in Quick Chat.`, 'chat');
+        this.render();
+      };
+      grid.append(
+        h(
+          `button.pack-card${has ? '.owned' : ''}`,
+          { onclick: buy, 'aria-label': has ? `${p.name}, owned` : `Buy ${p.name} for ${p.price} gems` },
+          p.event && !has ? h('span.equipped-tag.spooky', null, 'HALLOWEEN') : null,
+          h('b', null, p.name),
+          h('span.muted.small', null, p.blurb),
+          h('div.pack-lines', null, lines.slice(0, 6).map((l) => h('span', null, l.text))),
+          h('span.small.muted', null, `${lines.length} phrases & emotes`),
+          has ? h('span.state', null, 'Owned') : h('span.price', null, ic('gem'), fmt(p.price)),
+        ),
+      );
+    }
+    return grid;
   }
 
   private goGems(): void {

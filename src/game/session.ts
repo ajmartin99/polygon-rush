@@ -3,6 +3,7 @@ import { Rng } from '../core/rng';
 import { DT, ENDLESS_TUNING, MODE_INDEX, PLAYER_HALF, RACE_SPEED, endlessSpeedAt, type Difficulty } from './constants';
 import { Chaser, obstacleMarks, type ChaserDiff, type ChaserEvent, type ChaserKind } from './chaser';
 import { LevelGen, type GenOptions } from './generator';
+import { LevelTimeline, type LevelSong } from './levels';
 import { buildWorld, levelSpeed, modeAt, type LevelContent } from './level';
 import { newEvents, stepBody } from './physics';
 import { Racer, type RacerSpec } from './racer';
@@ -32,8 +33,14 @@ export interface SessionOptions {
   stunOnly?: boolean;
   /** Endless: start this many metres in (a later level); distance counts from 0. */
   startDistance?: number;
-  /** Endless: build each level on its song's beat (see LevelGen). */
-  beat?: GenOptions['beat'];
+  /**
+   * Endless: the song planned for each level (0-based index from the run's
+   * very start). Each level lasts exactly its song, and its course is built
+   * on the song's beat.
+   */
+  levelSong?: (index: number) => LevelSong;
+  /** Endless: the level (0-based) the run starts in, at `startDistance`. */
+  startLevel?: number;
   /** Endless: Daily Run twists (see LevelGen). */
   startMode?: GenOptions['startMode'];
   heatFloor?: number;
@@ -93,6 +100,8 @@ export class GameSession extends Emitter<GameEvents> {
   private readonly rng: Rng;
   /** Track speed for race-likes and player levels; null = endless curve. */
   private readonly fixedSpeed: number | null;
+  /** Endless: the run's song-long levels (null elsewhere). */
+  readonly levels: LevelTimeline | null;
   /** Haunted Run: what's chasing the first racer. */
   readonly chaser: Chaser | null;
 
@@ -104,11 +113,15 @@ export class GameSession extends Emitter<GameEvents> {
     let startX = START_X;
     const offset = opts.kind === 'endless' ? Math.max(0, Math.floor(opts.startDistance ?? 0)) : 0;
     if (opts.level) {
+      this.levels = null;
       buildWorld(opts.level, this.world);
       this.gen = null;
       this.fixedSpeed = levelSpeed(opts.level);
       if (opts.kind === 'custom' && opts.startX !== undefined) startX = Math.max(START_X, Math.min(opts.level.length - 2, opts.startX));
     } else {
+      const kid = !!opts.kid;
+      this.levels =
+        opts.kind === 'endless' && opts.levelSong ? new LevelTimeline(opts.startLevel ?? 0, offset, opts.levelSong, (d) => endlessSpeedAt(d + START_X, kid, opts.diff)) : null;
       this.gen = new LevelGen(this.world, {
         seed: opts.seed,
         kind: raceLike ? 'race' : 'endless',
@@ -121,7 +134,7 @@ export class GameSession extends Emitter<GameEvents> {
         difficulty: raceLike ? opts.difficulty ?? 0.35 : undefined,
         startX: START_X + offset,
         offset,
-        beat: raceLike ? undefined : opts.beat,
+        levels: this.levels ?? undefined,
         startMode: opts.startMode,
         heatFloor: opts.heatFloor,
         sectionScale: opts.sectionScale,

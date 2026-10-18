@@ -2,7 +2,7 @@ import { store } from '../state/store';
 import { audio } from './audio';
 import { menuTheme, RACE_SONG, SONGS, songsFor, WORLD_SONGS } from './songs';
 import { TRACK_BASE, USER_BASE, isPickable, trackOf, tracksFor } from './tracks';
-import type { BeatGrid } from '../game/generator';
+import type { LevelSong } from '../game/levels';
 import { myMusic } from '../services/mymusic';
 import { activeEvent } from '../meta/events';
 import { Emitter } from './emitter';
@@ -17,6 +17,17 @@ import { Rng } from './rng';
  *  - level: one song on loop (custom levels are short and pick their song).
  * Songs switched off in Settings → Soundtrack are skipped (unless every one is).
  */
+/**
+ * How long a synth song plays before it hands over: the 2-bar intro, then
+ * whole 16-bar A-B-A-B cycles until about 105 s (see the audio engine).
+ */
+export function synthSongSeconds(bpm: number): number {
+  const bar = 240 / bpm;
+  let bars = 2 + 16;
+  while (bars * bar < 105) bars += 16;
+  return bars * bar;
+}
+
 export type MusicContext = 'menu' | 'run' | 'race' | 'build' | 'level';
 
 class MusicDirector extends Emitter<{ song: number }> {
@@ -29,7 +40,7 @@ class MusicDirector extends Emitter<{ song: number }> {
   constructor() {
     super();
     audio.onSongEnd = () => {
-      // Beat-synced levels keep their song to the end of the level (it loops in time).
+      // A level lasts exactly its song: the next level starts the next one.
       if (this.planning && this.context === 'run') return;
       if (this.context && this.context !== 'level') this.next();
     };
@@ -118,13 +129,17 @@ class MusicDirector extends Emitter<{ song: number }> {
     return id;
   }
 
-  /** The beat a level's course is built on (null when the song's tempo is unknown). */
-  planLevel(level: number): BeatGrid | null {
+  /**
+   * A level's song: which one, how long it lasts (the level lasts exactly
+   * that long) and the beat its course is built on. My Music files have no
+   * known length or beat, so their level runs a standard length.
+   */
+  levelSong(level: number): LevelSong {
     const id = this.planned(level);
     const t = trackOf(id);
-    if (t) return { bpm: t.bpm, offset: t.offset };
-    if (id >= 0 && id < SONGS.length) return { bpm: SONGS[id].bpm, offset: 0 };
-    return null;
+    if (t) return { id, seconds: t.duration - 0.15, grid: { bpm: t.bpm, offset: t.offset } };
+    if (id >= 0 && id < SONGS.length) return { id, seconds: synthSongSeconds(SONGS[id].bpm), grid: { bpm: SONGS[id].bpm, offset: 0 } };
+    return { id, seconds: 120, grid: null };
   }
 
   /** The song planned for the level being played (for keeping the music in time). */

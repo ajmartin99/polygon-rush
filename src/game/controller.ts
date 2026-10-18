@@ -11,7 +11,7 @@ import { applyXp, endlessXp, leagueFor, LEAGUES, raceReward, REVIVE_GEM_COST, ty
 import { describe, reportMission, type MissionEvent } from '../meta/missions';
 import { skinById, trailById } from '../meta/catalog';
 import { Renderer, type ViewSpec } from '../render/renderer';
-import { BIOMES, paletteAt, type Palette } from '../render/biomes';
+import { BIOMES, paletteAt, paletteInLevel, type Palette } from '../render/biomes';
 import { drawEndlessHud, drawLevelHud, drawRaceHud } from '../render/hud';
 import { nav, type LevelRunResult, type PlayRequest, type Rival } from '../ui/nav';
 import { ui } from '../ui/ui';
@@ -21,9 +21,9 @@ import { FREE_EMOTES, emoteIndex } from '../meta/emotes';
 import { decodeLevel, LEVEL_START_X, levelName, levelSpeed, type LevelContent } from './level';
 import type { Scene } from './scene';
 import { SECRET_LEVELS } from './generator';
-import { DIFFICULTY_GEM_RATE, DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED, endlessSpeedAt } from './constants';
+import { DIFFICULTY_GEM_RATE, DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED } from './constants';
 import { activeEvent, SPOOKY } from '../meta/events';
-import { clampStartLevel, levelStart, levelWorld } from '../meta/modes';
+import { MAX_START_LEVEL, clampStartLevel, levelStart, levelWorld } from '../meta/modes';
 import { endlessBestKey } from '../state/save';
 import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, VARIANT_INFO, dailyRewardKey, dailySeed, dailyTwist, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
 import { TRACK_BASE, TRACKS } from '../core/tracks';
@@ -221,7 +221,7 @@ export class GameController {
         this.kind = 'endless';
         const v = (this.variant = req.variant ?? 'classic');
         // Classic runs can start from any level already reached on this difficulty.
-        const level = (this.startLevel = v === 'classic' ? clampStartLevel(req.level, d.best[endlessBestKey(d.settings)] ?? 0) : 1);
+        const level = (this.startLevel = v === 'classic' ? clampStartLevel(req.level, d.levels[endlessBestKey(d.settings)] ?? 1) : 1);
         // The Daily Run is the same course, rules and soundtrack for everyone,
         // with its own twist each day (Halloween: the haunted course).
         const daily = v === 'daily';
@@ -244,7 +244,8 @@ export class GameController {
           stunOnly: v === 'gemrush',
           gemChance: v === 'gemrush' ? 0.9 : twist?.gemChance,
           startDistance: levelStart(level),
-          beat: (l: number) => music.planLevel(l),
+          startLevel: level - 1,
+          levelSong: (l: number) => music.levelSong(l),
           racers: [me],
         });
         break;
@@ -320,7 +321,7 @@ export class GameController {
       // Starting from a later level: no "World 1" banner or milestones for metres already behind us.
       this.lastBiome = this.startLevel - 1;
       this.lastMilestone = levelStart(this.startLevel);
-      if (this.startLevel > 1) hud.showHint(`Level ${this.startLevel}`, `${BIOMES[world].name} · ${levelStart(this.startLevel)} m`, 2200, '24%');
+      if (this.startLevel > 1) hud.showHint(`Level ${this.startLevel}`, BIOMES[world].name, 2200, '24%');
       this.go();
       if (d.stats.runs === 0) hud.showHint('Tap or hold anywhere to play!', 'Avoid spikes, grab gems', 3200, '22%');
     } else if (this.kind === 'custom' && req.mode === 'custom') {
@@ -684,22 +685,31 @@ export class GameController {
     const level = this.level();
     if (level) return BIOMES[level.theme % BIOMES.length];
     if (s && s.raceLike) return BIOMES[(s.opts.seed >>> 0) % BIOMES.length];
+    const levels = s?.levels;
+    if (levels) {
+      const span = levels.at(Math.max(0, x - START_X));
+      return paletteInLevel(span.index, x - START_X - span.start, span.end - span.start).palette;
+    }
     return paletteAt(Math.max(0, x - START_X), this.biomeOffset).palette;
   }
 
   /** World banners and distance milestones for the local endless runner. */
   private progressEvents(): void {
     if (this.kind !== 'endless' || this.phase !== 'running') return;
-    const me = this.session!.racers[0];
-    const world = Math.floor(me.distance / BIOME_LENGTH);
-    if (world !== this.lastBiome) {
-      this.lastBiome = world;
-      const pal = BIOMES[world % BIOMES.length];
-      this.hud?.showHint(`Level ${world + 1}`, pal.name, 2200, '20%');
+    const s = this.session!;
+    const me = s.racers[0];
+    const span = s.levels?.at(me.distance);
+    const level = span ? span.index : Math.floor(me.distance / BIOME_LENGTH);
+    if (level !== this.lastBiome) {
+      this.lastBiome = level;
+      const pal = BIOMES[level % BIOMES.length];
+      this.hud?.showHint(`Level ${level + 1}`, pal.name, 2200, '20%');
       audio.play('portal');
+      // A milestone right as a level starts would cover its banner.
+      this.lastMilestone = Math.max(this.lastMilestone, Math.floor(me.distance / 250) * 250 + 250);
     }
     const milestone = Math.floor(me.distance / 250) * 250;
-    if (milestone > this.lastMilestone && milestone % BIOME_LENGTH !== 0) {
+    if (milestone > this.lastMilestone) {
       this.lastMilestone = milestone;
       this.renderer.fx.text(me.x + 3, me.body.y + 2.2, `${milestone} m!`, '#ffd23f', 0.9, 1.4);
       audio.play('box');
@@ -724,20 +734,16 @@ export class GameController {
     const s = this.session!;
     const me = s.racers.find((r) => r.kind === 'human') ?? s.racers[0];
     if (this.kind === 'endless') {
-      const level = Math.floor(me.distance / BIOME_LENGTH);
+      // A level lasts exactly its song: the next level starts the next song.
+      const span = s.levels?.at(me.distance);
+      const level = span ? span.index : Math.floor(me.distance / BIOME_LENGTH);
       if (level !== this.songBiome && this.phase === 'running') {
         this.songBiome = level;
         music.world(level % WORLD_SONGS, level);
       }
-      // Beat-synced runs: keep the song at the time the runner's position calls for.
+      // Keep the song at the time the runner's position calls for (the course is built on its beat).
       const sync = music.syncSong;
-      if (sync && this.phase === 'running' && ++this.syncTick % 15 === 0) {
-        const d = s.opts.diff;
-        const kid = !!s.opts.kid;
-        let t = 0;
-        for (let x = sync.level * BIOME_LENGTH; x + 1 <= me.distance; x++) t += 1 / endlessSpeedAt(x + START_X + 0.5, kid, d);
-        audio.syncTo(sync.id, t);
-      }
+      if (sync && span && sync.level === span.index && this.phase === 'running' && ++this.syncTick % 15 === 0) audio.syncTo(sync.id, s.levels!.secondsInto(me.distance));
       audio.intensity = Math.min(1, 0.35 + me.distance / 3000);
     } else if (this.kind === 'custom') {
       audio.intensity = Math.min(1, 0.55 + me.distance / 600);
@@ -842,6 +848,9 @@ export class GameController {
     const prevBest = d.best[key] ?? 0;
     const newBest = score > prevBest;
     if (newBest) d.best[key] = score;
+    // Levels you can start from next time: every level this run reached.
+    const levels = this.session?.levels;
+    if (v === 'classic' && levels) d.levels[key] = Math.min(MAX_START_LEVEL, Math.max(d.levels[key] ?? 1, levels.at(r.distance).index + 1));
     d.stats.runs += 1;
     d.stats.totalDistance += distance;
     if (v === 'classic' || v === 'oneheart') d.stats.bestDistance = Math.max(d.stats.bestDistance, distance);

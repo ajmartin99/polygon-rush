@@ -57,7 +57,7 @@ export class MenuScreen extends BaseScreen {
       sub: kid ? 'Endless · Kid Mode' : `Endless · ${DIFFICULTY_NAMES[d.settings.difficulty]}`,
       onClick: () => nav.play({ mode: 'endless' }),
     });
-    const unlocked = unlockedLevels(best);
+    const unlocked = unlockedLevels(d.levels[bestKey] ?? 1);
     // Level select sits on the PLAY button once there's more than one level to pick.
     const playArea =
       unlocked > 1

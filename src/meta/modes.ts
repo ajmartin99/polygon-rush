@@ -1,3 +1,4 @@
+import { LEVEL_NOMINAL } from '../game/levels';
 import type { Settings } from '../state/save';
 import { endlessBestKey } from '../state/save';
 
@@ -69,18 +70,20 @@ export const VARIANT_INFO: Record<EndlessVariant, { name: string; blurb: string 
 };
 
 // ------------------------------------------------------------------ levels
-/** Endless is split into levels: one per world, 500 m each, cycling through the six worlds. */
-export const LEVEL_LENGTH = 500;
+/**
+ * Endless is split into levels, each exactly one song long (see LevelTimeline),
+ * cycling through the six worlds.
+ */
 export const MAX_START_LEVEL = 40;
 
 /** Levels you can start from: every level you have reached on this difficulty. */
-export function unlockedLevels(bestDistance: number): number {
-  return Math.max(1, Math.min(MAX_START_LEVEL, Math.floor(Math.max(0, bestDistance) / LEVEL_LENGTH) + 1));
+export function unlockedLevels(reached: number): number {
+  return Math.max(1, Math.min(MAX_START_LEVEL, Math.floor(reached) || 1));
 }
 
-/** Metres at which a level begins. */
+/** Where a run started from a later level begins (metres in, so speed and difficulty fit). */
 export function levelStart(level: number): number {
-  return (Math.max(1, Math.floor(level)) - 1) * LEVEL_LENGTH;
+  return (Math.max(1, Math.floor(level)) - 1) * LEVEL_NOMINAL;
 }
 
 /** World index (0-5) a level takes place in. */
@@ -89,9 +92,9 @@ export function levelWorld(level: number): number {
 }
 
 /** A level you're allowed to start from, given your record (falls back to 1). */
-export function clampStartLevel(level: number | undefined, bestDistance: number): number {
+export function clampStartLevel(level: number | undefined, reached: number): number {
   const n = Math.floor(level ?? 1);
-  return n >= 1 && n <= unlockedLevels(bestDistance) ? n : 1;
+  return n >= 1 && n <= unlockedLevels(reached) ? n : 1;
 }
 
 export interface DailyTwist {

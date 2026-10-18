@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { LEVEL_NOMINAL } from '../src/game/levels';
+import { migrate } from '../src/state/save';
 import { dailySeed, dayKey, pruneDaily, variantBestKey } from '../src/meta/modes';
 import { GameSession } from '../src/game/session';
 
@@ -50,18 +52,27 @@ describe('game modes', () => {
 });
 
 describe('Endless levels', () => {
-  it('unlocks a level for every 500 m reached', async () => {
+  it('unlocks every level reached; later starts begin partway in', async () => {
     const { unlockedLevels, levelStart, clampStartLevel, levelWorld } = await import('../src/meta/modes');
     expect(unlockedLevels(0)).toBe(1);
-    expect(unlockedLevels(499)).toBe(1);
-    expect(unlockedLevels(500)).toBe(2);
-    expect(unlockedLevels(2750)).toBe(6);
+    expect(unlockedLevels(1)).toBe(1);
+    expect(unlockedLevels(6)).toBe(6);
     expect(unlockedLevels(1e9)).toBe(40);
-    expect(levelStart(4)).toBe(1500);
+    expect(levelStart(1)).toBe(0);
+    expect(levelStart(4)).toBe(3 * LEVEL_NOMINAL);
     expect(levelWorld(7)).toBe(0);
-    expect(clampStartLevel(5, 2600)).toBe(5);
-    expect(clampStartLevel(7, 2600)).toBe(1);
-    expect(clampStartLevel(0, 2600)).toBe(1);
+    expect(clampStartLevel(5, 5)).toBe(5);
+    expect(clampStartLevel(7, 5)).toBe(1);
+    expect(clampStartLevel(0, 5)).toBe(1);
+  });
+
+  it('older saves unlock levels from their best distance', () => {
+    const save = migrate({ best: { endless: 3000, endless_hard: 100, daily_2026_1_1: 9000 } });
+    expect(save.levels.endless).toBe(Math.floor(3000 / LEVEL_NOMINAL) + 1);
+    expect(save.levels.endless_hard).toBe(1);
+    expect(save.levels.daily_2026_1_1).toBeUndefined();
+    // Already converted: kept as it is.
+    expect(migrate({ best: { endless: 3000 }, levels: { endless: 9 } }).levels.endless).toBe(9);
   });
 
   it('starts a run partway in, at that point’s speed, counting from 0 m', () => {

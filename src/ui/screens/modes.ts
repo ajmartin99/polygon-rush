@@ -30,7 +30,7 @@ export class ModesScreen extends BaseScreen {
     const best = (v: EndlessVariant) => d.best[variantBestKey(v, d.settings)] ?? 0;
     const endless = (v: EndlessVariant) => () => nav.play({ mode: 'endless', variant: v });
     const dailyDone = Boolean(d.best[dailyRewardKey()]);
-    const unlocked = unlockedLevels(best('classic'));
+    const unlocked = unlockedLevels(d.levels[variantBestKey('classic', d.settings)] ?? 1);
     const haunted = activeEvent()?.id === 'halloween';
     const hs = d.haunted;
     const left = haunted ? attemptsLeft(hs) : 0;

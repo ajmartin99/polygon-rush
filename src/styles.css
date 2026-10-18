@@ -2174,6 +2174,12 @@ input[type='range']::-moz-range-thumb {
   bottom: calc(0.8rem + var(--safe-b));
 }
 
+.chat-panel.results-chat {
+  right: auto;
+  left: calc(0.6rem + var(--safe-l));
+  align-items: flex-start;
+}
+
 .chat-log {
   display: flex;
   flex-direction: column;

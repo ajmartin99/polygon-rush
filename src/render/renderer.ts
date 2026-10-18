@@ -48,6 +48,8 @@ export interface RenderOptions {
   markers?: { x: number; label: string; color: string }[];
   /** Halloween dressing: moon and bats, ground fog, saws as jack-o'-lanterns. */
   haunted?: boolean;
+  /** Secret eggs already found (drawn faded). */
+  secretsFound?: readonly number[];
 }
 
 /** A free camera for scenes without a racer (the editor). */
@@ -156,12 +158,14 @@ export class Renderer {
   /** The runner's x for the view being drawn (moving saws follow it). */
   private runnerX = 0;
   private haunted = false;
+  private secretsFound: readonly number[] = [];
 
   private drawView(session: GameSession, view: ViewSpec, dt: number, time: number, opts: RenderOptions): void {
     const ctx = this.ctx;
     const cam = this.camera(view, dt);
     this.runnerX = view.racer.x;
     this.haunted = !!opts.haunted;
+    this.secretsFound = opts.secretsFound ?? [];
     const r = view.rect;
     const s = cam.scale;
     const pal = opts.palette(view.racer.x);
@@ -244,6 +248,9 @@ export class Renderer {
           break;
         case 'pickup':
           if (!collected?.has(o.id)) this.drawPickup(o.type, sx(o.x), sy(o.y) + Math.sin(time * 3) * s * 0.08, s, time);
+          break;
+        case 'secret':
+          if (!collected?.has(o.id)) this.drawEgg(sx(o.x), sy(o.y) + Math.sin(time * 2.5) * s * 0.07, s, time, !!this.secretsFound.includes(o.level));
           break;
         case 'box':
           if (!collected?.has(o.id)) this.drawBox(sx(o.x), sy(o.y) + Math.sin(time * 3 + o.x) * s * 0.08, s, time);
@@ -693,6 +700,58 @@ export class Renderer {
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.globalAlpha = 1;
+  }
+
+  /** A golden egg with a soft glow and a twinkle (faded once found). */
+  private drawEgg(px: number, py: number, s: number, t: number, found: boolean): void {
+    const ctx = this.ctx;
+    const w = 0.36 * s;
+    const hgt = 0.48 * s;
+    ctx.save();
+    ctx.globalAlpha = found ? 0.45 : 1;
+    const glow = ctx.createRadialGradient(px, py, 0, px, py, s * 1.1);
+    glow.addColorStop(0, 'rgba(255,224,102,0.55)');
+    glow.addColorStop(1, 'rgba(255,224,102,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(px - s * 1.1, py - s * 1.1, s * 2.2, s * 2.2);
+    const body = ctx.createLinearGradient(px - w, py - hgt, px + w, py + hgt);
+    body.addColorStop(0, found ? '#d8d2ff' : '#fff3b0');
+    body.addColorStop(0.5, found ? '#a99cf0' : '#ffd23f');
+    body.addColorStop(1, found ? '#6f62c2' : '#e09a00');
+    ctx.fillStyle = body;
+    ctx.beginPath();
+    ctx.moveTo(px, py - hgt);
+    ctx.bezierCurveTo(px + w * 1.05, py - hgt, px + w * 1.15, py + hgt * 0.75, px, py + hgt * 0.75);
+    ctx.bezierCurveTo(px - w * 1.15, py + hgt * 0.75, px - w * 1.05, py - hgt, px, py - hgt);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(80,40,0,0.55)';
+    ctx.lineWidth = Math.max(1, s * 0.05);
+    ctx.stroke();
+    // Zigzag band.
+    ctx.strokeStyle = found ? '#ffffff' : '#ff7af0';
+    ctx.lineWidth = Math.max(1.5, s * 0.07);
+    ctx.beginPath();
+    for (let i = 0; i <= 6; i++) {
+      const x = px - w * 0.95 + (i / 6) * w * 1.9;
+      const y = py + hgt * 0.05 + (i % 2 ? -1 : 1) * hgt * 0.1;
+      if (i) ctx.lineTo(x, y);
+      else ctx.moveTo(x, y);
+    }
+    ctx.stroke();
+    // Twinkle.
+    const tw = 0.5 + 0.5 * Math.sin(t * 5);
+    ctx.fillStyle = `rgba(255,255,255,${0.5 + 0.5 * tw})`;
+    const sp = s * (0.08 + 0.06 * tw);
+    const cx = px + w * 0.45;
+    const cy = py - hgt * 0.55;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy - sp * 2);
+    ctx.lineTo(cx + sp * 0.5, cy);
+    ctx.lineTo(cx, cy + sp * 2);
+    ctx.lineTo(cx - sp * 0.5, cy);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
   }
 
   private drawGem(px: number, py: number, s: number, big: boolean, t: number): void {

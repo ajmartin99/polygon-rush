@@ -6,6 +6,9 @@ const svg = (body: string, vb = '0 0 24 24'): string =>
   `<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${body}</svg>`;
 
 export const ICONS = {
+  egg: svg(
+    `<path d="M12 2.5c3.9 0 7 6.3 7 11 0 4.4-3.1 7.5-7 7.5s-7-3.1-7-7.5c0-4.7 3.1-11 7-11z" fill="#ffd23f" stroke="#7a4a00" stroke-width="1.3"/><path d="M5.6 12.4l2.1-1.6 2.1 1.6 2.2-1.6 2.1 1.6 2.1-1.6 2.2 1.6" fill="none" stroke="#ff5fa2" stroke-width="1.6" stroke-linejoin="round"/><path d="M15 6.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z" fill="#fff"/>`,
+  ),
   gem: svg(
     `<path d="M6 3h12l4 6-10 12L2 9z" fill="#3ad7ff"/><path d="M2 9h20L12 21z" fill="#1fa6e0"/><path d="M6 3l3 6h6l3-6z" fill="#8ff0ff"/><path d="M9 9l3 12 3-12z" fill="#5fe2ff"/><path d="M6 3h12l4 6-10 12L2 9z" fill="none" stroke="#0b3f66" stroke-width="1.4" stroke-linejoin="round"/>`,
   ),

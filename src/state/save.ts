@@ -124,6 +124,8 @@ export interface SaveData {
   emotes: { owned: string[] };
   /** Quick Chat phrase packs bought in the Shop. */
   phrases: { owned: string[] };
+  /** Secret eggs found: Endless level numbers (1-based). */
+  secrets: { found: number[] };
   best: Record<string, number>;
   stats: Stats;
   creator: CreatorProgress;
@@ -216,6 +218,7 @@ export function createSave(now = Date.now()): SaveData {
     trails: { owned: ['none'], equipped: 'none' },
     emotes: { owned: [...FREE_EMOTES] },
     phrases: { owned: [] },
+    secrets: { found: [] },
     best: {},
     stats: emptyStats(),
     creator: emptyCreator(),

@@ -47,7 +47,7 @@ describe('player profiles', () => {
   it('cleans cards from other players', () => {
     const evil = { lv: 1e9, trophies: -5, best: 'lots', wins: 3.7, title: 'hello <b>', banner: 99, show: ['rush1k', 'rush1k', 'x', 'win10', 'win50', 'gold'], badges: 999, extra: 'my number is 555' };
     const c = safeCard(evil)!;
-    expect(c).toEqual({ lv: 999, trophies: 0, best: 0, wins: 3, title: '', banner: 8, show: ['rush1k', 'win10', 'win50'], badges: BADGES.length });
+    expect(c).toEqual({ lv: 999, trophies: 0, best: 0, wins: 3, title: '', banner: 8, show: ['rush1k', 'win10', 'win50'], badges: BADGES.length, eggs: 0 });
     expect(JSON.stringify(c)).not.toContain('555');
     expect(safeCard('nope')).toBeUndefined();
     const [p] = safePlayers([{ id: 'a', name: 'Speedy Panda 7', skin: 'classic', host: false, color: 1, card: evil }]);

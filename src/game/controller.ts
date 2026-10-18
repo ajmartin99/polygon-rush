@@ -20,6 +20,7 @@ import { roomChatPanel } from '../ui/room-chat';
 import { FREE_EMOTES, emoteIndex } from '../meta/emotes';
 import { decodeLevel, levelName, type LevelContent } from './level';
 import type { Scene } from './scene';
+import { SECRET_LEVELS } from './generator';
 import { DIFFICULTY_GEM_RATE, DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED, endlessSpeedAt } from './constants';
 import { activeEvent, SPOOKY } from '../meta/events';
 import { clampStartLevel, levelStart, levelWorld } from '../meta/modes';
@@ -233,6 +234,7 @@ export class GameController {
           kid: daily ? false : d.settings.kidMode,
           diff: daily ? 'medium' : d.settings.difficulty,
           tutorial: v === 'classic' && level === 1 && d.stats.runs < 2,
+          secrets: v === 'classic',
           hearts: v === 'oneheart' ? 1 : undefined,
           noHearts: v === 'oneheart',
           stunOnly: v === 'gemrush',
@@ -424,6 +426,21 @@ export class GameController {
         audio.play(value > 1 ? 'bigGem' : 'gem');
         if (value > 1) haptics.light();
       }),
+      s.on('secret', ({ racer, level, x, y }) => {
+        if (!local(racer)) return;
+        const d = store.data;
+        if (d.secrets.found.includes(level)) {
+          this.renderer.fx.text(x + 1.5, y - 1.4, 'Found it before!', '#ffe9a8', 0.7, 1.1);
+          audio.play('gem');
+          return;
+        }
+        d.secrets.found = [...d.secrets.found, level].sort((a, b) => a - b);
+        store.commit();
+        this.renderer.fx.text(x + 1.5, y - 1.4, 'SECRET EGG!', '#ffd23f', 1.1, 1.6);
+        audio.play('levelUp');
+        haptics.success();
+        this.hud?.showHint(`Secret egg found! Level ${level}`, `${d.secrets.found.length}/${SECRET_LEVELS} · see Levels and your profile`, 2200, '18%');
+      }),
       s.on('pickup', ({ racer, type, x, y }) => {
         if (local(racer)) this.renderer.fx.pickup(x, y, type === 'heart' ? '+1 ♥' : type === 'shield' ? 'Shield!' : 'Magnet!', type === 'heart' ? '#ff7a95' : type === 'shield' ? '#7fe9ff' : '#ff8a8a');
         if (!local(racer)) return;
@@ -577,6 +594,7 @@ export class GameController {
       dim: this.kind === 'attract',
       markers,
       haunted: this.paletteFor(this.session?.racers[0]?.x ?? 0) === SPOOKY,
+      secretsFound: store.data.secrets.found,
     });
     if (this.kind === 'attract' || this.phase === 'results') return;
     const ctx = this.renderer.ctx;

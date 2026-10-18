@@ -69,6 +69,9 @@ export const BADGES: Badge[] = [
   badge({ id: 'daily7', name: 'Daily Rusher', title: 'Daily Rusher', how: 'Play 7 Daily Runs', icon: 'target', color: '#3ad7ff', group: 'run', value: (c) => c.save.stats.dailyRuns, target: 7 }),
   badge({ id: 'daily30', name: 'Every Day', title: 'Never Misses a Day', how: 'Reach the Daily Run target on 30 days', icon: 'target', color: '#3ee6b0', group: 'run', value: (c) => c.save.stats.dailyTargets, target: 30 }),
   badge({ id: 'haunted', name: 'Ghost Runner', title: 'Ghost Runner', how: 'Reach 1,000 m in a Haunted Daily (Halloween)', icon: 'sparkle', color: '#ff7a2f', group: 'run', value: (c) => c.save.stats.hauntedBest, target: 1000 }),
+  badge({ id: 'egg1', name: 'Egg Hunter', title: 'Egg Hunter', how: 'Find a secret egg (one hides in every Endless level)', icon: 'egg', color: '#ffd23f', group: 'run', value: (c) => c.save.secrets.found.length, target: 1 }),
+  badge({ id: 'egg10', name: 'Treasure Seeker', title: 'Treasure Seeker', how: 'Find 10 secret eggs', icon: 'egg', color: '#ff7af0', group: 'run', value: (c) => c.save.secrets.found.length, target: 10 }),
+  badge({ id: 'egg40', name: 'Secret Keeper', title: 'Keeper of Secrets', how: 'Find all 40 secret eggs', icon: 'egg', color: '#3ee6b0', group: 'run', value: (c) => c.save.secrets.found.length, target: 40 }),
   badge({ id: 'bouncy', name: 'Bouncy', title: 'Bouncer', how: 'Jump 10,000 times', icon: 'shapes', color: '#ff5fa2', group: 'run', value: (c) => c.save.stats.jumps, target: 10000 }),
   badge({ id: 'shifter', name: 'Shape Shifter', title: 'Shape Shifter', how: 'Fly through 500 shape portals', icon: 'shapes', color: '#7b5cff', group: 'run', value: (c) => c.save.stats.portals, target: 500 }),
   // ---- racing
@@ -142,6 +145,8 @@ export interface ProfileCard {
   show: string[];
   /** Number of badges earned. */
   badges: number;
+  /** Secret eggs found. */
+  eggs: number;
   /** Friend tag (13+ only, so others in a room can send a request). */
   tag?: number;
 }
@@ -158,6 +163,7 @@ export function myCard(c: BadgeCtx): ProfileCard {
     banner: c.save.level >= (BANNER_LEVELS[p.banner] ?? Infinity) ? p.banner : 0,
     show: p.showcase.filter((id) => earned.has(id)).slice(0, MAX_SHOWCASE),
     badges: earned.size,
+    eggs: c.save.secrets.found.length,
     // Under-13s share their Name#tag in person only.
     ...(p.tag > 0 && p.birthYear !== null && new Date().getFullYear() - p.birthYear - 1 >= 13 ? { tag: p.tag } : {}),
   };
@@ -180,6 +186,7 @@ export function safeCard(raw: unknown): ProfileCard | undefined {
     banner: int(r.banner, 0, BANNERS.length - 1),
     show,
     badges: int(r.badges, show.length, BADGES.length),
+    eggs: int(r.eggs, 0, 99),
     ...(typeof r.tag === 'number' && Number.isInteger(r.tag) && r.tag >= 1 && r.tag <= 9999 ? { tag: r.tag } : {}),
   };
 }

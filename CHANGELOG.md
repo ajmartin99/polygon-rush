@@ -16,6 +16,8 @@ All notable changes to Polygon Rush are documented here.
 
 - **Quick Chat phrase packs:** buy more things to say with gems in Shop → Emotes & Chat: Good Sport, Hype Squad, Slang Pack ("No cap!", "Sheesh!", "GOAT!"), Builder Talk and, for Halloween, Spooky Sayings. Everyone in the room can read them; still preset phrases only, no typing.
 
+- **Secret eggs:** a golden egg hides in each of the 40 Endless levels, high above a jump ring after a launch pad. Tap on the ring at the top of the launch to grab it. Found eggs show on the Levels screen and on your profile card (Secret eggs 12/40), with three new badges: Egg Hunter, Treasure Seeker and Secret Keeper.
+
 ### Changed
 - Songs no longer cut out between levels: the next song preloads and the two crossfade.
 - Typed Free Chat is switched off: players chat only with Quick Chat phrases and emotes. It's still built in and can be turned on later (`VITE_FREE_CHAT` in the app, `FREE_CHAT` on the server). The privacy policy no longer lists chat accounts, emails or messages.

@@ -37,7 +37,12 @@ export interface GenOptions {
   heatFloor?: number;
   /** Endless: scale shape sections (shorter = more shape changes). */
   sectionScale?: number;
+  /** Endless: hide a secret egg somewhere in each level (classic Endless only). */
+  secrets?: boolean;
 }
+
+/** Levels that have a secret egg (matches the Levels screen). */
+export const SECRET_LEVELS = 40;
 
 export interface BeatGrid {
   bpm: number;
@@ -93,6 +98,12 @@ export class LevelGen {
   private beatT = 0;
   /** Pattern starts placed on a beat (for tests and tuning). */
   beatsHit = 0;
+  /** Secret eggs: own RNG so they don't reshuffle the rest of the course. */
+  private readonly secretRng: Rng;
+  private secretLevel = 0;
+  private secretX = Infinity;
+  /** Eggs placed (for tests). */
+  secretsPlaced = 0;
 
   constructor(world: World, opts: GenOptions) {
     this.world = world;
@@ -111,7 +122,15 @@ export class LevelGen {
     // Opening runway with a few welcoming gems.
     this.gemLine(start + 5, this.x - 1, 1.1, 1.5);
     if (opts.kind === 'endless' && opts.startMode && opts.startMode !== 'square') this.transition(opts.startMode);
+    this.secretRng = new Rng((opts.seed ^ 0x5ec2e7) >>> 0);
+    if (opts.kind === 'endless' && opts.secrets) this.planSecret(Math.floor(off / BEAT_LEVEL_LENGTH));
     this.flush();
+  }
+
+  /** Pick where level `level`'s egg goes (0-based level index). */
+  private planSecret(level: number): void {
+    this.secretLevel = level;
+    this.secretX = level < SECRET_LEVELS ? this.origin + level * BEAT_LEVEL_LENGTH + this.secretRng.range(50, 330) : Infinity;
   }
 
   // ------------------------------------------------------------------ tuning
@@ -166,6 +185,19 @@ export class LevelGen {
       this.flush();
       return;
     }
+    if (this.x >= this.secretX) {
+      // Too late in the level (or never in Jumper shape there): this level's egg is skipped.
+      const levelEnd = this.origin + (this.secretLevel + 1) * BEAT_LEVEL_LENGTH;
+      const room = this.v * 1.4 + 4;
+      if (this.x + room > levelEnd) this.planSecret(this.secretLevel + 1);
+      else if (this.mode === 'square' && this.x + room < this.sectionEnd && !(this.opts.tutorial && this.tutorialStep <= TUTORIAL.length)) {
+        this.secretNook();
+        this.planSecret(this.secretLevel + 1);
+        this.runway();
+        this.flush();
+        return;
+      }
+    }
     const p = this.pickPattern();
     this.lastPattern = p.id;
     p.run(this);
@@ -182,6 +214,30 @@ export class LevelGen {
     }
     this.runway();
     this.flush();
+  }
+
+  /**
+   * A secret: a launch pad sends you up past a jump ring, and the egg floats
+   * above the ring. Only a tap on the ring right at the top reaches it; the
+   * plain launch lands safely on clear ground. A few gems hint the way up.
+   */
+  private secretNook(): void {
+    const v = this.v;
+    const P = { pad: 26.5, orb: 18.6, g: 74, base: 0.43 };
+    const yAt = (t: number, vy: number, y0: number) => y0 + vy * t - (P.g / 2) * t * t;
+    const x = this.x + 1.5;
+    this.pad(x);
+    for (const t of [0.09, 0.16, 0.22]) this.gem(x + v * t, yAt(t, P.pad, P.base));
+    const tOrb = 0.3;
+    const orbX = x + v * tOrb;
+    const orbY = yAt(tOrb, P.pad, P.base) - 0.05;
+    this.orb(orbX, orbY);
+    const tEgg = 0.24;
+    const egg = { x: orbX + v * tEgg, y: yAt(tEgg, P.orb, orbY) - 0.1 };
+    this.pending.push({ id: this.world.newId(), kind: 'secret', x: egg.x, y: egg.y, level: this.secretLevel + 1, x0: egg.x - 0.5, x1: egg.x + 0.5, y0: egg.y - 0.6, y1: egg.y + 0.6 });
+    this.secretsPlaced++;
+    // Clear landing for the boosted jump (about a second of air).
+    this.x = x + v * 1.25 + 1;
   }
 
   private pickPattern(): Pattern {

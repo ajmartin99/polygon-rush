@@ -93,6 +93,14 @@ export interface MysteryBox extends Base {
   y: number;
 }
 
+/** A hidden egg: one per Endless level (1-based), off the main path. */
+export interface Secret extends Base {
+  kind: 'secret';
+  x: number;
+  y: number;
+  level: number;
+}
+
 export interface Finish extends Base {
   kind: 'finish';
   x: number;
@@ -107,7 +115,7 @@ export interface Hint extends Base {
   key: string;
 }
 
-export type WorldObj = Solid | Spike | Saw | Gem | Pad | Orb | Portal | Pickup | MysteryBox | Finish | Hint;
+export type WorldObj = Solid | Spike | Saw | Gem | Pad | Orb | Portal | Pickup | MysteryBox | Finish | Hint | Secret;
 
 /** A stretch of track with one shape mode (used for rendering ceilings, music and bots). */
 export interface Section {

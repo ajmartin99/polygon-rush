@@ -84,3 +84,13 @@ describe('Endless levels', () => {
     expect(s.world.generatedTo).toBeGreaterThan(r.x + 60);
   });
 });
+
+describe('Lights Out', () => {
+  it('flashes on the beat and fades fast', async () => {
+    const { lightsFlash } = await import('../src/game/controller');
+    expect(lightsFlash(0)).toBe(1);
+    expect(lightsFlash(0.2)).toBeLessThan(0.3);
+    expect(lightsFlash(0.5)).toBe(0);
+    expect(variantBestKey('lightsout', { kidMode: false, difficulty: 'hard' })).toBe('lightsout_hard');
+  });
+});

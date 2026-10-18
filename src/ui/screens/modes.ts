@@ -66,7 +66,7 @@ export class ModesScreen extends BaseScreen {
         icon: 'target',
         color: 'violet',
         tag: `${unlocked} of ${MAX_START_LEVEL} open`,
-        stat: unlocked > 1 ? `Up to Level ${unlocked}` : 'Reach 500 m for Level 2',
+        stat: unlocked > 1 ? `Up to Level ${unlocked}` : 'Finish the first song for Level 2',
         go: () => nav.go('levels'),
       },
       {
@@ -88,6 +88,16 @@ export class ModesScreen extends BaseScreen {
         tag: DIFFICULTY_NAMES[d.settings.difficulty],
         stat: best('oneheart') ? `Best ${fmt(best('oneheart'))} m` : undefined,
         go: endless('oneheart'),
+      },
+      {
+        id: 'lightsout',
+        name: VARIANT_INFO.lightsout.name,
+        blurb: VARIANT_INFO.lightsout.blurb,
+        icon: 'bolt',
+        color: 'violet',
+        tag: DIFFICULTY_NAMES[d.settings.difficulty],
+        stat: best('lightsout') ? `Best ${fmt(best('lightsout'))} m` : 'New!',
+        go: endless('lightsout'),
       },
       {
         id: 'gemrush',

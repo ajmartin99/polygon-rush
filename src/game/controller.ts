@@ -25,7 +25,7 @@ import { DIFFICULTY_GEM_RATE, DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED
 import { activeEvent, SPOOKY } from '../meta/events';
 import { MAX_START_LEVEL, clampStartLevel, levelStart, levelWorld } from '../meta/modes';
 import { endlessBestKey } from '../state/save';
-import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, VARIANT_INFO, dailyRewardKey, dailySeed, dailyTwist, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
+import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, LIGHTS_OUT_GEM_RATE, VARIANT_INFO, dailyRewardKey, dailySeed, dailyTwist, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
 import { TRACK_BASE, TRACKS } from '../core/tracks';
 import { HAUNTED_TRACK, hauntedPayout } from '../meta/haunted';
 import { InputManager } from './input';
@@ -47,6 +47,12 @@ const BOX_TEXT: Record<BoxItem, string> = {
   snow: 'SNOWBALL!',
   magnet: 'MAGNET!',
 };
+
+/** Lights Out: how bright the beat flash is, from the beat phase (0 on the beat, fading fast). */
+export function lightsFlash(phase: number): number {
+  const k = Math.max(0, 1 - phase * 2.6);
+  return k * k;
+}
 
 /** The menu backdrop stops after this long without a touch. */
 const ATTRACT_IDLE_MS = 45_000;
@@ -324,6 +330,7 @@ export class GameController {
       if (this.startLevel > 1) hud.showHint(`Level ${this.startLevel}`, BIOMES[world].name, 2200, '24%');
       this.go();
       if (d.stats.runs === 0) hud.showHint('Tap or hold anywhere to play!', 'Avoid spikes, grab gems', 3200, '22%');
+      else if (this.variant === 'lightsout') hud.showHint('Lights Out!', 'Every beat flashes the way ahead. Feel the rhythm!', 2600, '24%');
     } else if (this.kind === 'custom' && req.mode === 'custom') {
       music.level(req.level.music, req.level.theme, !!req.haunted);
       const track = trackOf(req.level.music);
@@ -663,6 +670,7 @@ export class GameController {
       haunted: this.paletteFor(this.session?.racers[0]?.x ?? 0) === SPOOKY,
       secretsFound: store.data.secrets.found,
       chaser: s.chaser,
+      lightsOut: this.kind === 'endless' && this.variant === 'lightsout' ? lightsFlash(audio.beatPhase()) : undefined,
     });
     if (this.kind === 'attract' || this.phase === 'results') return;
     const ctx = this.renderer.ctx;
@@ -878,8 +886,10 @@ export class GameController {
     const diff = v === 'daily' ? 'medium' : d.settings.difficulty;
     const rate = d.settings.kidMode ? 1 : DIFFICULTY_GEM_RATE[diff];
     const base = v === 'gemrush' ? Math.ceil(r.gems / 2) : r.gems;
-    const payout = Math.round(base * rate);
-    if (rate !== 1 && base > 0) missions.push(rate > 1 ? `Extreme bonus: ${base} → ${payout} gems` : `Easy pays ${Math.round(rate * 100)}% gems`);
+    const dark = v === 'lightsout' ? LIGHTS_OUT_GEM_RATE : 1;
+    const payout = Math.round(base * rate * dark);
+    if (dark !== 1 && base > 0) missions.push(`Lights Out bonus: ${base} → ${payout} gems`);
+    else if (rate !== 1 && base > 0) missions.push(rate > 1 ? `Extreme bonus: ${base} → ${payout} gems` : `Easy pays ${Math.round(rate * 100)}% gems`);
     store.addGems(payout);
     store.commit();
     void store.flush();

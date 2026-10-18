@@ -53,6 +53,8 @@ export interface RenderOptions {
   secretsFound?: readonly number[];
   /** Haunted Run: the zombie / ghost chasing the first racer. */
   chaser?: Chaser | null;
+  /** Lights Out: the course is dark; 0..1 is how bright the beat flash is right now. */
+  lightsOut?: number;
 }
 
 /** A free camera for scenes without a racer (the editor). */
@@ -206,6 +208,7 @@ export class Renderer {
     if (chaser) this.drawChaser(chaser, sx, sy, s, time);
     if (!me.dead) this.drawRacer(me, sx, sy, s, time, 1, pal);
     this.fx.draw(ctx, sx, sy, s, false, x0, x1);
+    if (opts.lightsOut !== undefined) this.drawDarkness(r, sx(me.x), sy(me.body.y), s, opts.lightsOut);
     if (chaser && chaser.danger > 0.35) {
       // Danger glow from the left edge, pulsing like a heartbeat.
       const a = (chaser.danger - 0.35) * 1.0 * (0.7 + 0.3 * Math.abs(Math.sin(time * 5)));
@@ -780,6 +783,23 @@ export class Renderer {
     ctx.closePath();
     ctx.fill();
     ctx.restore();
+  }
+
+  /**
+   * Lights Out: darkness everywhere but a small glow around the runner. On a
+   * beat the glow opens wide and the dark thins, lighting the way ahead.
+   */
+  private drawDarkness(r: ViewRect, px: number, py: number, s: number, flash: number): void {
+    const ctx = this.ctx;
+    const a = 0.97 - 0.72 * flash;
+    // Centre the light a little ahead of the runner (that's where you need to see).
+    const cx = px + s * (1 + flash * 3);
+    const g = ctx.createRadialGradient(cx, py, s * (0.9 + flash), cx, py, s * (3 + flash * 7));
+    g.addColorStop(0, 'rgba(4,2,14,0)');
+    g.addColorStop(0.55, `rgba(4,2,14,${a * 0.75})`);
+    g.addColorStop(1, `rgba(4,2,14,${a})`);
+    ctx.fillStyle = g;
+    ctx.fillRect(r.x, r.y, r.w, r.h);
   }
 
   /** Haunted Run chaser: a zombie on the ground (or the ceiling), a ghost in the air. */

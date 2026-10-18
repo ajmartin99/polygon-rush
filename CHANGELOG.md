@@ -11,6 +11,7 @@ All notable changes to Polygon Rush are documented here.
 - **Swing Along** now only plays in the Haunted Run: it's out of every playlist, the jukebox and the level song picker (player levels that used it play their world's song instead).
 
 ### Added
+- **Lights Out mode:** Endless in pitch dark. Only a small glow surrounds you, and every beat of the music flashes the way ahead for a moment, so you run by rhythm and memory. Its own best per difficulty, and it pays 1.5× gems.
 - **Haunted Run chasers:** a zombie shambles after you on the ground (it even follows the Roller onto the ceiling) and bursts into a ghost that swoops after you when you fly as the Glider. It creeps closer all the time; every obstacle you clear cleanly and every gem you grab shoves it back, a bump lets it lunge (GRRR! / BOO!), and if it catches you the run is over. A red glow and a groan warn you when it's right behind you.
 
 ## [1.0.9] - 2026-10-18

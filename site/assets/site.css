@@ -1,4 +1,4 @@
-/* Soft Game Bros: one stylesheet for the studio site and every app page.
+/* Soft-Game Brothers: one stylesheet for the studio site and every app page.
    Colours come from Polygon Rush (night indigo, sunny yellow, mint). */
 :root {
   --bg: #150d36;
@@ -373,6 +373,16 @@ a.app:hover {
 }
 
 @media (max-width: 560px) {
+  .top {
+    flex-wrap: wrap;
+    gap: 6px 16px;
+  }
+
+  .nav {
+    gap: 14px;
+    font-size: 0.95rem;
+  }
+
   .app-hero {
     grid-template-columns: 1fr;
   }

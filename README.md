@@ -2,7 +2,7 @@
 
 ![Polygon Rush](store/feature-graphic-1024x500.png)
 
-**An endless, shape-shifting runner for every age, by [Soft Game Bros](https://softgamebros.com).** Rush through infinite polygon worlds as a **Jumper** (square), **Glider** (triangle), **Roller** (hexagon) and **Hopper** (diamond). Play solo, race CPU rivals, duel a friend on the same phone, race up to three friends online with a room code, or **build your own levels**, alone or together.
+**An endless, shape-shifting runner for every age, by [Soft-Game Brothers](https://softgamebros.com).** Rush through infinite polygon worlds as a **Jumper** (square), **Glider** (triangle), **Roller** (hexagon) and **Hopper** (diamond). Play solo, race CPU rivals, duel a friend on the same phone, race up to three friends online with a room code, or **build your own levels**, alone or together.
 
 Think *Geometry Dash* rhythm and precision meets *Fun Run* racing chaos, wrapped in a bright, kid-friendly look with an original soundtrack.
 
@@ -79,15 +79,15 @@ Step-by-step (signing key, secrets, AdMob ids, Play Console products, privacy pa
 
 ## License
 
-Proprietary: © 2026 Soft Game Bros, all rights reserved. See [LICENSE](LICENSE). The bundled Fredoka font is under the SIL Open Font License 1.1, and licensed music is credited in `public/music/CREDITS.txt`.
+Proprietary: © 2026 Soft-Game Brothers, all rights reserved. See [LICENSE](LICENSE). The bundled Fredoka font is under the SIL Open Font License 1.1, and licensed music is credited in `public/music/CREDITS.txt`.
 
 ## About
 
-Polygon Rush is developed and published by **Soft Game Bros**.
+Polygon Rush is developed and published by **Soft-Game Brothers**.
 
 * Help with the game: polygonrush@softgamebros.com
 * Privacy and data requests: privacy@softgamebros.com
 * Parents and safety reports: safety@softgamebros.com
 * Website and privacy policy: https://softgamebros.com/polygon-rush/
 
-Copyright © 2026 Soft Game Bros. All rights reserved. See [LICENSE](LICENSE).
+Copyright © 2026 Soft-Game Brothers. All rights reserved. See [LICENSE](LICENSE).

@@ -93,7 +93,7 @@ export const ICONS = {
     `<path d="M12 2.5 20 5.5v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10v-6z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><rect x="8.5" y="11" width="7" height="5.5" rx="1" fill="currentColor"/><path d="M10 11V9.5a2 2 0 0 1 4 0V11" fill="none" stroke="currentColor" stroke-width="1.8"/>`,
   ),
   dice: svg(
-    `<rect x="3" y="3" width="18" height="18" rx="4" fill="currentColor"/><circle cx="8" cy="8" r="1.7" fill="#21125a"/><circle cx="16" cy="8" r="1.7" fill="#21125a"/><circle cx="12" cy="12" r="1.7" fill="#21125a"/><circle cx="8" cy="16" r="1.7" fill="#21125a"/><circle cx="16" cy="16" r="1.7" fill="#21125a"/>`,
+    `<rect x="3" y="3" width="18" height="18" rx="4" fill="#ffffff" stroke="#21125a" stroke-width="1.4"/><circle cx="8" cy="8" r="1.7" fill="#21125a"/><circle cx="16" cy="8" r="1.7" fill="#21125a"/><circle cx="12" cy="12" r="1.7" fill="#21125a"/><circle cx="8" cy="16" r="1.7" fill="#21125a"/><circle cx="16" cy="16" r="1.7" fill="#21125a"/>`,
   ),
   copy: svg(
     `<rect x="8" y="8" width="12.5" height="12.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M5 15.5H4.5a1.5 1.5 0 0 1-1.5-1.5V4.5A1.5 1.5 0 0 1 4.5 3H14a1.5 1.5 0 0 1 1.5 1.5V5" fill="none" stroke="currentColor" stroke-width="2.2"/>`,

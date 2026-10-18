@@ -4,6 +4,12 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+### Changed
+- The studio is now named **Soft-Game Brothers** everywhere (website, privacy policy, license, Play listing notes); softgamebros.com stays the web address.
+
+### Fixed
+- The dice button on the name screen (and elsewhere) showed a dark blob: the dice is now white with dark dots on every button colour.
+
 ### Added
 - **Studio card on launch:** the Soft-Game Brothers logo with softgamebros.com shows for about 2 seconds when the game opens (tap to skip), on Android's launch screen and in the app.
 

@@ -110,7 +110,7 @@ npx -y -p playwright@1 node scripts/generate-art.mjs
 
 ## Studio website (softgamebros.com)
 
-The `site/` folder is the Soft Game Bros website: the studio page, the Polygon Rush page and its privacy policy. It is plain HTML and CSS (no build step), served by Cloudflare Pages:
+The `site/` folder is the Soft-Game Brothers website: the studio page, the Polygon Rush page and its privacy policy. It is plain HTML and CSS (no build step), served by Cloudflare Pages:
 
 1. Cloudflare → **Workers & Pages** → Create → **Pages** → Connect to Git → `ajmartin99/polygon-rush`.
 2. Production branch `main`, framework preset **None**, build command empty, build output directory `site`.

@@ -38,7 +38,7 @@ FEATURES
 Easy to learn, hard to master. How far can YOU rush?
 
 ## Contact
-* Developer: Soft Game Bros · website `https://softgamebros.com` · email `polygonrush@softgamebros.com`
+* Developer: Soft-Game Brothers · website `https://softgamebros.com` · email `polygonrush@softgamebros.com`
 * Privacy policy: `https://softgamebros.com/polygon-rush/privacy/`
 
 ## Category / tags

@@ -1,7 +1,7 @@
 {
   "name": "polygon-rush",
   "private": true,
-  "version": "1.0.4",
+  "version": "1.0.6",
   "description": "Polygon Rush - an endless shape-shifting runner. Rush, jump, flip and fly through infinite polygon worlds solo, against rivals, or with friends.",
   "type": "module",
   "license": "CC0-1.0",

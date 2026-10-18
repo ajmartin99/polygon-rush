@@ -656,7 +656,8 @@ export class GameController {
   private onBeatPress(): void {
     const err = audio.beatError();
     const me = this.session?.racers[0];
-    if (err === null || !me || !this.rhythm) return;
+    // The Glider is held, not tapped: only taps are judged.
+    if (err === null || !me || !this.rhythm || me.body.mode === 'triangle') return;
     const { judgement, points } = this.rhythm.press(err);
     const text = judgement === 'perfect' ? 'PERFECT!' : judgement === 'great' ? 'GREAT' : 'MISS';
     const color = judgement === 'perfect' ? '#ffd23f' : judgement === 'great' ? '#9fe8ff' : '#b9b3d6';
@@ -778,7 +779,7 @@ export class GameController {
       }
       // Keep the song at the time the runner's position calls for (the course is built on its beat).
       const sync = music.syncSong;
-      if (sync && span && sync.level === span.index && this.phase === 'running' && ++this.syncTick % 15 === 0) audio.syncTo(sync.id, s.levels!.secondsInto(me.distance));
+      if (sync && span && sync.level === span.index && this.phase === 'running' && ++this.syncTick % 15 === 0) audio.syncTo(sync.id, s.levels!.secondsInto(me.distance), 0.08, 1500);
       audio.intensity = Math.min(1, 0.35 + me.distance / 3000);
     } else if (this.kind === 'custom') {
       audio.intensity = Math.min(1, 0.55 + me.distance / 600);

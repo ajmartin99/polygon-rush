@@ -93,7 +93,7 @@ export interface MysteryBox extends Base {
   y: number;
 }
 
-/** A hidden egg: one per Endless level (1-based), off the main path. */
+/** A hidden Golden Shape: one per Endless level (1-based), off the main path. */
 export interface Secret extends Base {
   kind: 'secret';
   x: number;

@@ -3546,7 +3546,7 @@ button.player-slot {
   resize: vertical;
 }
 
-/* ------------------------------------------------------------------ secret eggs */
+/* ------------------------------------------------------------------ golden shapes (secrets) */
 .lt-egg {
   position: absolute;
   left: 0.35rem;

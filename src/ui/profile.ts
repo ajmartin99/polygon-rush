@@ -79,7 +79,7 @@ export function profileCard(name: string, skin: string, card: ProfileCard): HTML
       h('div', null, ic('trophy'), h('b', null, fmt(card.trophies)), h('span', null, 'Trophies')),
       h('div', null, ic('crown'), h('b', null, fmt(card.wins)), h('span', null, 'Race wins')),
       h('div', null, ic('star'), h('b', null, `${card.badges}/${BADGES.length}`), h('span', null, 'Badges')),
-      h('div', null, ic('egg'), h('b', null, `${card.eggs}/${SECRET_LEVELS}`), h('span', null, 'Secret eggs')),
+      h('div', null, ic('egg'), h('b', null, `${card.eggs}/${SECRET_LEVELS}`), h('span', null, 'Golden Shapes')),
     ),
     card.show.length ? h('div.pc-show', null, card.show.map((id) => h('div.pc-badge', null, badgeIcon(id), h('span', null, badgeById(id)?.name ?? '')))) : null,
   );

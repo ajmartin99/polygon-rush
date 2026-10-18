@@ -433,10 +433,10 @@ export class GameController {
         }
         d.secrets.found = [...d.secrets.found, level].sort((a, b) => a - b);
         store.commit();
-        this.renderer.fx.text(x + 1.5, y - 1.4, 'SECRET EGG!', '#ffd23f', 1.1, 1.6);
+        this.renderer.fx.text(x + 1.5, y - 1.4, 'GOLDEN SHAPE!', '#ffd23f', 1.1, 1.6);
         audio.play('levelUp');
         haptics.success();
-        this.hud?.showHint(`Secret egg found! Level ${level}`, `${d.secrets.found.length}/${SECRET_LEVELS} · see Levels and your profile`, 2200, '18%');
+        this.hud?.showHint(`Golden Shape found! Level ${level}`, `${d.secrets.found.length}/${SECRET_LEVELS} · see Levels and your profile`, 2200, '18%');
       }),
       s.on('pickup', ({ racer, type, x, y }) => {
         if (local(racer)) this.renderer.fx.pickup(x, y, type === 'heart' ? '+1 ♥' : type === 'shield' ? 'Shield!' : 'Magnet!', type === 'heart' ? '#ff7a95' : type === 'shield' ? '#7fe9ff' : '#ff8a8a');

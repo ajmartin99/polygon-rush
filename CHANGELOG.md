@@ -17,6 +17,7 @@ All notable changes to Polygon Rush are documented here.
 
 ### Changed
 - The studio is now named **Soft-Game Brothers** everywhere (website, privacy policy, license, Play listing notes); softgamebros.com stays the web address.
+- **Golden Shapes** replace the secret eggs: each Endless level now hides a spinning gold runner form (square, triangle, hexagon or diamond) high above a jump ring. The ones you've found still count on the Levels screen, your profile card and the badges (now Shape Hunter, Treasure Seeker and Golden Collector).
 
 ### Fixed
 - `app-ads.txt` on softgamebros.com with the Soft-Game Brothers ad publisher id, so AdMob can verify the app's ads.

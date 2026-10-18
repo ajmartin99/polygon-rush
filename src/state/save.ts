@@ -126,7 +126,7 @@ export interface SaveData {
   emotes: { owned: string[] };
   /** Quick Chat phrase packs bought in the Shop. */
   phrases: { owned: string[] };
-  /** Secret eggs found: Endless level numbers (1-based). */
+  /** Golden Shapes found: Endless level numbers (1-based). */
   secrets: { found: number[] };
   /** Haunted Run attempts, Heart Regens and records. */
   haunted: HauntedState;

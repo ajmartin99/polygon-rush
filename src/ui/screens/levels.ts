@@ -44,7 +44,7 @@ export class LevelsScreen extends BaseScreen {
           h('span.lt-world', null, pal.name),
           h('span.lt-dist', null, `${fmt(levelStart(n))} m`),
           !open ? h('span.lt-lock', null, ic('lock')) : reached ? h('span.lt-done', null, ic('check')) : h('span.lt-tag', null, 'NEXT'),
-          n <= SECRET_LEVELS ? h(`span.lt-egg${egg ? '.found' : ''}`, { title: egg ? 'Secret egg found!' : 'A secret egg hides in this level' }, ic('egg')) : null,
+          n <= SECRET_LEVELS ? h(`span.lt-egg${egg ? '.found' : ''}`, { title: egg ? 'Golden Shape found!' : 'A Golden Shape hides in this level' }, ic('egg')) : null,
         ),
       );
     }
@@ -59,7 +59,7 @@ export class LevelsScreen extends BaseScreen {
         'p.small.levels-eggs',
         null,
         ic('egg'),
-        ` Secret eggs ${found.size}/${SECRET_LEVELS}`,
+        ` Golden Shapes ${found.size}/${SECRET_LEVELS}`,
         h('span.muted', null, ' · One hides in every level, high above a jump ring. Find it in Endless on any difficulty.'),
       ),
       h('div.scroll.grow', { style: 'min-height:0' }, h('div.level-grid', null, tiles)),

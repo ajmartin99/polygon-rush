@@ -119,9 +119,10 @@ async function boot(): Promise<void> {
   else if (!store.data.tutorial.difficulty_pick && store.data.stats.runs === 0) nav.go('difficulty', { first: true });
   else nav.go('menu');
 
+  // The studio card stays up for a moment (tap to skip), then fades into the game.
+  await studioCard();
   document.getElementById('boot')?.classList.add('hide');
   setTimeout(() => document.getElementById('boot')?.remove(), 600);
-  if (isNative()) void SplashScreen.hide();
 
   // Monetisation services start after first paint; never block the menu.
   setTimeout(() => {
@@ -130,6 +131,27 @@ async function boot(): Promise<void> {
     // A deleted or banned Free Chat account signs itself out.
     void account.refresh();
   }, 300);
+}
+
+/** How long the Soft-Game Brothers card shows from app start (tap skips). */
+const STUDIO_MS = 2200;
+const bootStart = performance.now();
+
+/** Swap the Android launch image (the same card) for the live one, then wait out the card. */
+function studioCard(): Promise<void> {
+  if (isNative()) void SplashScreen.hide({ fadeOutDuration: 0 });
+  const el = document.getElementById('boot');
+  const wait = Math.max(0, STUDIO_MS - (performance.now() - bootStart));
+  if (!el || wait === 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      el.removeEventListener('pointerdown', done);
+      resolve();
+    };
+    const timer = setTimeout(done, wait);
+    el.addEventListener('pointerdown', done);
+  });
 }
 
 void boot();

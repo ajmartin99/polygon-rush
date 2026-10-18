@@ -4,6 +4,9 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+### Added
+- **Studio card on launch:** the Soft-Game Brothers logo with softgamebros.com shows for about 2 seconds when the game opens (tap to skip), on Android's launch screen and in the app.
+
 ## [1.0.8] - 2026-10-18
 
 ### Changed

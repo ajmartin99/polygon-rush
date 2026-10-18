@@ -12,7 +12,8 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 1200,
+      // The launch image is the studio card; the app hides it once its own (identical) card is up.
+      launchShowDuration: 3000,
       launchAutoHide: true,
       backgroundColor: '#1a1040',
       androidScaleType: 'CENTER_CROP',

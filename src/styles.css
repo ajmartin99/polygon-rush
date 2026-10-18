@@ -128,11 +128,46 @@ button {
   pointer-events: none;
 }
 
-.boot-logo {
+.studio {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1rem;
+  gap: 0.35rem;
+  text-align: center;
+}
+
+.studio-mark {
+  width: 5.5rem;
+  height: 5.5rem;
+  overflow: visible;
+  margin-bottom: 0.4rem;
+}
+
+/* The mark is already on screen (the Android launch image shows the same card): the shapes just come alive. */
+.studio-mark > * {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+}
+
+.studio-mark .sm-sq { animation: studio-hop 0.7s 0.1s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+.studio-mark .sm-tri { animation: studio-hop 0.7s 0.25s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+.studio-mark .sm-dot { animation: studio-hop 0.7s 0.4s cubic-bezier(0.3, 1.6, 0.5, 1) both; }
+
+.studio-name {
+  font-family: var(--font);
+  font-weight: 700;
+  font-size: 2rem;
+  letter-spacing: 0.02em;
+  color: #fff;
+}
+
+.studio-url {
+  font-family: var(--font);
+  font-weight: 500;
+  font-size: 1.05rem;
+  letter-spacing: 0.08em;
+  color: var(--mint);
+  animation: studio-glow 1.6s 0.5s ease-in-out both;
 }
 
 .boot-shape {
@@ -144,17 +179,21 @@ button {
   animation: boot-spin 1s cubic-bezier(0.6, 0, 0.4, 1) infinite;
 }
 
-.boot-title {
-  font-weight: 700;
-  font-size: 1.6rem;
-  letter-spacing: 0.15em;
-  color: var(--ink);
-}
-
 @keyframes boot-spin {
   0% { transform: translateY(0) rotate(0); }
   50% { transform: translateY(-1.2rem) rotate(90deg); }
   100% { transform: translateY(0) rotate(180deg); }
+}
+
+@keyframes studio-hop {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  30% { transform: translateY(0) scale(1.15, 0.85); }
+  60% { transform: translateY(-18%) scale(0.92, 1.1); }
+}
+
+@keyframes studio-glow {
+  0%, 100% { text-shadow: none; }
+  50% { text-shadow: 0 0 0.8rem rgba(62, 230, 176, 0.65); }
 }
 
 /* ------------------------------------------------------------------ screens */

@@ -21,7 +21,7 @@ let srv: Server;
 let base = '';
 
 before(async () => {
-  const cfg = loadConfig({ NODE_ENV: 'test', DB_FILE: ':memory:', TOKEN_SECRET: 's'.repeat(48), ADMIN_TOKEN: ADMIN, PORT: '0', IP_LIMIT_PER_HOUR: '1000' });
+  const cfg = loadConfig({ NODE_ENV: 'test', DB_FILE: ':memory:', TOKEN_SECRET: 's'.repeat(48), ADMIN_TOKEN: ADMIN, PORT: '0', IP_LIMIT_PER_HOUR: '1000', FREE_CHAT: 'true' });
   srv = createServer(cfg, { mailer, log: () => {} });
   const port = await srv.listen(0);
   base = `http://127.0.0.1:${port}`;
@@ -582,5 +582,31 @@ describe('community levels', () => {
     assert.equal((await api('POST', `/api/admin/levels/${id}/hide`, { hidden: false }, ADMIN)).json.ok, true);
     assert.ok((await browse(k('g'), { tab: 'new' })).json.levels.some((l: any) => l.id === id));
     assert.equal((await api('GET', '/api/admin/levels')).status, 401);
+  });
+});
+
+describe('free chat switched off', () => {
+  test('without FREE_CHAT=true there is no sign-up and no chat socket', async () => {
+    const cfg = loadConfig({ NODE_ENV: 'test', DB_FILE: ':memory:', TOKEN_SECRET: 't'.repeat(48), PORT: '0' });
+    const off = createServer(cfg, { mailer, log: () => {} });
+    const port = await off.listen(0);
+    const url = `http://127.0.0.1:${port}`;
+    try {
+      const status = (await (await fetch(url + '/api/status')).json()) as Record<string, unknown>;
+      assert.equal(status.freeChat, false);
+      const start = await fetch(url + '/api/account/start', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 'x@example.com', birthYear: YEAR - 30 }) });
+      assert.equal(start.status, 403);
+      const ws = new WebSocket(url.replace('http', 'ws') + '/chat');
+      const opened = await new Promise<boolean>((r) => {
+        ws.addEventListener('open', () => r(true));
+        ws.addEventListener('error', () => r(false));
+        ws.addEventListener('close', () => r(false));
+      });
+      assert.equal(opened, false);
+      // Friends still work.
+      assert.equal((await fetch(url + '/api/players/register', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ key: 'z'.repeat(20), name: 'Neon Fox' }) })).status, 200);
+    } finally {
+      await off.close();
+    }
   });
 });

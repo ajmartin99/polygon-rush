@@ -6,7 +6,7 @@ const deletionUrl = CONFIG.server.url ? `${CONFIG.server.url}/account/delete` : 
 export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   {
     title: 'The short version',
-    body: 'Polygon Rush has no sign-in. Players under 13 always get a generated racer name; players 13 and older may type their own racer and level names, which are filtered. Your progress and the levels you build are saved on your device. With the game server, your racer name gets a #number and you can add friends. The only account is the optional Free Chat account for players 13 and older, which needs an email address (a parent’s email for ages 13–15). Players under 13 never get typed chat or public rooms. We do not sell personal information.',
+    body: 'Polygon Rush has no sign-in. Players under 13 always get a generated racer name; players 13 and older may type their own racer and level names, which are filtered. Your progress and the levels you build are saved on your device. With the game server, your racer name gets a #number and you can add friends. There are no accounts and no typed chat: players talk only with Quick Chat’s preset phrases and emotes. Players under 13 never get public rooms. We do not sell personal information.',
   },
   {
     title: 'Information stored on your device',
@@ -14,7 +14,7 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'Age screen',
-    body: 'On first launch we ask for a birth year. It is used on the device to set up ads, parental controls and which online features are offered (Quick Chat for everyone; public rooms and Free Chat only from 13). When you sign up for Free Chat, the birth year is sent with your email so the right permission (yours at 16+, a parent’s at 13–15) is asked for.',
+    body: 'On first launch we ask for a birth year. It is used on the device to set up ads, parental controls and which online features are offered (Quick Chat for everyone; public rooms and typed names only from 13). It is not sent to us.',
   },
   {
     title: 'Advertising (Google AdMob)',
@@ -45,6 +45,31 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
     body: 'A host aged 13+ can list a race or build room publicly, and Quick Match joins one at random. The list shows the room code, a generated room name and colours, the host’s racer name and the number of players. Race rooms leave the list when the race starts. If someone reports a public build room, a snapshot of the level is sent to our safety team.',
   },
   {
+    title: 'Analytics',
+    body: 'Polygon Rush does not include any analytics or tracking SDKs.',
+  },
+  {
+    title: 'Children',
+    body: 'Polygon Rush is designed to be suitable for all ages and follows the Google Play Families policy. We do not knowingly collect personal information from children under 13: they keep generated racer names, add friends only by a typed Name#number and cannot use public rooms. There is no typed chat for anyone.',
+  },
+  {
+    title: 'Deleting your data',
+    body: `Use Settings > Reset Progress or uninstall the app to delete data on your device (delete levels in Create > My Levels). Delete your #number, friends list, invites and shared levels from our server in Friends > Delete friends data. Ad-related data held by Google can be managed in your device’s Google settings.`,
+  },
+  {
+    title: 'Contact',
+    body: 'Soft Game Bros. Data and privacy requests: privacy@softgamebros.com. Safety concerns: safety@softgamebros.com. Help with the game: polygonrush@softgamebros.com.',
+  },
+];
+
+/**
+ * Free Chat is built but switched off (CONFIG.features.freeChat). Turning it
+ * on adds these to the in-app policy; the website copy and the "short
+ * version", age screen and children sections then need their Free Chat
+ * wording back by hand.
+ */
+export const FREE_CHAT_PRIVACY_SECTIONS: { title: string; body: string }[] = [
+  {
     title: 'Free Chat (13+, optional)',
     body: 'Free Chat lets verified players type short messages to other verified players in the same room. To turn it on, players 16+ verify their own email address; for players aged 13–15 a parent or guardian verifies their email address, which is how they give permission. We store the email address, birth year, type of permission, a random account id, Free Chat messages and safety reports, plus a hashed (unreadable) form of IP addresses to stop abuse. We use them only to run Free Chat, keep it safe (filtering, reports, mutes and bans), contact you about the account, and meet legal obligations, including reporting suspected child exploitation to the authorities. Emails are never shown to other players and never sold.',
   },
@@ -53,19 +78,9 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
     body: 'Free Chat messages are deleted after 30 days, unless they are part of an open safety report (then they are kept until the report is closed). Closed reports are deleted after one year. Accounts that are not used for two years are deleted. When a chat account is deleted, we keep only its random id, a one-way hash of the email address and any mute or ban for 90 days (longer while a report about it is open), so deleting can’t be used to dodge safety action.',
   },
   {
-    title: 'Analytics',
-    body: 'Polygon Rush does not include any analytics or tracking SDKs.',
-  },
-  {
-    title: 'Children',
-    body: 'Polygon Rush is designed to be suitable for all ages and follows the Google Play Families policy. We do not knowingly collect personal information from children under 13: they can only use Quick Chat’s preset phrases, keep generated racer names, add friends only by a typed Name#number, and cannot create a Free Chat account or use public rooms.',
-  },
-  {
-    title: 'Deleting your data',
-    body: `Use Settings > Reset Progress or uninstall the app to delete data on your device (delete levels in Create > My Levels). Delete your #number, friends list, invites and shared levels from our server in Friends > Delete friends data. Delete a Free Chat account and its messages in Settings > Chat & Community > Delete chat account, or on the web at ${deletionUrl}. Ad-related data held by Google can be managed in your device’s Google settings.`,
-  },
-  {
-    title: 'Contact',
-    body: 'Soft Game Bros. Data and privacy requests: privacy@softgamebros.com. Safety concerns: safety@softgamebros.com. Help with the game: polygonrush@softgamebros.com.',
+    title: 'Deleting a Free Chat account',
+    body: `Delete a Free Chat account and its messages in Settings > Chat & Community > Delete chat account, or on the web at ${deletionUrl}.`,
   },
 ];
+
+if (CONFIG.features.freeChat) PRIVACY_SECTIONS.splice(PRIVACY_SECTIONS.findIndex((x) => x.title === 'Analytics'), 0, ...FREE_CHAT_PRIVACY_SECTIONS);

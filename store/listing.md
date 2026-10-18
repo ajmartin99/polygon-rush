@@ -47,7 +47,7 @@ Game → Arcade. Tags: Runner, Casual, Platformer, Racing, Kids, Rhythm.
 ## Content rating (IARC questionnaire)
 * Violence: none (cartoon obstacles; the player "pops" into confetti).
 * User interaction: users can interact online (private rooms with preset Quick Chat). Player-made levels can be shared as codes and built together.
-* **If the community server is enabled (`SERVER_URL`)**: also declare moderated text chat (Free Chat, verified 13+ only), public build rooms (13+) and user-generated content (levels).
+* **If the community server is enabled (`SERVER_URL`)**: also declare public build rooms (13+), friends and user-generated content (shared levels). There is no typed chat: Free Chat is built but switched off (`VITE_FREE_CHAT` / `FREE_CHAT`), so don't declare text chat unless it is turned on.
 * Digital purchases: yes. Ads: yes.
 * Expected rating: Everyone / PEGI 3 (online interaction is shown as an interactive element).
 
@@ -64,15 +64,13 @@ Ages 5–8, 9–12, 13–15, 16–17, 18+ (mixed audience, with a neutral age sc
 * No analytics SDK, no contacts, no location permission.
 
 **Extra rows only when the community server is enabled (`SERVER_URL`):**
-* **Personal info → Email address:** collected, optional (Free Chat sign-up, a parent's email for ages 13–15). Purposes: account management, app functionality (safety and moderation). Not shared. Deletable in-app and on the web.
-* **Personal info → Other (birth year):** collected with the email to decide which permission is needed.
-* **Messages → Other in-app messages:** Free Chat messages, collected and stored 30 days for safety reviews. Not shared except where the law requires (e.g. reports to authorities).
-* **Personal info → User IDs:** a random chat account id.
 * **Personal info → Name:** the racer name (generated, or typed by 13+) with its #number. Shown only to friends and players in the same room. Not shared with third parties.
 * **Personal info → User IDs:** a random player id and a hashed random device key (no Google or ad id).
 * **App activity → Other actions:** friends list, friend requests, blocks, online status (menu / playing / building / in a room) and room invites (a room code). Purpose: app functionality. Deleted after 2 years unused, or in-app (Friends → Delete friends data).
-* **App activity → Other user-generated content:** a snapshot of a public build room's level when someone reports it.
-* Data is encrypted in transit (https/wss). Account deletion: in-app (Settings → Chat & Community) and web (`https://polygon-rush.softgamebros.com/account/delete`).
+* **App activity → Other user-generated content:** shared Community levels (level code, plays, clears, likes, reports) and a snapshot of a public build room's level when someone reports it. Deleted in-app (unshare, or Friends → Delete friends data).
+* Data is encrypted in transit (https/wss). Deletion: in-app (Friends → Delete friends data).
+
+**Only if Free Chat is ever turned on:** add Email address (optional, Free Chat sign-up, a parent's email for 13–15), birth year, Messages (Free Chat, kept 30 days), a chat account id, and web deletion at `https://polygon-rush.softgamebros.com/account/delete`.
 
 ## Graphics
 * App icon 512×512: `store/icon-512.png`

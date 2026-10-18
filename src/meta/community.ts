@@ -48,7 +48,7 @@ export function setServerFeatures(f: { freeChat?: unknown }): void {
 }
 
 export function canOfferFreeChat(save: SaveData, now = new Date()): boolean {
-  return serverAvailable() && serverFeatures.freeChat && save.settings.onlineAllowed && freeChatPath(save.profile.birthYear, now) !== 'none';
+  return CONFIG.features.freeChat && serverAvailable() && serverFeatures.freeChat && save.settings.onlineAllowed && freeChatPath(save.profile.birthYear, now) !== 'none';
 }
 
 /** Verified, switched on and allowed right now. */

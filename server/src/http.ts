@@ -87,9 +87,15 @@ export function createApp(d: AppDeps): express.Express {
   // ------------------------------------------------------------ public API
   app.get(
     '/api/status',
-    route(() => ({ ok: true, version: d.version, freeChat: d.mailer.real || !cfg.production, publicRooms: true, sharedLevels: true })),
+    route(() => ({ ok: true, version: d.version, freeChat: cfg.freeChat && (d.mailer.real || !cfg.production), publicRooms: true, sharedLevels: true })),
   );
 
+  // Free Chat sign-up is switched off unless FREE_CHAT=true (deleting an old account always works).
+  const freeChatOn = (_req: Request, res: Response, next: NextFunction) => {
+    if (cfg.freeChat) return next();
+    res.status(403).json({ error: 'free_chat_off', message: 'Free Chat isn’t available.' });
+  };
+  app.use(['/api/account/start', '/api/account/verify'], freeChatOn);
   app.post('/api/account/start', route((req) => accounts.start(req.body ?? {}, ipKey(req))));
   app.post('/api/account/verify', route((req) => accounts.verify(req.body ?? {}, ipKey(req))));
   app.get('/api/account/me', route((req) => ({ account: publicAccount(accounts.auth(bearer(req))) })));

@@ -12,6 +12,8 @@ export interface Config {
   /** Bearer token for the moderation API (disabled when empty). */
   adminToken: string;
   smtpUrl: string;
+  /** Typed Free Chat (accounts, email codes, /chat). Off unless FREE_CHAT=true. */
+  freeChat: boolean;
   mailFrom: string;
   /** Public base URL of this server (used in emails and the deletion page). */
   publicUrl: string;
@@ -51,6 +53,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     secret,
     adminToken: env.ADMIN_TOKEN && env.ADMIN_TOKEN.length >= 24 ? env.ADMIN_TOKEN : '',
     smtpUrl: env.SMTP_URL || '',
+    freeChat: env.FREE_CHAT === 'true',
     mailFrom: env.MAIL_FROM || 'Polygon Rush <no-reply@localhost>',
     publicUrl: (env.PUBLIC_URL || `http://localhost:${int(env.PORT, 8080)}`).replace(/\/+$/, ''),
     allowedOrigins: env.ALLOWED_ORIGINS ? env.ALLOWED_ORIGINS.split(',').map((s) => s.trim()).filter(Boolean) : DEFAULT_ORIGINS,

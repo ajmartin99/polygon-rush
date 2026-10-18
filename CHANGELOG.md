@@ -16,7 +16,7 @@ All notable changes to Polygon Rush are documented here.
 
 ### Changed
 - Songs no longer cut out between levels: the next song preloads and the two crossfade.
-- Free Chat only appears when the game server can send verification email.
+- Typed Free Chat is switched off: players chat only with Quick Chat phrases and emotes. It's still built in and can be turned on later (`VITE_FREE_CHAT` in the app, `FREE_CHAT` on the server). The privacy policy no longer lists chat accounts, emails or messages.
 
 ## [1.0.6] - 2026-10-18
 

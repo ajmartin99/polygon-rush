@@ -74,6 +74,7 @@ pass it to the app as `VITE_SERVER_URL`.
 | `PORT` | `8080` | |
 | `DATA_DIR` / `DB_FILE` | `./data` | SQLite database (keep it on a persistent disk, back it up) |
 | `TOKEN_SECRET` | random in dev | **Required in production**, 32+ random characters. Changing it signs everyone out of Free Chat. |
+| `FREE_CHAT` | `false` | Typed Free Chat (email sign-up, `/chat`). Built but off: set `true` (and build the app with `VITE_FREE_CHAT=true`) to offer it. |
 | `SMTP_URL` | — | e.g. `smtps://user:pass@smtp.example.com:465`. Without it Free Chat sign-up is off in production. |
 | `MAIL_FROM` | `Polygon Rush <no-reply@localhost>` | Must be allowed by your email provider |
 | `PUBLIC_URL` | `http://localhost:8080` | Used in parent emails (deletion link) |

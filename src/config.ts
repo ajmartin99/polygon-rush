@@ -71,6 +71,13 @@ export const CONFIG = {
   server: {
     url: serverUrl,
   },
+  /**
+   * Typed Free Chat is built but switched off: players only get Quick Chat.
+   * Build with VITE_FREE_CHAT=true (and FREE_CHAT=true on the server) to offer it.
+   */
+  features: {
+    freeChat: env.VITE_FREE_CHAT === 'true',
+  },
   net: {
     host: env.VITE_PEER_HOST?.trim() || serverPeer?.host,
     port: env.VITE_PEER_PORT ? Number(env.VITE_PEER_PORT) : serverPeer?.port,

@@ -95,6 +95,10 @@ export function createServer(cfg: Config, opts: { mailer?: Mailer; log?: (msg: s
   server.on('upgrade', (req: http.IncomingMessage, socket: Duplex, head: Buffer) => {
     const { pathname } = new URL(req.url ?? '/', 'http://localhost');
     if (pathname === '/chat') {
+      if (!cfg.freeChat) {
+        socket.destroy();
+        return;
+      }
       const origin = req.headers.origin;
       if (origin && !cfg.allowedOrigins.includes(origin)) {
         socket.destroy();

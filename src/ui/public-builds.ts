@@ -1,3 +1,4 @@
+import { CONFIG } from '../config';
 import { levelName } from '../game/level';
 import { ageOf, canUsePublicRooms, serverAvailable } from '../meta/community';
 import { BIOMES } from '../render/biomes';
@@ -70,6 +71,6 @@ export function publicBuildsSection(): HTMLElement | null {
     }
   };
   void load();
-  panel.append(h('p.muted.small', null, 'Strangers can join public rooms. Quick Chat only, unless you both verified for Free Chat. Report anything rude with the flag button.'));
+  panel.append(h('p.muted.small', null, `Strangers can join public rooms. Quick Chat only${CONFIG.features.freeChat ? ', unless you both verified for Free Chat' : ''}. Report anything rude with the flag button.`));
   return panel;
 }

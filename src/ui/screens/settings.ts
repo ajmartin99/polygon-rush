@@ -113,7 +113,7 @@ async function openParentalControls(): Promise<void> {
         'p.muted.small',
         null,
         teenPlus
-          ? 'Ads for players under 13 are always child-directed, non-personalised and G-rated. Free Chat is never available under 13.'
+          ? `Ads for players under 13 are always child-directed, non-personalised and G-rated. ${CONFIG.features.freeChat ? 'Free Chat is never available under 13.' : 'There is no typed chat, only Quick Chat.'}`
           : 'Ads for players under 13 are always child-directed, non-personalised and G-rated. Players under 13 can only use Quick Chat, never typed chat or public rooms.',
       ),
     ],

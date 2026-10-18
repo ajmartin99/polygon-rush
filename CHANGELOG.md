@@ -4,6 +4,10 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+### Changed
+- **Battery:** nothing runs in the background any more (the music scheduler stops and Android pauses the game's web view when it leaves the screen). 90/120 Hz screens switch to 60 Hz while the game is open (it never draws faster), Auto graphics renders a little lower, the menu's bobbing animations play a few times and stop, and the menu backdrop demo rests after 45 seconds without a touch.
+- **Swing Along** now only plays in the Haunted Run: it's out of every playlist, the jukebox and the level song picker (player levels that used it play their world's song instead).
+
 ### Added
 - **Haunted Run chasers:** a zombie shambles after you on the ground (it even follows the Roller onto the ceiling) and bursts into a ghost that swoops after you when you fly as the Glider. It creeps closer all the time; every obstacle you clear cleanly and every gem you grab shoves it back, a bump lets it lunge (GRRR! / BOO!), and if it catches you the run is over. A red glow and a groan warn you when it's right behind you.
 

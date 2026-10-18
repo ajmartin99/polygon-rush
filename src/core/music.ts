@@ -1,7 +1,7 @@
 import { store } from '../state/store';
 import { audio } from './audio';
 import { menuTheme, RACE_SONG, SONGS, songsFor, WORLD_SONGS } from './songs';
-import { TRACK_BASE, USER_BASE, trackOf, tracksFor } from './tracks';
+import { TRACK_BASE, USER_BASE, isPickable, trackOf, tracksFor } from './tracks';
 import type { BeatGrid } from '../game/generator';
 import { myMusic } from '../services/mymusic';
 import { activeEvent } from '../meta/events';
@@ -173,9 +173,13 @@ class MusicDirector extends Emitter<{ song: number }> {
     this.start('build', theme % WORLD_SONGS);
   }
 
-  /** A custom level's song (looped). `song < 0` means its world's theme. */
-  level(song: number, theme: number): void {
-    const ok = (song >= 0 && song < SONGS.length) || (trackOf(song) !== undefined && !this.broken.has(song));
+  /**
+   * A custom level's song (looped). `song < 0` means its world's theme. A
+   * mode's own song (Swing Along) only plays when that mode asks for it.
+   */
+  level(song: number, theme: number, exclusive = false): void {
+    const t = trackOf(song);
+    const ok = (song >= 0 && song < SONGS.length) || (t !== undefined && !this.broken.has(song) && (!t.exclusive || exclusive));
     this.start('level', ok ? song : theme % WORLD_SONGS, true);
   }
 
@@ -186,7 +190,7 @@ class MusicDirector extends Emitter<{ song: number }> {
 
   /** Play a specific song now (Soundtrack picker), keeping the context's rotation afterwards. */
   pick(song: number): void {
-    if (this.locked) return;
+    if (this.locked || !isPickable(song)) return;
     if (!this.context) this.context = 'menu';
     this.play(song);
   }

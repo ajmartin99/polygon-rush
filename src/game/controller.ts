@@ -48,6 +48,9 @@ const BOX_TEXT: Record<BoxItem, string> = {
   magnet: 'MAGNET!',
 };
 
+/** The menu backdrop stops after this long without a touch. */
+const ATTRACT_IDLE_MS = 45_000;
+
 /**
  * Owns the canvas, the main loop and whichever game is running. Bridges the
  * pure game session with rendering, audio, haptics, UI flows and rewards.
@@ -111,12 +114,13 @@ export class GameController {
     }
     ads.on('fullscreenStart', () => audio.duck(true));
     ads.on('fullscreenEnd', () => audio.duck(this.phase === 'paused'));
+    for (const ev of ['pointerdown', 'keydown', 'wheel'] as const) window.addEventListener(ev, this.wake, { passive: true, capture: true });
     requestAnimationFrame(this.frame);
   }
 
   private applyGraphics(): void {
     const g = store.settings.graphics;
-    this.renderer.maxDpr = g === 'low' ? 1 : g === 'high' ? 2.5 : this.lowPerfStrikes > 0 ? 1.25 : 1.75;
+    this.renderer.maxDpr = g === 'low' ? 1 : g === 'high' ? 2.5 : this.lowPerfStrikes > 0 ? 1.25 : 1.5;
     // Live background blur behind panels is costly on phones: High graphics only.
     document.documentElement.classList.toggle('fx-blur', g === 'high');
     const low = g === 'low' || (g === 'auto' && this.lowPerfStrikes > 0);
@@ -135,6 +139,7 @@ export class GameController {
   // ================================================================== entry points
   /** Menu background: a CPU plays an endless run behind the menus. */
   startAttract(): void {
+    this.wake();
     this.teardown();
     const skin = store.data.skins.equipped;
     this.kind = 'attract';
@@ -195,6 +200,7 @@ export class GameController {
   }
 
   play(req: PlayRequest): void {
+    this.wake();
     audio.unlock();
     this.teardown();
     this.req = req;
@@ -318,7 +324,7 @@ export class GameController {
       this.go();
       if (d.stats.runs === 0) hud.showHint('Tap or hold anywhere to play!', 'Avoid spikes, grab gems', 3200, '22%');
     } else if (this.kind === 'custom' && req.mode === 'custom') {
-      music.level(req.level.music, req.level.theme);
+      music.level(req.level.music, req.level.theme, !!req.haunted);
       const track = trackOf(req.level.music);
       if (track && !req.haunted) ui.toast(`♪ ${track.title} by ${track.artist} (${track.license})`, 'music', 3000);
       audio.intensity = 0.7;
@@ -352,6 +358,7 @@ export class GameController {
   setScene(scene: Scene | null): void {
     if (scene === this.scene) return;
     this.teardown();
+    this.wake();
     this.scene = scene;
     if (!scene) this.startAttract();
   }
@@ -542,7 +549,27 @@ export class GameController {
   /** When the next frame is due (frame cap). */
   private nextFrame = 0;
 
+  /** Last touch or key press (the menu backdrop rests when nobody is using the app). */
+  private lastInput = performance.now();
+  /** The frame loop stopped (idle menu); a touch starts it again. */
+  private sleeping = false;
+
+  /** Someone's using the app: keep the frame loop going. */
+  private wake = (): void => {
+    this.lastInput = performance.now();
+    if (!this.sleeping) return;
+    this.sleeping = false;
+    this.last = 0;
+    this.nextFrame = 0;
+    requestAnimationFrame(this.frame);
+  };
+
   private frame = (now: number): void => {
+    // On the menu, after a while with no touches, the backdrop demo stops (saves battery).
+    if (this.kind === 'attract' && this.scene === null && now - this.lastInput > ATTRACT_IDLE_MS) {
+      this.sleeping = true;
+      return;
+    }
     requestAnimationFrame(this.frame);
     // 120 Hz phones ask for twice the frames this game needs: run at most 60 fps in play
     // and 30 fps for the menu backdrop and the editor (less heat, longer battery).
@@ -1222,6 +1249,6 @@ export class GameController {
 /** The Daily Run's soundtrack outside events: every regular recorded run track (not the player's own picks, so the beat is the same for everyone). */
 function dailySoundtrack(): number[] {
   return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
-    .filter(({ t }) => t.role === 'run' && !t.event)
+    .filter(({ t }) => t.role === 'run' && !t.event && !t.exclusive)
     .map(({ id }) => id);
 }

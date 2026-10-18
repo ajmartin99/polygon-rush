@@ -37,6 +37,8 @@ export interface TrackDef {
   gain?: number;
   /** Seasonal: only in rotation while the event runs (and always in its Daily Run). */
   event?: EventId;
+  /** Belongs to one mode (the Haunted Run): never in rotation, song pickers or player levels. */
+  exclusive?: 'haunted';
 }
 
 /** Order is the id space: only ever append. */
@@ -202,6 +204,7 @@ export const TRACKS: TrackDef[] = [
     bpm: 130.7,
     offset: 0.07,
     role: 'run',
+    exclusive: 'haunted',
   },
   {
     title: 'Space Sprinkles',
@@ -359,6 +362,11 @@ export interface MusicInfo {
   license?: string;
 }
 
+/** Songs anyone can pick (everything but tracks that belong to one mode). */
+export function isPickable(id: number): boolean {
+  return !trackOf(id)?.exclusive;
+}
+
 export function isTrackId(id: number): boolean {
   return id >= TRACK_BASE && id < TRACK_BASE + TRACKS.length;
 }
@@ -391,7 +399,7 @@ export function musicInfo(id: number): MusicInfo | null {
 /** Recorded tracks for a context, as music ids. */
 export function tracksFor(context: 'menu' | 'run' | 'race', now = new Date()): number[] {
   return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
-    .filter(({ t }) => !t.event || activeEvent(now)?.id === t.event)
+    .filter(({ t }) => !t.exclusive && (!t.event || activeEvent(now)?.id === t.event))
     .filter(({ t }) => (context === 'menu' ? t.role === 'menu' : context === 'race' ? t.fast === true : t.role === 'run'))
     .map(({ id }) => id);
 }
@@ -399,6 +407,6 @@ export function tracksFor(context: 'menu' | 'run' | 'race', now = new Date()): n
 /** A seasonal event's own soundtrack (its recorded tracks, plus tracks tagged for it). */
 export function eventTracks(event: EventId): number[] {
   return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
-    .filter(({ t }) => t.event === event || (event === 'halloween' && t.file === 'swing-along.mp3'))
+    .filter(({ t }) => t.event === event && !t.exclusive)
     .map(({ id }) => id);
 }

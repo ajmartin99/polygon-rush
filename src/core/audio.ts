@@ -197,6 +197,9 @@ class AudioEngine {
   }
 
   suspend(): void {
+    // Stop the synth scheduler too: a 25 ms timer firing in the background drains the battery.
+    clearInterval(this.timer);
+    this.timer = 0;
     this.trackEl?.pause();
     if (this.audible && this.audible.el !== this.trackEl) this.audible.el.pause();
     const ctx = this.ctx as AudioContext | null;
@@ -204,6 +207,7 @@ class AudioEngine {
   }
 
   resume(): void {
+    if (this.playing && !this.timer) this.timer = window.setInterval(() => this.schedule(this.ctx!.currentTime + 0.12), 25);
     if (this.trackEl) void this.trackEl.play().catch(() => {});
     if (this.audible && this.audible.el !== this.trackEl) void this.audible.el.play().catch(() => {});
     const ctx = this.ctx as AudioContext | null;
@@ -439,6 +443,7 @@ class AudioEngine {
   private stopSynth(): void {
     this.playing = false;
     clearInterval(this.timer);
+    this.timer = 0;
     this.songIndex = -1;
     this.pending = -1;
   }

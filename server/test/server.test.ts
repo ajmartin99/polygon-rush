@@ -639,3 +639,33 @@ describe('free chat switched off', () => {
     }
   });
 });
+
+describe('beta tester sign-ups', () => {
+  test('sign up from the website, grown-ups only; the studio lists, updates and exports them', async () => {
+    const page = await fetch(base + '/beta');
+    assert.equal(page.status, 200);
+    assert.match(await page.text(), /Test Polygon Rush early/);
+    assert.equal((await api('POST', '/api/testers', { email: 'kid@example.com', channel: 'apk' })).status, 400, 'adult box required');
+    assert.equal((await api('POST', '/api/testers', { email: 'nope', adult: true })).status, 400);
+    const ok = await api('POST', '/api/testers', { email: 'Tester@Example.com', name: 'Sam', device: 'Pixel 8', channel: 'apk', note: '=cmd|calc', adult: true });
+    assert.equal(ok.status, 200);
+    // Same email again updates instead of duplicating; bots filling the honeypot are ignored.
+    await api('POST', '/api/testers', { email: 'tester@example.com', name: 'Sam', channel: 'play', note: '=cmd|calc', adult: true });
+    await api('POST', '/api/testers', { email: 'bot@example.com', adult: true, website: 'spam' });
+    assert.equal((await api('GET', '/api/admin/testers')).status, 401);
+    let list = (await api('GET', '/api/admin/testers', undefined, ADMIN)).json.testers;
+    assert.equal(list.length, 1);
+    assert.equal(list[0].channel, 'play');
+    assert.equal(list[0].status, 'new');
+    assert.equal((await api('POST', `/api/admin/testers/${list[0].id}`, { status: 'apk_sent' }, ADMIN)).json.ok, true);
+    assert.equal((await api('POST', `/api/admin/testers/${list[0].id}`, { status: 'whatever' }, ADMIN)).status, 400);
+    const csv = await (await fetch(base + '/api/admin/testers.csv', { headers: { authorization: `Bearer ${ADMIN}` } })).text();
+    assert.match(csv, /^email,name,phone,wants,status,note,signed_up/);
+    assert.match(csv, /"apk_sent"/);
+    assert.match(csv, /"'=cmd\|calc"/, 'formulas are neutralised');
+    list = (await api('GET', '/api/admin/testers?status=apk_sent', undefined, ADMIN)).json.testers;
+    assert.equal(list.length, 1);
+    assert.equal((await api('DELETE', `/api/admin/testers/${list[0].id}`, undefined, ADMIN)).json.ok, true);
+    assert.equal((await api('GET', '/api/admin/testers', undefined, ADMIN)).json.testers.length, 0);
+  });
+});

@@ -75,6 +75,7 @@ pass it to the app as `VITE_SERVER_URL`.
 | `DATA_DIR` / `DB_FILE` | `./data` | SQLite database (keep it on a persistent disk, back it up) |
 | `TOKEN_SECRET` | random in dev | **Required in production**, 32+ random characters. Changing it signs everyone out of Free Chat. |
 | `FREE_CHAT` | `false` | Typed Free Chat (email sign-up, `/chat`). Built but off: set `true` (and build the app with `VITE_FREE_CHAT=true`) to offer it. |
+| `TESTER_NOTIFY` | — | Email address told about each beta tester sign-up (needs `SMTP_URL`). Sign-ups are always listed at `/beta/admin`. |
 | `SMTP_URL` | — | e.g. `smtps://user:pass@smtp.example.com:465`. Without it Free Chat sign-up is off in production. |
 | `MAIL_FROM` | `Polygon Rush <no-reply@localhost>` | Must be allowed by your email provider |
 | `PUBLIC_URL` | `http://localhost:8080` | Used in parent emails (deletion link) |
@@ -103,6 +104,7 @@ App endpoints (CORS-limited to `ALLOWED_ORIGINS`):
 * `POST /api/friends/invite` `{ key, id, kind: race|build, room }`, `/invite/dismiss` `{ key, id }`
 * `POST /api/levels/publish` `{ key, localId, code }` (share or update), `POST /api/levels/browse` `{ key, tab: trending|top|suggested|new, scope: all|friends|mine, offset }` → levels + your creator stats
 * `POST /api/levels/:id/play` `{ key, cleared }`, `/like` `{ key, vote: 1|-1|0 }` (thumbs up / down / clear; needs a play first), `/report` `{ key, reason }`, `/unpublish` `{ key }`
+* `GET /beta` (sign-up page), `POST /api/testers` `{ email, name?, device?, channel: play|apk|either, note?, adult: true }`
 * `GET /api/rooms`, `POST /api/rooms/:code`, `POST /api/rooms/:code/beat`, `DELETE /api/rooms/:code`, `POST /api/rooms/:code/report`
 * WebSocket `/chat`: `auth` → `join {channel, name}` → `say {text}` / `report {id, reason}`
 * PeerJS signalling under `/peerjs`
@@ -123,5 +125,7 @@ curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: applicati
 curl -H "Authorization: Bearer $ADMIN_TOKEN" "$S/api/admin/levels?filter=reported"   # or hidden | all
 curl -X POST -H "Authorization: Bearer $ADMIN_TOKEN" -H 'Content-Type: application/json' -d '{"hidden":false}' $S/api/admin/levels/LEVEL_ID/hide
 curl -X DELETE -H "Authorization: Bearer $ADMIN_TOKEN" $S/api/admin/levels/LEVEL_ID
+curl -H "Authorization: Bearer $ADMIN_TOKEN" $S/api/admin/testers        # beta sign-ups (or open $S/beta/admin)
+curl -H "Authorization: Bearer $ADMIN_TOKEN" $S/api/admin/testers.csv -o testers.csv
 curl -H "Authorization: Bearer $ADMIN_TOKEN" $S/api/admin/audit
 ```

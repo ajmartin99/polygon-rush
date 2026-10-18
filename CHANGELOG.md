@@ -4,6 +4,8 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-10-18
+
 ### Added
 - **Beat-synced levels:** each Endless level is built on the beat of the song that plays in it. Obstacles arrive on the beat, and fast songs (drum & bass) feel different from chill ones. Daily Run and races stay identical for everyone.
 - **Endless heats up:** the further you run, the more chaotic it gets. Moving saws drop from the sky, rise from the ground, sweep tunnels and chase the Roller. Patterns come back to back, gaps tighten and the speed keeps climbing.
@@ -23,6 +25,8 @@ All notable changes to Polygon Rush are documented here.
 - **Rate levels:** thumbs up or down at the end of a Community level (or from its card). Community now has **Trending** (most played and liked this week), **Highest Rated**, Suggested, Newest and My Shared; Trending and Highest Rated can show just your friends' levels.
 - **Editor guide:** a 4-step walkthrough the first time you open the level editor (pick a piece, place and move, test, beat it and share), and a ? button to see it again.
 - **Livelier home screen:** the logo sways, the menu buttons pop in, and tapping your character makes it hop.
+
+- **Beta sign-up page:** "I'm interested in testing" on softgamebros.com leads to a sign-up form (Google Play closed test or sideloaded APK); sign-ups are listed for the studio at `/beta/admin`.
 
 ### Changed
 - Songs no longer cut out between levels: the next song preloads and the two crossfade.

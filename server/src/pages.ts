@@ -4,8 +4,12 @@ const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&
 
 const STYLE = `body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:#1a1040;color:#fff;line-height:1.5}
 main{max-width:34rem;margin:0 auto;padding:2rem 1.2rem}h1{color:#ffd23f;font-size:1.6rem}a{color:#3ad7ff}
-input,button{font:inherit;font-size:1rem;padding:.6rem .8rem;border-radius:.6rem;border:2px solid #5b48b8;background:#24186a;color:#fff;width:100%;box-sizing:border-box;margin:.3rem 0}
-button{background:#ff4f5e;border-color:#ff4f5e;font-weight:700;cursor:pointer}p.muted{color:#c9c2ee;font-size:.9rem}#msg{min-height:1.5em;font-weight:600}`;
+input,button,select,textarea{font:inherit;font-size:1rem;padding:.6rem .8rem;border-radius:.6rem;border:2px solid #5b48b8;background:#24186a;color:#fff;width:100%;box-sizing:border-box;margin:.3rem 0}
+button{background:#ff4f5e;border-color:#ff4f5e;font-weight:700;cursor:pointer}p.muted{color:#c9c2ee;font-size:.9rem}#msg{min-height:1.5em;font-weight:600}
+label{display:block;margin-top:.7rem;font-weight:600}label.check{display:flex;gap:.6rem;align-items:flex-start;font-weight:400}label.check input{width:auto;margin-top:.35rem}
+select,textarea{width:100%;box-sizing:border-box;padding:.6rem .8rem;border-radius:.6rem;border:2px solid #5b48b8;background:#24186a;color:#fff;margin:.3rem 0}
+button.go{background:#3ee6b0;border-color:#3ee6b0;color:#053a2a}.hp{position:absolute;left:-9999px}
+table{border-collapse:collapse;width:100%;font-size:.85rem}td,th{border-bottom:1px solid #3a2d7a;padding:.4rem;text-align:left;vertical-align:top}td button{width:auto;padding:.2rem .5rem;font-size:.8rem}`;
 
 function page(title: string, body: string): string {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(title)}</title><style>${STYLE}</style></head><body><main>${body}</main></body></html>`;
@@ -57,4 +61,100 @@ export const DELETE_JS = `(() => {
       say('Done. The chat account has been deleted.');
     } catch (err) { say(err.message); }
   });
+})();`;
+
+export function betaPage(): string {
+  return page(
+    'Test Polygon Rush early',
+    `<h1>Test Polygon Rush early</h1>
+<p>Play new versions before anyone else and help us make the game better. Beta testers keep the exclusive <b>Beta Bot</b> skin, <b>Debug Pixels</b> trail, 🧪 emote and <b>Founding Tester</b> badge forever: they disappear for good at the full release.</p>
+<p class="muted">For grown-ups: testers must be 18 or older, or a parent or guardian signing up for their child. Android only for now.</p>
+<form id="f">
+<label for="email">Email for Google Play</label>
+<input id="email" type="email" required autocomplete="email" placeholder="The Google account on the phone">
+<label for="name">First name (optional)</label>
+<input id="name" maxlength="40" autocomplete="given-name">
+<label for="device">Phone model (optional)</label>
+<input id="device" maxlength="60" placeholder="e.g. Pixel 8, Galaxy A15">
+<label for="channel">How would you like to test?</label>
+<select id="channel"><option value="play">Google Play closed test (easiest, updates itself)</option><option value="apk">Install an APK file myself (sideload)</option><option value="either">Either is fine</option></select>
+<label for="note">Anything else? (optional)</label>
+<textarea id="note" maxlength="300" rows="3"></textarea>
+<input class="hp" id="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+<label class="check"><input id="adult" type="checkbox" required> I'm 18 or older, or I'm a parent or guardian signing up for my child.</label>
+<button class="go" type="submit">Sign me up</button>
+</form>
+<p id="msg" role="status"></p>
+<p class="muted">We only use this to invite you to the test and send you the download. Ask us to delete it any time at <a href="mailto:privacy@softgamebros.com">privacy@softgamebros.com</a>. <a href="https://softgamebros.com/polygon-rush/privacy/">Privacy policy</a></p>
+<script src="/beta.js"></script>`,
+  );
+}
+
+export const BETA_JS = `(() => {
+  const $ = (id) => document.getElementById(id);
+  $('f').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = { email: $('email').value, name: $('name').value, device: $('device').value, channel: $('channel').value, note: $('note').value, adult: $('adult').checked, website: $('website').value };
+    try {
+      const r = await fetch('/api/testers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.message || 'Something went wrong.');
+      $('f').hidden = true;
+      $('msg').textContent = 'Thanks! You are on the list. We will email you an invite soon.';
+    } catch (err) { $('msg').textContent = err.message; }
+  });
+})();`;
+
+export function betaAdminPage(): string {
+  return page(
+    'Beta testers',
+    `<h1>Beta testers</h1>
+<form id="login"><input id="token" type="password" autocomplete="off" placeholder="Admin token (ADMIN_TOKEN on Render)"><button class="go" type="submit">Show sign-ups</button></form>
+<div id="out" hidden><p><span id="count"></span> · <a href="#" id="csv">Download CSV</a></p><table><thead><tr><th>Email</th><th>Name / phone</th><th>Wants</th><th>Note</th><th>Status</th><th></th></tr></thead><tbody id="rows"></tbody></table></div>
+<p id="msg" role="status"></p>
+<script src="/beta/admin.js"></script>`,
+  );
+}
+
+export const BETA_ADMIN_JS = `(() => {
+  const $ = (id) => document.getElementById(id);
+  const WANTS = { play: 'Google Play', apk: 'APK', either: 'Either' };
+  const STATUS = ['new', 'invited', 'apk_sent', 'declined'];
+  let token = sessionStorage.getItem('prAdmin') || '';
+  const api = async (method, url, body) => {
+    const r = await fetch(url, { method, headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    if (r.status === 401) throw new Error('Wrong admin token.');
+    if (!r.ok) throw new Error('Something went wrong.');
+    return r;
+  };
+  const cell = (tr, text) => { const td = document.createElement('td'); td.textContent = text; tr.appendChild(td); return td; };
+  const load = async () => {
+    const list = (await (await api('GET', '/api/admin/testers')).json()).testers;
+    sessionStorage.setItem('prAdmin', token);
+    $('login').hidden = true; $('out').hidden = false; $('msg').textContent = '';
+    $('count').textContent = list.length + ' sign-ups';
+    const rows = $('rows'); rows.textContent = '';
+    for (const t of list) {
+      const tr = document.createElement('tr');
+      cell(tr, t.email);
+      cell(tr, [t.name, t.device].filter(Boolean).join(' · ') || '-');
+      cell(tr, WANTS[t.channel] || t.channel);
+      cell(tr, t.note || '');
+      const sel = document.createElement('select');
+      for (const s of STATUS) { const o = document.createElement('option'); o.value = s; o.textContent = s.replace('_', ' '); o.selected = s === t.status; sel.appendChild(o); }
+      sel.addEventListener('change', () => api('POST', '/api/admin/testers/' + t.id, { status: sel.value }).catch((e) => ($('msg').textContent = e.message)));
+      cell(tr, '').appendChild(sel);
+      const del = document.createElement('button'); del.textContent = 'Delete';
+      del.addEventListener('click', async () => { if (confirm('Delete ' + t.email + '?')) { await api('DELETE', '/api/admin/testers/' + t.id); load(); } });
+      cell(tr, '').appendChild(del);
+      rows.appendChild(tr);
+    }
+  };
+  $('login').addEventListener('submit', (e) => { e.preventDefault(); token = $('token').value.trim(); load().catch((err) => ($('msg').textContent = err.message)); });
+  $('csv').addEventListener('click', async (e) => {
+    e.preventDefault();
+    const blob = await (await api('GET', '/api/admin/testers.csv')).blob();
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'polygon-rush-testers.csv'; a.click();
+  });
+  if (token) load().catch(() => { sessionStorage.removeItem('prAdmin'); $('login').hidden = false; });
 })();`;

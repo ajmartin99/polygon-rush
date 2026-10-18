@@ -29,6 +29,8 @@ export interface Config {
   supportEmail: string;
   /** Email codes one IP may request per hour (verification attempts get 4x). */
   ipLimitPerHour: number;
+  /** Email a note here for each beta tester sign-up (needs SMTP_URL). */
+  testerNotify: string;
 }
 
 const DEFAULT_ORIGINS = ['https://localhost', 'http://localhost', 'capacitor://localhost', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:4173'];
@@ -65,5 +67,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     inactiveAccountDays: int(env.INACTIVE_ACCOUNT_DAYS, 730),
     supportEmail: env.SUPPORT_EMAIL || '',
     ipLimitPerHour: int(env.IP_LIMIT_PER_HOUR, 8),
+    testerNotify: env.TESTER_NOTIFY || '',
   };
 }

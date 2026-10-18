@@ -4,11 +4,12 @@ import type { ChatHub } from './chat.ts';
 import type { Config } from './config.ts';
 import type { Db } from './db.ts';
 import type { Mailer } from './mailer.ts';
-import { DELETE_JS, deletePage, landingPage } from './pages.ts';
+import { BETA_ADMIN_JS, BETA_JS, betaAdminPage, betaPage, DELETE_JS, deletePage, landingPage } from './pages.ts';
 import type { RoomDirectory } from './rooms.ts';
 import type { NameRegistry } from './names.ts';
 import type { PlayerService } from './players.ts';
 import type { LevelService } from './levels.ts';
+import type { TesterService } from './testers.ts';
 import { hmac, safeEqual } from './util.ts';
 
 export interface AppDeps {
@@ -20,6 +21,7 @@ export interface AppDeps {
   names: NameRegistry;
   players: PlayerService;
   levels: LevelService;
+  testers: TesterService;
   mailer: Mailer;
   version: string;
 }
@@ -48,7 +50,7 @@ export function ipKeyFor(cfg: Config, ip: string | undefined): string {
 }
 
 export function createApp(d: AppDeps): express.Express {
-  const { cfg, db, accounts, rooms, hub, names, players, levels } = d;
+  const { cfg, db, accounts, rooms, hub, names, players, levels, testers } = d;
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', cfg.trustProxy ? 1 : false);
@@ -82,6 +84,10 @@ export function createApp(d: AppDeps): express.Express {
   app.get('/', (_req, res) => html(res, landingPage(cfg)));
   app.get('/account/delete', (_req, res) => html(res, deletePage(cfg)));
   app.get('/account/delete.js', (_req, res) => res.type('application/javascript').send(DELETE_JS));
+  app.get('/beta', (_req, res) => html(res, betaPage()));
+  app.get('/beta.js', (_req, res) => res.type('application/javascript').send(BETA_JS));
+  app.get('/beta/admin', (_req, res) => html(res, betaAdminPage()));
+  app.get('/beta/admin.js', (_req, res) => res.type('application/javascript').send(BETA_ADMIN_JS));
   app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
   // ------------------------------------------------------------ public API
@@ -151,6 +157,9 @@ export function createApp(d: AppDeps): express.Express {
       return { ok: true };
     }),
   );
+  // Beta tester sign-ups from /beta.
+  app.post('/api/testers', route((req) => testers.signup(req.body ?? {}, ipKey(req))));
+
   // Community levels: share, browse, play, like and report. Authorised by the device key.
   app.post('/api/levels/publish', route((req) => levels.publish(req.body ?? {}, ipKey(req))));
   app.post('/api/levels/browse', route((req) => levels.browse(req.body ?? {})));
@@ -331,6 +340,19 @@ export function createApp(d: AppDeps): express.Express {
     route((req) => {
       const ok = levels.remove(req.params.id);
       db.audit(actor, 'delete_level', req.params.id, null, Date.now());
+      return { ok };
+    }),
+  );
+  admin.get('/testers', route((req) => ({ testers: testers.list(typeof req.query.status === 'string' ? req.query.status : undefined) })));
+  admin.get('/testers.csv', (_req, res) => {
+    res.type('text/csv').set('Content-Disposition', 'attachment; filename="polygon-rush-testers.csv"').send(testers.csv());
+  });
+  admin.post('/testers/:id', route((req) => ({ ok: testers.setStatus(req.params.id, (req.body ?? {}).status) })));
+  admin.delete(
+    '/testers/:id',
+    route((req) => {
+      const ok = testers.remove(req.params.id);
+      db.audit(actor, 'delete_tester', req.params.id, null, Date.now());
       return { ok };
     }),
   );

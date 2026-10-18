@@ -12,11 +12,12 @@ import { nav } from './nav';
 import { ui } from './ui';
 
 /**
- * Create → Community: levels other players shared. Top Levels (everyone or
- * friends), Suggested (ones you haven't played) and Newest, plus your own
- * shared levels. Tap a level to play, like, save a copy or report it.
+ * Create → Community: levels other players shared. Trending and Highest
+ * Rated (everyone or friends), Suggested (ones you haven't played) and
+ * Newest, plus your own shared levels. Tap a level to play, rate, save a copy
+ * or report it; finishing a run offers thumbs up / down too.
  */
-const view: { tab: SharedTab; scope: SharedScope } = { tab: 'top', scope: 'all' };
+const view: { tab: SharedTab; scope: SharedScope } = { tab: 'trending', scope: 'all' };
 
 const REPORTS: [ReportReason, string][] = [
   ['mean_name', 'Mean or rude name'],
@@ -54,7 +55,8 @@ export function communitySection(): HTMLElement {
     clear(tabs);
     clear(scopes);
     const tabList: [SharedTab, string, Parameters<typeof ic>[0]][] = [
-      ['top', 'Top Levels', 'trophy'],
+      ['trending', 'Trending', 'bolt'],
+      ['top', 'Highest Rated', 'trophy'],
       ['suggested', 'Suggested', 'sparkle'],
       ['new', 'Newest', 'star'],
     ];
@@ -65,7 +67,7 @@ export function communitySection(): HTMLElement {
           view.tab === id && view.scope !== 'mine',
           () => {
             view.tab = id;
-            if (view.scope === 'mine' || id !== 'top') view.scope = 'all';
+            if (view.scope === 'mine' || (id !== 'top' && id !== 'trending')) view.scope = 'all';
             void load(true);
           },
           icon,
@@ -82,7 +84,7 @@ export function communitySection(): HTMLElement {
         'public',
       ),
     );
-    if (view.tab === 'top' && view.scope !== 'mine') {
+    if ((view.tab === 'top' || view.tab === 'trending') && view.scope !== 'mine') {
       scopes.append(
         chip('All', view.scope === 'all', () => ((view.scope = 'all'), void load(true)), 'globe'),
         chip('Friends', view.scope === 'friends', () => ((view.scope = 'friends'), void load(true)), 'users'),
@@ -138,23 +140,41 @@ function card(l: SharedLevel, reload: () => void): HTMLElement {
     h(
       'span.small.level-meta',
       null,
-      h('span', { title: 'Likes' }, ic('heart'), ` ${fmt(l.likes)}`),
+      h('span', { title: 'Thumbs up' }, ic('thumbUp'), ` ${ratingText(l)}`),
       h('span', { title: 'Players' }, ic('play'), ` ${fmt(l.plays)}`),
       pct !== null ? h('span', { title: 'Players who beat it' }, `${pct}% beat it`) : null,
     ),
   );
 }
 
-/** Play a community level; plays and clears go back to the server. */
+/** "92%" thumbs up once a level has votes, else its likes. */
+function ratingText(l: SharedLevel): string {
+  const votes = l.likes + l.dislikes;
+  return votes >= 3 ? `${Math.round((l.likes / votes) * 100)}%` : fmt(l.likes);
+}
+
+/** Play a community level; plays and clears go back to the server, then a thumbs up / down. */
 function playShared(l: SharedLevel): void {
   const level = sharedLevelData(l);
+  let played: Promise<unknown> = Promise.resolve();
   nav.play({
     mode: 'custom',
     level,
     exit: () => nav.go('create', { tab: 'community' }),
+    rate: l.mine
+      ? undefined
+      : {
+          vote: l.vote,
+          onVote: async (v) => {
+            await played.catch(() => undefined);
+            const r = await sharedLevels.vote(l.id, v);
+            Object.assign(l, { vote: r.vote, liked: r.liked, likes: r.likes, dislikes: r.dislikes });
+            return r.vote;
+          },
+        },
     onResult: (r) => {
       if (!r.fromStart || l.mine) return;
-      void sharedLevels.play(l.id, r.completed).catch(() => undefined);
+      played = sharedLevels.play(l.id, r.completed).catch(() => undefined);
       l.played = true;
       const c = store.data.creator;
       if (r.completed && !c.clearedIds.includes(l.id)) {
@@ -168,32 +188,31 @@ function playShared(l: SharedLevel): void {
 
 function openLevel(l: SharedLevel, reload: () => void): void {
   const c = l.content;
-  const like = button({
-    label: `${l.liked ? 'Liked' : 'Like'} · ${fmt(l.likes)}`,
-    icon: 'heart',
-    cls: l.liked ? 'pink lg' : 'ghost lg',
-    onClick: async () => {
-      if (!l.played) return void ui.toast('Play it first, then tell everyone you liked it!', 'heart');
-      like.disabled = true;
-      try {
-        const r = await sharedLevels.like(l.id, !l.liked);
-        l.liked = r.liked;
-        l.likes = r.likes;
-        m.close();
-        openLevel(l, reload);
-      } catch (e) {
-        like.disabled = false;
-        ui.toast(errText(e, 'Couldn’t reach the game server.'), 'info');
-      }
-    },
-  });
+  const thumbBtn = (v: 1 | -1) =>
+    button({
+      label: fmt(v > 0 ? l.likes : l.dislikes),
+      icon: v > 0 ? 'thumbUp' : 'thumbDown',
+      cls: `lg ${l.vote === v ? (v > 0 ? 'mint' : 'red') : 'ghost'}`,
+      aria: v > 0 ? 'Thumbs up' : 'Thumbs down',
+      onClick: async () => {
+        if (!l.played) return void ui.toast('Play it first, then rate it!', v > 0 ? 'thumbUp' : 'thumbDown');
+        try {
+          const r = await sharedLevels.vote(l.id, l.vote === v ? 0 : v);
+          Object.assign(l, { vote: r.vote, liked: r.liked, likes: r.likes, dislikes: r.dislikes });
+          m.close();
+          openLevel(l, reload);
+        } catch (e) {
+          ui.toast(errText(e, 'Couldn’t reach the game server.'), 'info');
+        }
+      },
+    });
   const m = ui.modal(
     [
       h('h2', null, levelName(c)),
       thumb(c),
       h('p.muted.small', null, l.mine ? 'Your level' : `by ${l.author}${l.friend ? ' (your friend)' : ''}`, ` · ${c.length}m · ${SPEED_NAMES[c.speed]} · ${c.hearts}♥`),
-      h('p.small', null, `${fmt(l.plays)} players · ${fmt(l.clears)} beat it · ${fmt(l.likes)} likes`),
-      h('div.actions', null, button({ label: 'Play', icon: 'play', cls: 'mint lg', onClick: () => (m.close(), playShared(l)) }), l.mine ? null : like),
+      h('p.small', null, `${fmt(l.plays)} players · ${fmt(l.clears)} beat it · ${fmt(l.likes)} 👍 · ${fmt(l.dislikes)} 👎`),
+      h('div.actions', null, button({ label: 'Play', icon: 'play', cls: 'mint lg', onClick: () => (m.close(), playShared(l)) }), l.mine ? null : thumbBtn(1), l.mine ? null : thumbBtn(-1)),
       h(
         'div.actions',
         null,

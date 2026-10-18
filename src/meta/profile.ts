@@ -87,8 +87,8 @@ export const BADGES: Badge[] = [
   badge({ id: 'cobuild', name: 'Co-Builder', title: 'Co-Builder', how: 'Build a level together in a build room', icon: 'users', color: '#3ad7ff', group: 'create', value: (c) => c.levelsCoop ?? 0, target: 1 }),
   badge({ id: 'published', name: 'Published', title: 'Level Maker', how: 'Share a level to Community', icon: 'public', color: '#ff8a3d', group: 'create', value: (c) => creator(c).sharedIds.length, target: 1 }),
   badge({ id: 'crowd', name: 'Crowd Pleaser', title: 'Crowd Pleaser', how: 'Get 50 plays on your shared levels', icon: 'play', color: '#3ee6b0', group: 'create', value: (c) => creator(c).plays, target: 50 }),
-  badge({ id: 'fans', name: 'Fan Favourite', title: 'Fan Favourite', how: 'Get 25 likes on your shared levels', icon: 'heart', color: '#ff5fa2', group: 'create', value: (c) => creator(c).likes, target: 25 }),
-  badge({ id: 'hall', name: 'Hall of Fame', title: 'Hall of Famer', how: 'Get 250 likes on your shared levels', icon: 'crown', color: '#ff7af0', group: 'create', value: (c) => creator(c).likes, target: 250 }),
+  badge({ id: 'fans', name: 'Fan Favourite', title: 'Fan Favourite', how: 'Get 25 thumbs up on your shared levels', icon: 'heart', color: '#ff5fa2', group: 'create', value: (c) => creator(c).likes, target: 25 }),
+  badge({ id: 'hall', name: 'Hall of Fame', title: 'Hall of Famer', how: 'Get 250 thumbs up on your shared levels', icon: 'crown', color: '#ff7af0', group: 'create', value: (c) => creator(c).likes, target: 250 }),
   // ---- friends & community
   badge({ id: 'explorer', name: 'Explorer', title: 'Explorer', how: 'Beat 10 Community levels', icon: 'globe', color: '#3ad7ff', group: 'social', value: (c) => c.save.stats.communityClears, target: 10 }),
   badge({ id: 'globetrot', name: 'Globetrotter', title: 'Globetrotter', how: 'Beat 50 Community levels', icon: 'globe', color: '#7b5cff', group: 'social', value: (c) => c.save.stats.communityClears, target: 50 }),

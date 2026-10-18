@@ -873,6 +873,7 @@ export class GameController {
         hits: r.hits,
         verifiedNow,
         missionsDone: missions,
+        rate: req.rate,
       },
       {
         onRetry: () => this.play(req),

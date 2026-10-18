@@ -25,7 +25,8 @@ const MAX_LENGTH = 1200;
 const MIN_PIECES = 5;
 export const REPORT_REASONS = ['mean_name', 'impossible', 'copied', 'other'] as const;
 
-export type LevelTab = 'top' | 'suggested' | 'new';
+/** top = Highest Rated, trending = most played and liked this week. */
+export type LevelTab = 'top' | 'trending' | 'suggested' | 'new';
 export type LevelScope = 'all' | 'friends' | 'mine';
 
 interface LevelRow {
@@ -38,6 +39,7 @@ interface LevelRow {
   plays: number;
   clears: number;
   likes: number;
+  dislikes: number;
   reports: number;
   hidden: number;
   author: string;
@@ -50,7 +52,10 @@ export interface SharedLevelView {
   plays: number;
   clears: number;
   likes: number;
+  dislikes: number;
   liked: boolean;
+  /** Your thumbs: 1 up, -1 down, 0 none. */
+  vote: number;
   played: boolean;
   mine: boolean;
   friend: boolean;
@@ -103,8 +108,15 @@ CREATE TABLE IF NOT EXISTS level_reports (
 );
 `;
 
-/** Ranking for Top: likes count most, then clears, then plays. */
-const SCORE = 'l.likes * 5 + l.clears * 2 + l.plays';
+/**
+ * Highest Rated: share of thumbs up, pulled toward 2-in-3 until a level has
+ * a few votes (so one lucky thumbs up doesn't top the chart), then by likes.
+ */
+const RATING = '(l.likes + 2.0) / (l.likes + l.dislikes + 3.0) DESC, l.likes DESC, l.clears DESC';
+/** Trending: players, clears and thumbs in the last 7 days. */
+const TRENDING = `(SELECT COUNT(*) + SUM(lp.cleared) FROM level_plays lp WHERE lp.level_id = l.id AND lp.at > :since)
+  + 4 * (SELECT COUNT(*) FROM level_likes lv WHERE lv.level_id = l.id AND lv.vote > 0 AND lv.at > :since)
+  - 2 * (SELECT COUNT(*) FROM level_likes lv WHERE lv.level_id = l.id AND lv.vote < 0 AND lv.at > :since)`;
 
 export class LevelService {
   private readonly db: Db;
@@ -119,6 +131,12 @@ export class LevelService {
     this.players = players;
     this.names = names;
     db.sql.exec(SCHEMA);
+    // Thumbs down and vote times came after the first release.
+    const cols = (t: string) => new Set((db.sql.prepare(`PRAGMA table_info(${t})`).all() as { name: string }[]).map((c) => c.name));
+    if (!cols('shared_levels').has('dislikes')) db.sql.exec('ALTER TABLE shared_levels ADD COLUMN dislikes INTEGER NOT NULL DEFAULT 0');
+    const likeCols = cols('level_likes');
+    if (!likeCols.has('vote')) db.sql.exec('ALTER TABLE level_likes ADD COLUMN vote INTEGER NOT NULL DEFAULT 1');
+    if (!likeCols.has('at')) db.sql.exec('ALTER TABLE level_likes ADD COLUMN at INTEGER NOT NULL DEFAULT 0');
   }
 
   private q<T>(sql: string, ...args: (string | number | null)[]): T | undefined {
@@ -188,7 +206,7 @@ export class LevelService {
   /** Lists for the Community tab, plus this player's creator numbers (for badges). */
   browse(body: Record<string, unknown>, now = Date.now()): { levels: SharedLevelView[]; more: boolean; stats: CreatorStats } {
     const me = this.players.me(body, now);
-    const tab: LevelTab = body.tab === 'suggested' || body.tab === 'new' ? body.tab : 'top';
+    const tab: LevelTab = body.tab === 'suggested' || body.tab === 'new' || body.tab === 'trending' ? body.tab : 'top';
     const scope: LevelScope = body.scope === 'friends' || body.scope === 'mine' ? body.scope : 'all';
     const offset = typeof body.offset === 'number' && Number.isInteger(body.offset) && body.offset >= 0 ? Math.min(body.offset, 2000) : 0;
     const friends = new Set(me.friends_off ? [] : this.players.friendIds(me.id));
@@ -233,14 +251,16 @@ export class LevelService {
         where.push(`l.owner IN (${[...friends].map(() => '?').join(',')})`);
         args.push(...friends);
       }
-      const order = scope === 'mine' ? 'l.updated_at DESC' : tab === 'new' ? 'l.created_at DESC' : `${SCORE} DESC, l.created_at DESC`;
+      const since = now - 7 * DAY;
+      const order =
+        scope === 'mine' ? 'l.updated_at DESC' : tab === 'new' ? 'l.created_at DESC' : tab === 'trending' ? `${TRENDING.replaceAll(':since', String(since))} DESC, l.created_at DESC` : `${RATING}, l.created_at DESC`;
       rows = this.qa<LevelRow>(`${base} WHERE ${where.join(' AND ')} ${scope === 'mine' ? '' : notBlocked} ORDER BY ${order} LIMIT ? OFFSET ?`, ...args, ...(scope === 'mine' ? [] : blocked), PAGE_SIZE + 1, offset);
       more = rows.length > PAGE_SIZE;
       rows = rows.slice(0, PAGE_SIZE);
     }
     const ids = rows.map((r) => r.id);
     const marks = ids.map(() => '?').join(',');
-    const liked = new Set(ids.length ? this.qa<{ level_id: string }>(`SELECT level_id FROM level_likes WHERE player_id = ? AND level_id IN (${marks})`, me.id, ...ids).map((r) => r.level_id) : []);
+    const votes = new Map(ids.length ? this.qa<{ level_id: string; vote: number }>(`SELECT level_id, vote FROM level_likes WHERE player_id = ? AND level_id IN (${marks})`, me.id, ...ids).map((r) => [r.level_id, r.vote]) : []);
     const played = new Set(ids.length ? this.qa<{ level_id: string }>(`SELECT level_id FROM level_plays WHERE player_id = ? AND level_id IN (${marks})`, me.id, ...ids).map((r) => r.level_id) : []);
     const levels = rows.map(
       (r): SharedLevelView => ({
@@ -250,7 +270,9 @@ export class LevelService {
         plays: r.plays,
         clears: r.clears,
         likes: r.likes,
-        liked: liked.has(r.id),
+        dislikes: r.dislikes,
+        liked: votes.get(r.id) === 1,
+        vote: votes.get(r.id) ?? 0,
         played: played.has(r.id),
         mine: r.owner === me.id,
         friend: friends.has(r.owner),
@@ -293,17 +315,26 @@ export class LevelService {
     return { plays: out?.plays ?? 0, clears: out?.clears ?? 0 };
   }
 
-  like(id: string, body: Record<string, unknown>, now = Date.now()): { liked: boolean; likes: number } {
+  /**
+   * Thumbs up (1), thumbs down (-1) or take your vote back (0). Only after
+   * playing it, and never on your own level. (`like: true/false` still works.)
+   */
+  like(id: string, body: Record<string, unknown>, now = Date.now()): { liked: boolean; vote: number; likes: number; dislikes: number } {
     const me = this.players.me(body, now);
     const row = this.visible(id);
-    if (row.owner === me.id) throw new ApiError(400, 'own_level', 'You can’t like your own level.');
-    const want = body.like !== false;
-    if (want) {
-      if (this.x('INSERT OR IGNORE INTO level_likes (level_id, player_id) VALUES (?, ?)', id, me.id)) this.x('UPDATE shared_levels SET likes = likes + 1 WHERE id = ?', id);
-    } else if (this.x('DELETE FROM level_likes WHERE level_id = ? AND player_id = ?', id, me.id)) {
-      this.x('UPDATE shared_levels SET likes = MAX(0, likes - 1) WHERE id = ?', id);
+    if (row.owner === me.id) throw new ApiError(400, 'own_level', 'You can’t rate your own level.');
+    const vote = body.vote === 1 || body.vote === -1 || body.vote === 0 ? body.vote : body.like === false ? 0 : 1;
+    if (vote !== 0 && !this.q('SELECT 1 AS ok FROM level_plays WHERE level_id = ? AND player_id = ?', id, me.id)) throw new ApiError(400, 'not_played', 'Play it first, then rate it!');
+    const prev = this.q<{ vote: number }>('SELECT vote FROM level_likes WHERE level_id = ? AND player_id = ?', id, me.id)?.vote ?? 0;
+    if (prev !== vote) {
+      if (vote === 0) this.x('DELETE FROM level_likes WHERE level_id = ? AND player_id = ?', id, me.id);
+      else this.x('INSERT INTO level_likes (level_id, player_id, vote, at) VALUES (?, ?, ?, ?) ON CONFLICT (level_id, player_id) DO UPDATE SET vote = excluded.vote, at = excluded.at', id, me.id, vote, now);
+      const up = (vote === 1 ? 1 : 0) - (prev === 1 ? 1 : 0);
+      const down = (vote === -1 ? 1 : 0) - (prev === -1 ? 1 : 0);
+      this.x('UPDATE shared_levels SET likes = MAX(0, likes + ?), dislikes = MAX(0, dislikes + ?) WHERE id = ?', up, down, id);
     }
-    return { liked: want, likes: this.q<{ likes: number }>('SELECT likes FROM shared_levels WHERE id = ?', id)?.likes ?? 0 };
+    const out = this.q<{ likes: number; dislikes: number }>('SELECT likes, dislikes FROM shared_levels WHERE id = ?', id);
+    return { liked: vote === 1, vote, likes: out?.likes ?? 0, dislikes: out?.dislikes ?? 0 };
   }
 
   /** Report a level. Three different players hide it until a moderator looks. */

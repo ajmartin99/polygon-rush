@@ -8,6 +8,7 @@ import { nowPlaying } from '../soundtrack';
 import { emoteBar, showEmote } from '../emotes';
 import type { IconName } from '../icons';
 import type { LevelUp } from '../../meta/economy';
+import type { LevelRating } from '../nav';
 
 /** Transparent overlay during gameplay: pause button, hints, countdown. */
 export class GameHud extends BaseScreen {
@@ -372,6 +373,40 @@ export interface LevelResult {
   /** The builder just beat their level from the start. */
   verifiedNow: boolean;
   missionsDone: string[];
+  /** Community levels: thumbs up/down. */
+  rate?: LevelRating;
+}
+
+/** "Rate this level" with thumbs up / down (tap again to take it back). */
+function ratingRow(rate: LevelRating): HTMLElement {
+  const row = h('div.rate-row');
+  let vote = rate.vote;
+  let busy = false;
+  const render = () => {
+    clear(row);
+    const thumb = (v: 1 | -1) =>
+      button({
+        icon: v > 0 ? 'thumbUp' : 'thumbDown',
+        cls: `icon ${vote === v ? (v > 0 ? 'mint' : 'red') : 'ghost'}`,
+        aria: v > 0 ? 'Thumbs up' : 'Thumbs down',
+        onClick: async () => {
+          if (busy) return;
+          busy = true;
+          const want = vote === v ? 0 : v;
+          try {
+            vote = await rate.onVote(want);
+            if (want) ui.toast(want > 0 ? 'Thanks! Thumbs up sent.' : 'Thanks for rating!', want > 0 ? 'thumbUp' : 'thumbDown', 1600);
+          } catch (e) {
+            ui.toast((e as Error).message || 'Couldn’t reach the game server.', 'info');
+          }
+          busy = false;
+          render();
+        },
+      });
+    row.append(h('span.small', null, vote ? 'Your rating' : 'Rate this level'), thumb(1), thumb(-1));
+  };
+  render();
+  return row;
 }
 
 /** End of a player-made level run (test runs from the editor too). */
@@ -406,6 +441,7 @@ export class LevelResultsScreen extends BaseScreen {
             h('div.card', null, h('b', null, fmt(r.hits)), h('span', null, 'Bumps')),
           ),
           r.missionsDone.length ? h('div.card', { style: 'border-color:var(--yellow)' }, h('b', null, 'Mission complete!'), r.missionsDone.map((t) => h('p.small', null, `✓ ${t}`))) : null,
+          r.rate ? ratingRow(r.rate) : null,
           h(
             'div.row',
             { style: 'flex-wrap:wrap;justify-content:center' },

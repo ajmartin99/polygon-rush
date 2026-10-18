@@ -567,6 +567,35 @@ describe('community levels', () => {
     assert.ok(!(await browse(k('d'), { tab: 'new' })).json.levels.some((l: any) => l.id === pub.json.id));
   });
 
+  test('thumbs up and down: Highest Rated and Trending', async () => {
+    await reg(k('r1'), 'Rated Robin');
+    await reg(k('r2'), 'Rated Raven');
+    const good = (await api('POST', '/api/levels/publish', { key: k('r1'), localId: 'goodlevel001', code: code(10) })).json.id as string;
+    const meh = (await api('POST', '/api/levels/publish', { key: k('r1'), localId: 'mehlevel0001', code: code(11) })).json.id as string;
+    // Rating needs a play first.
+    assert.equal((await api('POST', `/api/levels/${good}/like`, { key: k('r2'), vote: 1 })).status, 400);
+    const voters = ['v1', 'v2', 'v3', 'v4'];
+    for (const v of voters) {
+      await reg(k(v), 'Voting Vole');
+      await api('POST', `/api/levels/${good}/play`, { key: k(v), cleared: true });
+      await api('POST', `/api/levels/${meh}/play`, { key: k(v), cleared: false });
+      await api('POST', `/api/levels/${good}/like`, { key: k(v), vote: 1 });
+    }
+    // Two thumbs down on meh, one changes its mind to up.
+    assert.deepEqual((await api('POST', `/api/levels/${meh}/like`, { key: k('v1'), vote: -1 })).json, { liked: false, vote: -1, likes: 0, dislikes: 1 });
+    await api('POST', `/api/levels/${meh}/like`, { key: k('v2'), vote: -1 });
+    assert.deepEqual((await api('POST', `/api/levels/${meh}/like`, { key: k('v2'), vote: 1 })).json, { liked: true, vote: 1, likes: 1, dislikes: 1 });
+    const rated = (await browse(k('r2'), { tab: 'top' })).json.levels.map((l: any) => l.id);
+    assert.ok(rated.indexOf(good) < rated.indexOf(meh));
+    const mine = (await browse(k('v1'), { tab: 'top' })).json.levels.find((l: any) => l.id === meh);
+    assert.equal(mine.vote, -1);
+    assert.equal(mine.dislikes, 1);
+    const trending = (await browse(k('r2'), { tab: 'trending' })).json.levels.map((l: any) => l.id);
+    assert.equal(trending[0], good);
+    // Taking a vote back.
+    assert.equal((await api('POST', `/api/levels/${meh}/like`, { key: k('v1'), vote: 0 })).json.dislikes, 0);
+  });
+
   test('three reports hide a level until a moderator restores it', async () => {
     await reg(k('f'), 'Funky Fox');
     const pub = await api('POST', '/api/levels/publish', { key: k('f'), localId: 'foxlevel0001', code: code(7) });

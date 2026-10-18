@@ -4,10 +4,11 @@ import { friends } from './friends';
 
 /**
  * Community levels on the game server: share a level you built and beat,
- * browse Top (everyone or friends), Suggested and Newest, then play, like or
- * report. Levels travel as share codes; the builder shows by racer name only.
+ * browse Trending and Highest Rated (everyone or friends), Suggested and
+ * Newest, then play, rate thumbs up/down or report. Levels travel as share codes; the builder shows by racer name only.
  */
-export type SharedTab = 'top' | 'suggested' | 'new';
+/** top = Highest Rated. */
+export type SharedTab = 'top' | 'trending' | 'suggested' | 'new';
 export type SharedScope = 'all' | 'friends' | 'mine';
 export type ReportReason = 'mean_name' | 'impossible' | 'copied' | 'other';
 
@@ -18,7 +19,10 @@ export interface SharedLevel {
   plays: number;
   clears: number;
   likes: number;
+  dislikes: number;
   liked: boolean;
+  /** Your thumbs: 1 up, -1 down, 0 none. */
+  vote: number;
   played: boolean;
   mine: boolean;
   friend: boolean;
@@ -85,8 +89,8 @@ export const sharedLevels = {
     return friends.authed(`/api/levels/${encodeURIComponent(id)}/play`, { cleared });
   },
 
-  like(id: string, like: boolean): Promise<{ liked: boolean; likes: number }> {
-    return friends.authed(`/api/levels/${encodeURIComponent(id)}/like`, { like });
+  vote(id: string, vote: -1 | 0 | 1): Promise<{ liked: boolean; vote: number; likes: number; dislikes: number }> {
+    return friends.authed(`/api/levels/${encodeURIComponent(id)}/like`, { vote });
   },
 
   report(id: string, reason: ReportReason): Promise<{ hidden: boolean }> {

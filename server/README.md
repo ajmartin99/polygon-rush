@@ -101,8 +101,8 @@ App endpoints (CORS-limited to `ALLOWED_ORIGINS`):
 * `POST /api/friends/sync` `{ key, activity }` → friends with online status, requests both ways, invites
 * `POST /api/friends/add` `{ key, handle: "Name#1234" }`, `/respond` `{ key, id, accept }`, `/remove` `{ key, id }`, `/block` `{ key, id }`
 * `POST /api/friends/invite` `{ key, id, kind: race|build, room }`, `/invite/dismiss` `{ key, id }`
-* `POST /api/levels/publish` `{ key, localId, code }` (share or update), `POST /api/levels/browse` `{ key, tab: top|suggested|new, scope: all|friends|mine, offset }` → levels + your creator stats
-* `POST /api/levels/:id/play` `{ key, cleared }`, `/like` `{ key, like }`, `/report` `{ key, reason }`, `/unpublish` `{ key }`
+* `POST /api/levels/publish` `{ key, localId, code }` (share or update), `POST /api/levels/browse` `{ key, tab: trending|top|suggested|new, scope: all|friends|mine, offset }` → levels + your creator stats
+* `POST /api/levels/:id/play` `{ key, cleared }`, `/like` `{ key, vote: 1|-1|0 }` (thumbs up / down / clear; needs a play first), `/report` `{ key, reason }`, `/unpublish` `{ key }`
 * `GET /api/rooms`, `POST /api/rooms/:code`, `POST /api/rooms/:code/beat`, `DELETE /api/rooms/:code`, `POST /api/rooms/:code/report`
 * WebSocket `/chat`: `auth` → `join {channel, name}` → `say {text}` / `report {id, reason}`
 * PeerJS signalling under `/peerjs`

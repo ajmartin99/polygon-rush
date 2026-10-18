@@ -20,6 +20,10 @@ All notable changes to Polygon Rush are documented here.
 
 - **Beta tester rewards:** everyone who plays a 1.0.x build gets the Beta Bot skin, Debug Pixels trail, 🧪 Beta Tester emote, the Founding Tester badge and title, and 500 gems. They can't be bought and stop being given out at 1.1.0; testers keep them forever.
 
+- **Rate levels:** thumbs up or down at the end of a Community level (or from its card). Community now has **Trending** (most played and liked this week), **Highest Rated**, Suggested, Newest and My Shared; Trending and Highest Rated can show just your friends' levels.
+- **Editor guide:** a 4-step walkthrough the first time you open the level editor (pick a piece, place and move, test, beat it and share), and a ? button to see it again.
+- **Livelier home screen:** the logo sways, the menu buttons pop in, and tapping your character makes it hop.
+
 ### Changed
 - Songs no longer cut out between levels: the next song preloads and the two crossfade.
 - Typed Free Chat is switched off: players chat only with Quick Chat phrases and emotes. It's still built in and can be turned on later (`VITE_FREE_CHAT` in the app, `FREE_CHAT` on the server). The privacy policy no longer lists chat accounts, emails or messages.

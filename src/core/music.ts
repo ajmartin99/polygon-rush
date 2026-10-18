@@ -21,6 +21,8 @@ class MusicDirector extends Emitter<{ song: number }> {
   private context: MusicContext | null = null;
   private bag: number[] = [];
   private last = -1;
+  /** The song lined up to play next (already preloading when it's a track). */
+  private queued = -1;
 
   constructor() {
     super();
@@ -149,7 +151,10 @@ class MusicDirector extends Emitter<{ song: number }> {
   private start(context: MusicContext, first: number, force = false): void {
     const changed = this.context !== context;
     this.context = context;
-    if (changed) this.bag = [];
+    if (changed) {
+      this.bag = [];
+      this.queued = -1;
+    }
     const song = first >= 0 && (force || this.allowed(first)) ? first : this.draw();
     // Keep the current song if it already fits (e.g. back to menu from Settings).
     if (!changed && !force && this.pool().includes(audio.targetSong)) return;
@@ -157,7 +162,19 @@ class MusicDirector extends Emitter<{ song: number }> {
   }
 
   private next(): void {
-    this.play(this.draw());
+    const q = this.queued;
+    this.queued = -1;
+    this.play(q >= 0 && q !== audio.targetSong && this.pool().includes(q) ? q : this.draw());
+  }
+
+  /** Line up the following song and start loading it, so the next switch is seamless. */
+  private lineUp(): void {
+    if (this.context === 'level' || this.context === null) return;
+    // A song lined up earlier but skipped past goes back in the bag.
+    if (this.queued >= 0 && !this.bag.includes(this.queued)) this.bag.push(this.queued);
+    this.queued = this.draw();
+    const t = trackOf(this.queued);
+    if (t) audio.prefetch(`music/${t.file}`);
   }
 
   /** Shuffle-bag draw: every song plays once before any repeats, never twice in a row. */
@@ -185,10 +202,12 @@ class MusicDirector extends Emitter<{ song: number }> {
     this.wanted = song;
     if (song < TRACK_BASE) {
       audio.playSong(song);
+      this.lineUp();
     } else if (song < USER_BASE) {
       const t = trackOf(song);
       if (!t) return;
       audio.playTrack(song, `music/${t.file}`, t.bpm, t.offset, t.gain ?? 0);
+      this.lineUp();
     } else {
       void myMusic.url(song - USER_BASE).then((url) => {
         if (this.wanted !== song) return;

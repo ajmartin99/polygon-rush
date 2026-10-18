@@ -1,11 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/config', async (importOriginal) => {
   const real = (await importOriginal()) as { CONFIG: Record<string, unknown> };
   return { CONFIG: { ...real.CONFIG, server: { url: 'https://community.example' } } };
 });
 
-const { ageOf, canOfferFreeChat, canUsePublicRooms, freeChatPath, freeChatReady } = await import('../src/meta/community');
+const { ageOf, canOfferFreeChat, canUsePublicRooms, freeChatPath, freeChatReady, setServerFeatures } = await import('../src/meta/community');
 const { createSave } = await import('../src/state/save');
 
 const NOW = new Date('2026-10-14T12:00:00Z');
@@ -18,6 +18,16 @@ function save(age: number) {
 }
 
 describe('community rules', () => {
+  beforeEach(() => setServerFeatures({ freeChat: true }));
+
+  it('hides Free Chat until the server says email works', () => {
+    const s = save(16);
+    setServerFeatures({});
+    expect(canOfferFreeChat(s, NOW)).toBe(false);
+    setServerFeatures({ freeChat: true });
+    expect(canOfferFreeChat(s, NOW)).toBe(true);
+  });
+
   it('ages are conservative (birthday assumed later this year)', () => {
     expect(ageOf(2010, NOW)).toBe(15);
     expect(ageOf(null, NOW)).toBe(0);

@@ -29,6 +29,8 @@ import { GameController } from './game/controller';
 import { audio } from './core/audio';
 import { music } from './core/music';
 import { myMusic } from './services/mymusic';
+import { serverAvailable, setServerFeatures } from './meta/community';
+import { serverApi } from './services/server';
 import { friends } from './services/friends';
 import { initFriendInvites } from './ui/friend-invites';
 import { SONGS } from './core/songs';
@@ -78,6 +80,7 @@ async function boot(): Promise<void> {
   initFriendInvites();
   friends.on('notice', (msg) => ui.toast(msg, 'info', 4500));
   friends.start();
+  if (serverAvailable()) void serverApi<{ freeChat?: boolean }>('/api/status').then(setServerFeatures, () => undefined);
   game.startAttract();
   if (import.meta.env.DEV) {
     // Dev-only hooks for automated audio checks and store screenshots.

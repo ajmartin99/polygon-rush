@@ -203,3 +203,31 @@ export function drawLevelHud(ctx: CanvasRenderingContext2D, rect: ViewRect, sess
   if (r.shield) px += powerPill(ctx, px, gy, u * 1.05, 'SHIELD', '#3ad7ff', r.shieldTime / 18) + u * 0.4;
   if (r.magnet > 0) powerPill(ctx, px, gy, u * 1.05, 'MAGNET', '#ff5f5f', r.magnet / 9);
 }
+
+/**
+ * Rhythm Rush: score and combo at the top, with a beat ring under them
+ * that closes in on the target circle right on each beat.
+ */
+export function drawRhythmHud(ctx: CanvasRenderingContext2D, rect: ViewRect, score: number, combo: number, mult: number, phase: number, dpr: number): void {
+  const u = Math.min(rect.h, rect.w / 1.45) / 22;
+  const cx = rect.x + rect.w / 2;
+  const top = rect.y + u * 1.1 + 6 * dpr;
+  outlinedText(ctx, score.toLocaleString('en-US'), cx, top, u * 1.5, '#ffffff', 'center');
+  if (combo > 1) outlinedText(ctx, `${combo} combo${mult > 1 ? ` · ×${mult}` : ''}`, cx, top + u * 1.8, u * 0.95, mult > 1 ? '#ffd23f' : '#9fe8ff', 'center');
+  // Beat ring under the score: shrinks onto the target as the next beat arrives.
+  const target = u * 0.7;
+  const by = top + u * 3.9 + target;
+  ctx.lineWidth = Math.max(2, u * 0.16);
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.beginPath();
+  ctx.arc(cx, by, target, 0, Math.PI * 2);
+  ctx.stroke();
+  const ring = target * (1 + 1.6 * (1 - phase));
+  const near = phase > 0.85 || phase < 0.12;
+  ctx.strokeStyle = near ? '#ffd23f' : 'rgba(159,232,255,0.8)';
+  ctx.globalAlpha = 0.35 + 0.65 * phase;
+  ctx.beginPath();
+  ctx.arc(cx, by, phase < 0.12 ? target : ring, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+}

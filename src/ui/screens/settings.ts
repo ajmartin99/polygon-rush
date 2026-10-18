@@ -185,7 +185,7 @@ export class SettingsScreen extends BaseScreen {
             row(
               'skip',
               'Soundtrack',
-              `${SONGS.length + TRACKS.length} songs + My Music · pick, skip, add your own`,
+              `${SONGS.length + TRACKS.filter((t) => !t.exclusive).length} songs + My Music · pick, skip, add your own`,
               h('div.row', { style: 'gap:0.4rem' }, button({ icon: 'skip', cls: 'icon ghost', aria: 'Skip song', onClick: () => music.skip() }), button({ label: 'Songs', cls: 'yellow sm', onClick: () => openSoundtrack() })),
             ),
             row('sound', 'Sound effects', 'Jumps, gems & more', slider(s.sfx, (v) => store.setSetting('sfx', v), 'Sound volume')),

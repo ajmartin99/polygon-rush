@@ -125,8 +125,11 @@ describe('music director', () => {
 
   it('beat-synced runs: each level plays the song its course was built on', () => {
     music.resetPlan(true);
-    const grids = [0, 1, 2, 3].map((l) => music.planLevel(l));
+    const songs = [0, 1, 2, 3].map((l) => music.levelSong(l));
+    const grids = songs.map((x) => x.grid);
     for (const g of grids) expect(g && g.bpm).toBeGreaterThan(40);
+    // Each level lasts its whole song.
+    for (const x of songs) expect(x.seconds).toBeGreaterThan(20);
     music.run(0, 0);
     const first = played.at(-1)!;
     expect(music.syncSong).toEqual({ id: first, level: 0 });
@@ -135,8 +138,8 @@ describe('music director', () => {
     expect(second).not.toBe(first);
     expect(music.syncSong?.level).toBe(1);
     // The song a level was planned with is the one that plays (same tempo as its course).
-    expect(music.planLevel(1)).toEqual(grids[1]);
-    // A song ending mid-level doesn't switch away from the level's song.
+    expect(music.levelSong(1).grid).toEqual(grids[1]);
+    // The level, not the song's end event, moves the music on.
     audio.onSongEnd?.();
     expect(played.at(-1)).toBe(second);
     music.resetPlan(false);

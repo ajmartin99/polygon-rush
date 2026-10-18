@@ -4,6 +4,20 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+## [1.0.10] - 2026-10-18
+
+### Changed
+- **Battery:** nothing runs in the background any more (the music scheduler stops and Android pauses the game's web view when it leaves the screen). 90/120 Hz screens switch to 60 Hz while the game is open (it never draws faster), Auto graphics renders a little lower, the menu's bobbing animations play a few times and stop, and the menu backdrop demo rests after 45 seconds without a touch.
+- **Every Endless level is exactly one song long.** The level starts when its song starts and ends when the song ends, so the music never cuts off mid-song (or right at the drop): the "Level N" banner, the new world and the next song all arrive together. Levels now vary in length with their songs (about 45 seconds to 5 minutes; very short songs play twice). The Levels screen unlocks every level you've reached (older saves convert from their best distance), and each level still hides one Golden Shape.
+- **Duels are just for fun:** gems grabbed in a split-screen Duel no longer go into your gem total, and Duels no longer give XP or count toward gem and jump missions (two players on one phone could farm them). The "Play a Duel" mission still counts.
+- **Swing Along** now only plays in the Haunted Run: it's out of every playlist, the jukebox and the level song picker (player levels that used it play their world's song instead).
+
+### Added
+- **Boss Battles:** fight a giant polygon boss for one whole song. It floats ahead of you and throws its attacks on the beat (spike stomps, saws, pits and walls: jump right on the beat to clear them). Grab the glowing charge orbs to fire them back and drain its health bar before the song ends, or it gets away. Three bosses unlock in order: King Cube (+300 gems the first time), Saw Queen (+500) and Hexa Hydra (+800), with smaller rewards for rematches and two new badges, Boss Slayer and Polygon Champion.
+- **Rhythm Rush mode:** every jump, hop, flip and glide is judged against the beat of the music (Perfect / Great / Miss, allowing for your phone's audio delay). On-beat presses build a combo that raises a score multiplier up to ×4; an off-beat press breaks it. A beat ring under the score shows when the next beat lands. Its own best score per difficulty.
+- **Lights Out mode:** Endless in pitch dark. Only a small glow surrounds you, and every beat of the music flashes the way ahead for a moment, so you run by rhythm and memory. Its own best per difficulty, and it pays 1.5× gems.
+- **Haunted Run chasers:** a zombie shambles after you on the ground (it even follows the Roller onto the ceiling) and bursts into a ghost that swoops after you when you fly as the Glider. It creeps closer all the time; every obstacle you clear cleanly and every gem you grab shoves it back, a bump lets it lunge (GRRR! / BOO!), and if it catches you the run is over. A red glow and a groan warn you when it's right behind you.
+
 ## [1.0.9] - 2026-10-18
 
 ### Added

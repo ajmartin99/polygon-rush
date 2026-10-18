@@ -1,3 +1,4 @@
+import { LEVEL_NOMINAL } from '../game/levels';
 import type { Settings } from '../state/save';
 import { endlessBestKey } from '../state/save';
 
@@ -8,7 +9,10 @@ import { endlessBestKey } from '../state/save';
  *  - oneheart: one bump and it's over, no heart pickups, no revive;
  *  - gemrush: 60 seconds to grab as many gems as you can (bumps only stun).
  */
-export type EndlessVariant = 'classic' | 'daily' | 'oneheart' | 'gemrush';
+export type EndlessVariant = 'classic' | 'daily' | 'oneheart' | 'gemrush' | 'lightsout' | 'rhythm';
+
+/** Lights Out pays this much more (it's run half blind). */
+export const LIGHTS_OUT_GEM_RATE = 1.5;
 
 export const GEM_RUSH_SECONDS = 60;
 /** Reach this in the Daily Run for the daily reward. */
@@ -41,6 +45,10 @@ export function variantBestKey(v: EndlessVariant, s: Pick<Settings, 'kidMode' | 
       return `oneheart_${s.difficulty}`;
     case 'gemrush':
       return 'gemrush';
+    case 'lightsout':
+      return `lightsout_${s.difficulty}`;
+    case 'rhythm':
+      return `rhythm_${s.difficulty}`;
     default:
       return endlessBestKey(s);
   }
@@ -66,21 +74,25 @@ export const VARIANT_INFO: Record<EndlessVariant, { name: string; blurb: string 
   daily: { name: 'Daily Run', blurb: 'A new course every day, the same for everyone, with its own soundtrack. No revives!' },
   oneheart: { name: 'One Heart', blurb: 'One bump and it’s over. For pros.' },
   gemrush: { name: 'Gem Rush', blurb: `${GEM_RUSH_SECONDS} seconds. Grab every gem, and bumps drop 5!` },
+  rhythm: { name: 'Rhythm Rush', blurb: 'Jump, flip and glide right on the beat! Perfect presses build a combo and multiply your score; off-beat presses break it.' },
+  lightsout: { name: 'Lights Out', blurb: 'Pitch dark! Every beat of the music flashes the way ahead for a moment. Run by rhythm and memory. Pays 1.5× gems.' },
 };
 
 // ------------------------------------------------------------------ levels
-/** Endless is split into levels: one per world, 500 m each, cycling through the six worlds. */
-export const LEVEL_LENGTH = 500;
+/**
+ * Endless is split into levels, each exactly one song long (see LevelTimeline),
+ * cycling through the six worlds.
+ */
 export const MAX_START_LEVEL = 40;
 
 /** Levels you can start from: every level you have reached on this difficulty. */
-export function unlockedLevels(bestDistance: number): number {
-  return Math.max(1, Math.min(MAX_START_LEVEL, Math.floor(Math.max(0, bestDistance) / LEVEL_LENGTH) + 1));
+export function unlockedLevels(reached: number): number {
+  return Math.max(1, Math.min(MAX_START_LEVEL, Math.floor(reached) || 1));
 }
 
-/** Metres at which a level begins. */
+/** Where a run started from a later level begins (metres in, so speed and difficulty fit). */
 export function levelStart(level: number): number {
-  return (Math.max(1, Math.floor(level)) - 1) * LEVEL_LENGTH;
+  return (Math.max(1, Math.floor(level)) - 1) * LEVEL_NOMINAL;
 }
 
 /** World index (0-5) a level takes place in. */
@@ -89,9 +101,9 @@ export function levelWorld(level: number): number {
 }
 
 /** A level you're allowed to start from, given your record (falls back to 1). */
-export function clampStartLevel(level: number | undefined, bestDistance: number): number {
+export function clampStartLevel(level: number | undefined, reached: number): number {
   const n = Math.floor(level ?? 1);
-  return n >= 1 && n <= unlockedLevels(bestDistance) ? n : 1;
+  return n >= 1 && n <= unlockedLevels(reached) ? n : 1;
 }
 
 export interface DailyTwist {

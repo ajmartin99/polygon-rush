@@ -562,7 +562,7 @@ export class EditorScreen extends BaseScreen {
       lenEl.textContent = `${d.settings.length}m`;
     };
     // The map music library: the world's theme, the recorded tracks, then the classic songs.
-    const songs = [-1, ...TRACKS.map((_, i) => TRACK_BASE + i), ...SONGS.map((_, i) => i)];
+    const songs = [-1, ...TRACKS.flatMap((t, i) => (t.exclusive ? [] : [TRACK_BASE + i])), ...SONGS.map((_, i) => i)];
     const songLabel = () => {
       const m = musicInfo(d.settings.music);
       return !m ? 'World theme' : m.artist ? `${m.title} · ${m.genre} · ${m.artist}` : `${m.title} · ${m.genre}`;

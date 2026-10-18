@@ -1,5 +1,6 @@
 import { Rng } from '../core/rng';
 import { CEIL, ENDLESS_TUNING, JUMP_TIME, RACE_SPEED, endlessDifficultyAt, endlessHeatAt, endlessSpeedAt, type Difficulty } from './constants';
+import type { LevelSpan, LevelTimeline } from './levels';
 import type { ShapeMode } from './shapes';
 import type { PickupType, SolidRole, World, WorldObj } from './world';
 import { MAX_OBJ_W } from './world';
@@ -25,12 +26,11 @@ export interface GenOptions {
   /** Endless: distance already covered at the start (starting from a later level). */
   offset?: number;
   /**
-   * Endless: the beat of the song that will play in each level (0-based level
-   * index from the run's very start). Gaps between patterns snap to it, so
-   * obstacles arrive on the beat. Leave unset where every player must get
-   * the same course whatever music they hear (Daily Run, races).
+   * Endless: the run's levels (each one song long). Gaps between patterns
+   * snap to the beat of the level's song, so obstacles arrive on the beat,
+   * and each level hides its own Golden Shape.
    */
-  beat?: (level: number) => BeatGrid | null;
+  levels?: LevelTimeline;
   /** Endless: the shape the course starts in (Daily Run twists). */
   startMode?: ShapeMode;
   /** Endless: heat never drops below this (moving hazards from the start). */
@@ -50,8 +50,6 @@ export interface BeatGrid {
   offset: number;
 }
 
-/** Metres per level: each level gets its own song and beat grid. */
-export const BEAT_LEVEL_LENGTH = 500;
 
 interface Pattern {
   id: string;
@@ -91,9 +89,8 @@ export class LevelGen {
   private tutorialStep = 0;
   private lastPattern = '';
   patternsPlaced = 0;
-  /** Beat grid cache: level, its grid, and a running (x, seconds since the level began) point. */
-  private beatLevel = -1;
-  private beatGrid: BeatGrid | null = null;
+  /** Beat cache: the level, and a running (x, seconds since the level began) point. */
+  private beatLevel: LevelSpan | null = null;
   private beatX = 0;
   private beatT = 0;
   /** Pattern starts placed on a beat (for tests and tuning). */
@@ -123,14 +120,15 @@ export class LevelGen {
     this.gemLine(start + 5, this.x - 1, 1.1, 1.5);
     if (opts.kind === 'endless' && opts.startMode && opts.startMode !== 'square') this.transition(opts.startMode);
     this.secretRng = new Rng((opts.seed ^ 0x5ec2e7) >>> 0);
-    if (opts.kind === 'endless' && opts.secrets) this.planSecret(Math.floor(off / BEAT_LEVEL_LENGTH));
+    if (opts.kind === 'endless' && opts.secrets && opts.levels) this.planSecret(opts.levels.at(off).index);
     this.flush();
   }
 
   /** Pick where level `level`'s egg goes (0-based level index). */
   private planSecret(level: number): void {
     this.secretLevel = level;
-    this.secretX = level < SECRET_LEVELS ? this.origin + level * BEAT_LEVEL_LENGTH + this.secretRng.range(50, 330) : Infinity;
+    const span = this.opts.levels?.span(level);
+    this.secretX = span && level < SECRET_LEVELS ? this.origin + span.start + this.secretRng.range(50, Math.max(60, Math.min(330, span.end - span.start - 150))) : Infinity;
   }
 
   // ------------------------------------------------------------------ tuning
@@ -187,7 +185,7 @@ export class LevelGen {
     }
     if (this.x >= this.secretX) {
       // Too late in the level (or never in Jumper shape there): this level's egg is skipped.
-      const levelEnd = this.origin + (this.secretLevel + 1) * BEAT_LEVEL_LENGTH;
+      const levelEnd = this.origin + (this.opts.levels?.span(this.secretLevel).end ?? Infinity);
       const room = this.v * 1.4 + 4;
       if (this.x + room > levelEnd) this.planSecret(this.secretLevel + 1);
       else if (this.mode === 'square' && this.x + room < this.sectionEnd && !(this.opts.tutorial && this.tutorialStep <= TUTORIAL.length)) {
@@ -288,20 +286,21 @@ export class LevelGen {
 
   /** Seconds a runner needs from the start of x's level to x (speed ramps, so integrate). */
   private secondsIntoLevel(x: number): { level: number; t: number; grid: BeatGrid | null } {
-    const level = Math.floor(Math.max(0, x - this.origin) / BEAT_LEVEL_LENGTH);
-    if (level !== this.beatLevel) {
-      this.beatLevel = level;
-      this.beatGrid = this.opts.beat?.(level) ?? null;
-      this.beatX = this.origin + level * BEAT_LEVEL_LENGTH;
+    const span = this.opts.levels!.at(Math.max(0, x - this.origin));
+    if (span !== this.beatLevel) {
+      this.beatLevel = span;
+      this.beatX = this.origin + span.start;
       this.beatT = 0;
     }
-    if (x < this.beatX) return { level, t: this.beatT, grid: this.beatGrid };
+    const level = span.index;
+    const grid = span.song.grid;
+    if (x < this.beatX) return { level, t: this.beatT, grid };
     // Cursor only moves forward, so keep a running total in 1-tile steps.
     while (this.beatX + 1 <= x) {
       this.beatT += 1 / this.speedAt(this.beatX + 0.5);
       this.beatX += 1;
     }
-    return { level, t: this.beatT + (x - this.beatX) / this.speedAt(this.beatX), grid: this.beatGrid };
+    return { level, t: this.beatT + (x - this.beatX) / this.speedAt(this.beatX), grid };
   }
 
   /**
@@ -309,7 +308,7 @@ export class LevelGen {
    * beat of this level's song. Never shorter than 80 % of the planned gap.
    */
   private onBeat(len: number): number {
-    if (!this.opts.beat || this.opts.kind !== 'endless' || (this.opts.tutorial && this.tutorialStep <= TUTORIAL.length)) return len;
+    if (!this.opts.levels || this.opts.kind !== 'endless' || (this.opts.tutorial && this.tutorialStep <= TUTORIAL.length)) return len;
     // Snap to the nearest beat, but never below 70 % of the planned gap.
     const minX = this.x + Math.max(3, len * 0.7);
     const at = this.secondsIntoLevel(minX);

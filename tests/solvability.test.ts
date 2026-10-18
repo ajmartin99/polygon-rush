@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { World } from '../src/game/world';
-import { LevelGen, BEAT_LEVEL_LENGTH, type GenOptions } from '../src/game/generator';
+import { LevelGen, type GenOptions } from '../src/game/generator';
+import { LevelTimeline } from '../src/game/levels';
 import { BotBrain } from '../src/game/bot';
 import { createBody, newEvents, stepBody } from '../src/game/physics';
 import { endlessSpeedAt, RACE_SPEED, type Difficulty } from '../src/game/constants';
@@ -13,10 +14,10 @@ interface RunResult {
 }
 
 /** Let a perfect bot play `distance` tiles and record every failure. */
-export function playLevel(seed: number, kind: 'endless' | 'race', distance: number, opts: { kid?: boolean; difficulty?: number; margin?: number; diff?: Difficulty; start?: number; beat?: GenOptions['beat']; extra?: Partial<GenOptions> } = {}): RunResult {
+export function playLevel(seed: number, kind: 'endless' | 'race', distance: number, opts: { kid?: boolean; difficulty?: number; margin?: number; diff?: Difficulty; start?: number; levels?: GenOptions['levels']; extra?: Partial<GenOptions> } = {}): RunResult {
   const world = new World();
   const start = opts.start ?? 0;
-  const gen = new LevelGen(world, { seed, kind, kid: opts.kid, diff: opts.diff, startX: start ? 2 + start : undefined, offset: start || undefined, length: kind === 'race' ? distance : undefined, difficulty: opts.difficulty, beat: opts.beat, ...opts.extra });
+  const gen = new LevelGen(world, { seed, kind, kid: opts.kid, diff: opts.diff, startX: start ? 2 + start : undefined, offset: start || undefined, length: kind === 'race' ? distance : undefined, difficulty: opts.difficulty, levels: opts.levels, ...opts.extra });
   const bot = new BotBrain({ skill: 1, seed, margin: opts.margin ?? 0.05 });
   const body = createBody(2);
   body.x += start;
@@ -140,18 +141,22 @@ describe('every generated level is beatable', () => {
 describe('beat-synced endless levels', () => {
   // A different song tempo every level, like the music shuffle.
   const songs = [{ bpm: 128, offset: 0.1 }, { bpm: 174, offset: 0.04 }, { bpm: 86, offset: 0.26 }, { bpm: 140, offset: 0.0 }, { bpm: 105, offset: 0.3 }, { bpm: 165, offset: 0.08 }];
-  const beat = (level: number) => songs[level % songs.length];
+  const lengths = [60, 95, 45, 130, 72, 110];
+  /** Song-long levels on a run starting at world x 0. */
+  const timeline = (diff: Difficulty = 'medium') =>
+    new LevelTimeline(0, 0, (i) => ({ id: i, seconds: lengths[i % lengths.length], grid: songs[i % songs.length] }), (d) => endlessSpeedAt(d, false, diff));
 
   for (const [seed, diff] of [[81, 'medium'], [82, 'hard'], [83, 'easy'], [84, 'medium']] as const) {
     it(`stays beatable (${diff}) seed ${seed}`, () => {
-      const r = playLevel(seed, 'endless', 4000, { diff, beat });
+      const r = playLevel(seed, 'endless', 4000, { diff, levels: timeline(diff) });
       expect(r.hits, JSON.stringify(r.hits)).toEqual([]);
     });
   }
 
   it('starts patterns on the beat of each level\'s song', () => {
     const world = new World();
-    const gen = new LevelGen(world, { seed: 85, kind: 'endless', beat });
+    const levels = timeline();
+    const gen = new LevelGen(world, { seed: 85, kind: 'endless', levels });
     // Record where each runway ends (= next pattern start).
     const starts: number[] = [];
     const orig = gen.ensure.bind(gen);
@@ -165,7 +170,7 @@ describe('beat-synced endless levels', () => {
     // Check timing for level 1 (128 bpm): seconds from the level start to each pattern start.
     let onBeat = 0;
     let total = 0;
-    for (const x of starts.filter((x) => x > 30 && x < BEAT_LEVEL_LENGTH - 10)) {
+    for (const x of starts.filter((x) => x > 30 && x < levels.span(0).end - 10)) {
       let t = 0;
       for (let p = 0; p + 1 <= x; p++) t += 1 / endlessSpeedAt(p + 0.5, false, 'medium');
       t += (x - Math.floor(x)) / endlessSpeedAt(Math.floor(x), false, 'medium');
@@ -178,11 +183,11 @@ describe('beat-synced endless levels', () => {
     expect(onBeat / total).toBeGreaterThan(0.6);
   });
 
-  it('leaves Daily Run / race courses identical without a beat', () => {
+  it('leaves the course identical when no song has a known beat', () => {
     const a = new World();
     const b = new World();
     new LevelGen(a, { seed: 7, kind: 'endless' }).ensure(1500);
-    new LevelGen(b, { seed: 7, kind: 'endless', beat: () => null }).ensure(1500);
+    new LevelGen(b, { seed: 7, kind: 'endless', levels: new LevelTimeline(0, 0, (i) => ({ id: i, seconds: 90, grid: null }), (d) => endlessSpeedAt(d, false, 'medium')) }).ensure(1500);
     expect(a.objs.map((o) => o.x0.toFixed(3)).join()).toBe(b.objs.map((o) => o.x0.toFixed(3)).join());
   });
 });
@@ -206,7 +211,8 @@ describe('heat: long runs get chaotic but stay beatable', () => {
 });
 
 describe('Daily Run twists', () => {
-  const beat = (level: number) => [{ bpm: 116, offset: 0 }, { bpm: 150.3, offset: 0.09 }, { bpm: 100.2, offset: 0.27 }, { bpm: 120.3, offset: 0.36 }][level % 4];
+  const grids = [{ bpm: 116, offset: 0 }, { bpm: 150.3, offset: 0.09 }, { bpm: 100.2, offset: 0.27 }, { bpm: 120.3, offset: 0.36 }];
+  const levels = () => new LevelTimeline(0, 0, (i) => ({ id: i, seconds: 80 + (i % 3) * 30, grid: grids[i % 4] }), (d) => endlessSpeedAt(d, false, 'medium'));
   const twists = [
     { startMode: 'triangle', heatFloor: 0.35 },
     { startMode: 'hexagon', sectionScale: 0.55 },
@@ -215,7 +221,7 @@ describe('Daily Run twists', () => {
   ] as const;
   twists.forEach((t, i) => {
     it(`${JSON.stringify(t)} stays beatable`, () => {
-      const r = playLevel(111 + i, 'endless', 3000, { beat, extra: t });
+      const r = playLevel(111 + i, 'endless', 3000, { levels: levels(), extra: t });
       expect(r.hits, JSON.stringify(r.hits)).toEqual([]);
       expect(r.modes.has(t.startMode)).toBe(true);
     });
@@ -224,10 +230,37 @@ describe('Daily Run twists', () => {
   it('a haunted daily is identical for everyone (same seed, same soundtrack)', () => {
     const a = new World();
     const b = new World();
-    const opts = { seed: 2026, kind: 'endless' as const, startMode: 'triangle' as const, heatFloor: 0.35, beat };
-    new LevelGen(a, opts).ensure(2000);
-    new LevelGen(b, opts).ensure(2000);
+    const opts = { seed: 2026, kind: 'endless' as const, startMode: 'triangle' as const, heatFloor: 0.35 };
+    new LevelGen(a, { ...opts, levels: levels() }).ensure(2000);
+    new LevelGen(b, { ...opts, levels: levels() }).ensure(2000);
     expect(a.objs.map((o) => o.x0.toFixed(3)).join()).toBe(b.objs.map((o) => o.x0.toFixed(3)).join());
     expect(a.objs.some((o) => o.kind === 'saw' && o.move)).toBe(true);
   });
 });
+
+describe('song-long levels', () => {
+  const speed = (d: number) => endlessSpeedAt(d + 2, false, 'medium');
+  it('each level lasts exactly its song', () => {
+    const songs = [100, 45, 200];
+    const t = new LevelTimeline(0, 0, (i) => ({ id: i, seconds: songs[i % 3], grid: null }), speed);
+    for (let i = 0; i < 6; i++) {
+      const s = t.span(i);
+      expect(t.secondsInto(s.end - 1e-6)).toBeCloseTo(songs[i % 3], 1);
+      expect(t.span(i + 1).start).toBe(s.end);
+      expect(t.at(s.start + 1).index).toBe(i);
+    }
+  });
+
+  it('short songs repeat so a level never flashes by', () => {
+    const t = new LevelTimeline(0, 0, () => ({ id: 1, seconds: 25, grid: null }), speed);
+    expect(t.span(0).song.seconds).toBe(50);
+  });
+
+  it('a later start begins that level at its start distance', () => {
+    const t = new LevelTimeline(4, 4800, (i) => ({ id: i, seconds: 90, grid: null }), speed);
+    expect(t.at(4800).index).toBe(4);
+    expect(t.at(0).index).toBe(4);
+    expect(t.span(5).start).toBe(t.span(4).end);
+  });
+});
+

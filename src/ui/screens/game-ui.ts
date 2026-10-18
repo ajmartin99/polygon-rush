@@ -180,7 +180,7 @@ export interface EndlessResult {
   kidMode: boolean;
   /** Mode name for variants (Daily Run, One Heart, Gem Rush). */
   label?: string;
-  unit?: 'm' | 'gems';
+  unit?: 'm' | 'gems' | 'pts';
 }
 
 export class EndlessResultsScreen extends BaseScreen {
@@ -209,9 +209,9 @@ export class EndlessResultsScreen extends BaseScreen {
         h(
           'div.col',
           { style: 'align-items:center;gap:0.4rem;text-align:center' },
-          h('span.stat-label', null, r.label ? `${r.label} · ${r.unit === 'gems' ? 'Gems' : 'Distance'}` : r.kidMode ? 'Distance · Kid Mode' : 'Distance'),
-          h('div.stat-big', null, r.unit === 'gems' ? fmt(r.distance) : `${fmt(r.distance)}m`),
-          r.newBest ? h('span.new-best', null, 'NEW BEST!') : h('span.muted', null, `Best ${fmt(r.best)}${r.unit === 'gems' ? ' gems' : 'm'}`),
+          h('span.stat-label', null, r.label ? `${r.label} · ${r.unit === 'gems' ? 'Gems' : r.unit === 'pts' ? 'Score' : 'Distance'}` : r.kidMode ? 'Distance · Kid Mode' : 'Distance'),
+          h('div.stat-big', null, r.unit === 'gems' || r.unit === 'pts' ? fmt(r.distance) : `${fmt(r.distance)}m`),
+          r.newBest ? h('span.new-best', null, 'NEW BEST!') : h('span.muted', null, `Best ${fmt(r.best)}${r.unit === 'gems' ? ' gems' : r.unit === 'pts' ? '' : 'm'}`),
           previewCanvas({ skin: store.data.skins.equipped, animate: true, scale: 0.6 }, 'hero-preview'),
         ),
         h(
@@ -375,6 +375,8 @@ export interface LevelResult {
   missionsDone: string[];
   /** Heading for those lines (default "Mission complete!"). */
   notesTitle?: string;
+  /** Replaces "COMPLETE!" / "You reached the finish!" (boss fights). */
+  win?: { big: string; sub: string };
   /** Community levels: thumbs up/down. */
   rate?: LevelRating;
 }
@@ -424,12 +426,12 @@ export class LevelResultsScreen extends BaseScreen {
           'div.col',
           { style: 'align-items:center;gap:0.4rem;text-align:center' },
           h('span.stat-label', null, r.title),
-          h('div.stat-big', { class: r.completed ? 'medal-1' : '' }, r.completed ? 'COMPLETE!' : `${pct}%`),
+          h('div.stat-big', { class: r.completed ? 'medal-1' : '' }, r.completed ? (r.win?.big ?? 'COMPLETE!') : `${pct}%`),
           r.verifiedNow
             ? h('span.new-best', null, 'VERIFIED! READY TO SHARE')
             : r.newBest && !r.completed
               ? h('span.new-best', null, 'NEW BEST!')
-              : h('span.muted', null, r.completed ? 'You reached the finish!' : `Best ${Math.floor(r.best * 100)}%`),
+              : h('span.muted', null, r.completed ? (r.win?.sub ?? 'You reached the finish!') : `Best ${Math.floor(r.best * 100)}%`),
           previewCanvas({ skin: store.data.skins.equipped, animate: true, scale: 0.6 }, 'hero-preview'),
         ),
         h(

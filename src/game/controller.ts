@@ -10,9 +10,9 @@ import type { NetRoom } from '../services/net';
 import { applyXp, endlessXp, leagueFor, LEAGUES, raceReward, REVIVE_GEM_COST, type LevelUp } from '../meta/economy';
 import { describe, reportMission, type MissionEvent } from '../meta/missions';
 import { skinById, trailById } from '../meta/catalog';
-import { Renderer, type ViewSpec } from '../render/renderer';
-import { BIOMES, paletteAt, type Palette } from '../render/biomes';
-import { drawEndlessHud, drawLevelHud, drawRaceHud } from '../render/hud';
+import { Renderer, type BossView, type ViewSpec } from '../render/renderer';
+import { BIOMES, paletteAt, paletteInLevel, type Palette } from '../render/biomes';
+import { drawEndlessHud, drawRhythmHud, drawLevelHud, drawRaceHud } from '../render/hud';
 import { nav, type LevelRunResult, type PlayRequest, type Rival } from '../ui/nav';
 import { ui } from '../ui/ui';
 import { EndlessResultsScreen, GameHud, LevelResultsScreen, RaceResultsScreen, openPause, openRevive, type RacePlacement, type RaceResultsActions } from '../ui/screens/game-ui';
@@ -21,15 +21,18 @@ import { FREE_EMOTES, emoteIndex } from '../meta/emotes';
 import { decodeLevel, LEVEL_START_X, levelName, levelSpeed, type LevelContent } from './level';
 import type { Scene } from './scene';
 import { SECRET_LEVELS } from './generator';
-import { DIFFICULTY_GEM_RATE, DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED, endlessSpeedAt } from './constants';
+import { DIFFICULTY_GEM_RATE, DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED } from './constants';
 import { activeEvent, SPOOKY } from '../meta/events';
-import { clampStartLevel, levelStart, levelWorld } from '../meta/modes';
+import { MAX_START_LEVEL, clampStartLevel, levelStart, levelWorld } from '../meta/modes';
 import { endlessBestKey } from '../state/save';
-import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, VARIANT_INFO, dailyRewardKey, dailySeed, dailyTwist, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
+import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, LIGHTS_OUT_GEM_RATE, VARIANT_INFO, dailyRewardKey, dailySeed, dailyTwist, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
 import { TRACK_BASE, TRACKS } from '../core/tracks';
 import { HAUNTED_TRACK, hauntedPayout } from '../meta/haunted';
 import { InputManager } from './input';
 import type { Racer, RacerSpec } from './racer';
+import { RhythmScore } from './rhythm';
+import { BOSSES, bossById, bossHealth, bossReward, type BossDef } from '../meta/bosses';
+import type { ChaserEvent, ChaserKind } from './chaser';
 import { GameSession, type BoxItem, type SessionKind } from './session';
 import { SHAPE_INFO, type ShapeMode } from './shapes';
 
@@ -47,6 +50,15 @@ const BOX_TEXT: Record<BoxItem, string> = {
   magnet: 'MAGNET!',
 };
 
+/** Lights Out: how bright the beat flash is, from the beat phase (0 on the beat, fading fast). */
+export function lightsFlash(phase: number): number {
+  const k = Math.max(0, 1 - phase * 2.6);
+  return k * k;
+}
+
+/** The menu backdrop stops after this long without a touch. */
+const ATTRACT_IDLE_MS = 45_000;
+
 /**
  * Owns the canvas, the main loop and whichever game is running. Bridges the
  * pure game session with rendering, audio, haptics, UI flows and rewards.
@@ -60,6 +72,12 @@ export class GameController {
   private hud: GameHud | null = null;
   private req: PlayRequest | null = null;
   private variant: EndlessVariant = 'classic';
+  /** Boss Battles: the boss being fought (null in other modes). */
+  private boss: (BossView & { def: BossDef }) | null = null;
+  /** Rhythm Rush scoring (null in other modes). */
+  private rhythm: RhythmScore | null = null;
+  /** The press state last step (Rhythm Rush judges each new press). */
+  private prevHeld = false;
   private startLevel = 1;
   private acc = 0;
   private last = 0;
@@ -110,12 +128,13 @@ export class GameController {
     }
     ads.on('fullscreenStart', () => audio.duck(true));
     ads.on('fullscreenEnd', () => audio.duck(this.phase === 'paused'));
+    for (const ev of ['pointerdown', 'keydown', 'wheel'] as const) window.addEventListener(ev, this.wake, { passive: true, capture: true });
     requestAnimationFrame(this.frame);
   }
 
   private applyGraphics(): void {
     const g = store.settings.graphics;
-    this.renderer.maxDpr = g === 'low' ? 1 : g === 'high' ? 2.5 : this.lowPerfStrikes > 0 ? 1.25 : 1.75;
+    this.renderer.maxDpr = g === 'low' ? 1 : g === 'high' ? 2.5 : this.lowPerfStrikes > 0 ? 1.25 : 1.5;
     // Live background blur behind panels is costly on phones: High graphics only.
     document.documentElement.classList.toggle('fx-blur', g === 'high');
     const low = g === 'low' || (g === 'auto' && this.lowPerfStrikes > 0);
@@ -134,6 +153,7 @@ export class GameController {
   // ================================================================== entry points
   /** Menu background: a CPU plays an endless run behind the menus. */
   startAttract(): void {
+    this.wake();
     this.teardown();
     const skin = store.data.skins.equipped;
     this.kind = 'attract';
@@ -194,6 +214,7 @@ export class GameController {
   }
 
   play(req: PlayRequest): void {
+    this.wake();
     audio.unlock();
     this.teardown();
     this.req = req;
@@ -207,14 +228,21 @@ export class GameController {
     switch (req.mode) {
       case 'custom': {
         this.kind = 'custom';
-        this.session = new GameSession({ kind: 'custom', seed: 1, level: req.level, startX: req.startX, racers: [me] });
+        this.session = new GameSession({ kind: 'custom', seed: 1, level: req.level, startX: req.startX, racers: [me], chaser: req.haunted });
+        const def = req.boss ? bossById(req.boss) : undefined;
+        if (def) {
+          const { hp } = bossHealth(req.level);
+          this.boss = { def, name: def.name, shape: def.shape, color: def.color, hp, max: hp, hit: 0, shot: 0, down: 0 };
+        }
         break;
       }
       case 'endless': {
         this.kind = 'endless';
         const v = (this.variant = req.variant ?? 'classic');
+        this.rhythm = v === 'rhythm' ? new RhythmScore() : null;
+        this.prevHeld = false;
         // Classic runs can start from any level already reached on this difficulty.
-        const level = (this.startLevel = v === 'classic' ? clampStartLevel(req.level, d.best[endlessBestKey(d.settings)] ?? 0) : 1);
+        const level = (this.startLevel = v === 'classic' ? clampStartLevel(req.level, d.levels[endlessBestKey(d.settings)] ?? 1) : 1);
         // The Daily Run is the same course, rules and soundtrack for everyone,
         // with its own twist each day (Halloween: the haunted course).
         const daily = v === 'daily';
@@ -237,7 +265,8 @@ export class GameController {
           stunOnly: v === 'gemrush',
           gemChance: v === 'gemrush' ? 0.9 : twist?.gemChance,
           startDistance: levelStart(level),
-          beat: (l: number) => music.planLevel(l),
+          startLevel: level - 1,
+          levelSong: (l: number) => music.levelSong(l),
           racers: [me],
         });
         break;
@@ -313,13 +342,14 @@ export class GameController {
       // Starting from a later level: no "World 1" banner or milestones for metres already behind us.
       this.lastBiome = this.startLevel - 1;
       this.lastMilestone = levelStart(this.startLevel);
-      if (this.startLevel > 1) hud.showHint(`Level ${this.startLevel}`, `${BIOMES[world].name} · ${levelStart(this.startLevel)} m`, 2200, '24%');
+      if (this.startLevel > 1) hud.showHint(`Level ${this.startLevel}`, BIOMES[world].name, 2200, '24%');
       this.go();
       if (d.stats.runs === 0) hud.showHint('Tap or hold anywhere to play!', 'Avoid spikes, grab gems', 3200, '22%');
+      else if (this.variant === 'lightsout') hud.showHint('Lights Out!', 'Every beat flashes the way ahead. Feel the rhythm!', 2600, '24%');
     } else if (this.kind === 'custom' && req.mode === 'custom') {
-      music.level(req.level.music, req.level.theme);
+      music.level(req.level.music, req.level.theme, !!req.haunted);
       const track = trackOf(req.level.music);
-      if (track && !req.haunted) ui.toast(`♪ ${track.title} by ${track.artist} (${track.license})`, 'music', 3000);
+      if (track && !req.haunted && !req.boss) ui.toast(`♪ ${track.title} by ${track.artist} (${track.license})`, 'music', 3000);
       audio.intensity = 0.7;
       this.go();
       hud.showHint(levelName(req.level), req.level.authors.length ? `by ${req.level.authors.join(', ')}` : 'Tap or hold to play!', 1800, '40%');
@@ -351,6 +381,7 @@ export class GameController {
   setScene(scene: Scene | null): void {
     if (scene === this.scene) return;
     this.teardown();
+    this.wake();
     this.scene = scene;
     if (!scene) this.startAttract();
   }
@@ -365,6 +396,7 @@ export class GameController {
       this.room = null;
     }
     this.keepRoom = false;
+    this.boss = null;
     this.session = null;
     this.kind = null;
     this.phase = 'idle';
@@ -418,6 +450,7 @@ export class GameController {
         haptics.medium();
       }),
       s.on('gem', ({ racer, value, x, y }) => {
+        if (this.boss && value > 1 && local(racer)) return this.bossHit(racer);
         if (local(racer) || this.kind === 'attract') this.renderer.fx.gem(x, y, value, local(racer));
         if (!local(racer)) return;
         audio.play(value > 1 ? 'bigGem' : 'gem');
@@ -467,6 +500,7 @@ export class GameController {
         this.maybeModeHint(racer, mode);
       }),
       s.on('hint', ({ racer, key, text, sub }) => this.onHint(racer, key, text, sub)),
+      s.on('chaser', ({ racer, event, kind }) => this.onChaser(racer, event, kind)),
       s.on('death', ({ racer }) => {
         this.renderer.fx.death(racer);
         if (local(racer)) void this.onDeath(racer);
@@ -476,6 +510,60 @@ export class GameController {
         this.onFinish(racer, place);
       }),
     );
+  }
+
+  /** Boss Battles: a charge orb grabbed fires straight back at the boss. */
+  private bossHit(r: Racer): void {
+    const b = this.boss;
+    if (!b || b.hp <= 0) return;
+    b.hp -= 1;
+    b.hit = 0.3;
+    b.shot = 1;
+    audio.play('boost');
+    haptics.medium();
+    if (b.hp > 0) return;
+    // Defeated! It spins away; the run ends a moment later as a win.
+    b.down = 1;
+    r.invuln = 10;
+    this.renderer.fx.addShake(0.6);
+    this.hud?.showHint(`${b.name} defeated!`, 'You win!', 1800, '30%');
+    setTimeout(() => audio.play('newBest'), 250);
+    if (this.phase === 'running') {
+      this.phase = 'finishing';
+      this.finishTimer = window.setTimeout(() => this.endLevel(r, true), 1800);
+    }
+  }
+
+  /** Haunted Run: the zombie / ghost on your heels. */
+  private onChaser(racer: Racer, event: ChaserEvent, kind: ChaserKind): void {
+    const c = this.session?.chaser;
+    if (!c || racer.kind !== 'human') return;
+    const ghost = kind === 'ghost';
+    const cy = c.y + (ghost ? 1.1 : c.flip > 0.5 ? -1.6 : 1.6);
+    switch (event) {
+      case 'warn':
+        audio.play(ghost ? 'boo' : 'groan');
+        haptics.medium();
+        this.hud?.showHint(ghost ? 'The ghost is right behind you!' : 'The zombie is right behind you!', 'Clear obstacles cleanly and grab gems to shake it off', 1500, '18%');
+        break;
+      case 'lunge':
+        audio.play(ghost ? 'boo' : 'groan');
+        this.renderer.fx.text(c.x, cy, ghost ? 'BOO!' : 'GRRR!', ghost ? '#d9f4ff' : '#9dff6a', 0.9, 1.2);
+        this.renderer.fx.addShake(0.25);
+        break;
+      case 'morph':
+        audio.play(ghost ? 'boo' : 'groan');
+        this.renderer.fx.text(c.x, cy, ghost ? 'BOO!' : 'BRAINS!', ghost ? '#d9f4ff' : '#9dff6a', 0.75, 1);
+        break;
+      case 'caught':
+        audio.play(ghost ? 'boo' : 'groan');
+        haptics.heavy();
+        this.renderer.fx.text(racer.x - 0.5, racer.body.y + 1.8, 'GOTCHA!', ghost ? '#d9f4ff' : '#9dff6a', 1.2, 1.4);
+        this.renderer.fx.addShake(0.5);
+        break;
+      default:
+        break;
+    }
   }
 
   private maybeModeHint(racer: Racer, mode: ShapeMode): void {
@@ -508,7 +596,27 @@ export class GameController {
   /** When the next frame is due (frame cap). */
   private nextFrame = 0;
 
+  /** Last touch or key press (the menu backdrop rests when nobody is using the app). */
+  private lastInput = performance.now();
+  /** The frame loop stopped (idle menu); a touch starts it again. */
+  private sleeping = false;
+
+  /** Someone's using the app: keep the frame loop going. */
+  private wake = (): void => {
+    this.lastInput = performance.now();
+    if (!this.sleeping) return;
+    this.sleeping = false;
+    this.last = 0;
+    this.nextFrame = 0;
+    requestAnimationFrame(this.frame);
+  };
+
   private frame = (now: number): void => {
+    // On the menu, after a while with no touches, the backdrop demo stops (saves battery).
+    if (this.kind === 'attract' && this.scene === null && now - this.lastInput > ATTRACT_IDLE_MS) {
+      this.sleeping = true;
+      return;
+    }
     requestAnimationFrame(this.frame);
     // 120 Hz phones ask for twice the frames this game needs: run at most 60 fps in play
     // and 30 fps for the menu backdrop and the editor (less heat, longer battery).
@@ -556,6 +664,12 @@ export class GameController {
     }
     this.updateMusic();
     this.progressEvents();
+    const b = this.boss;
+    if (b && this.phase !== 'paused') {
+      b.hit = Math.max(0, b.hit - raw);
+      b.shot = Math.max(0, b.shot - raw * 4);
+      if (b.down > 0) b.down = Math.max(0.001, b.down - raw * 0.7);
+    }
     this.draw(raw);
   };
 
@@ -565,8 +679,23 @@ export class GameController {
       s.racers[0].held = this.input.held(0);
       s.racers[1].held = this.input.held(1);
     } else {
-      for (const r of s.racers) if (r.kind === 'human') r.held = this.input.held(0);
+      const held = this.input.held(0);
+      for (const r of s.racers) if (r.kind === 'human') r.held = held;
+      if (this.rhythm && held && !this.prevHeld && this.phase === 'running') this.onBeatPress();
+      this.prevHeld = held;
     }
+  }
+
+  /** Rhythm Rush: judge a press against the beat. */
+  private onBeatPress(): void {
+    const err = audio.beatError();
+    const me = this.session?.racers[0];
+    if (err === null || !me || !this.rhythm) return;
+    const { judgement, points } = this.rhythm.press(err);
+    const text = judgement === 'perfect' ? 'PERFECT!' : judgement === 'great' ? 'GREAT' : 'MISS';
+    const color = judgement === 'perfect' ? '#ffd23f' : judgement === 'great' ? '#9fe8ff' : '#b9b3d6';
+    this.renderer.fx.text(me.x + 0.6, me.body.y + 1.5, points ? `${text} +${points}` : text, color, judgement === 'perfect' ? 0.62 : 0.5, 0.7);
+    if (judgement === 'perfect') haptics.light();
   }
 
   private draw(dt: number): void {
@@ -600,14 +729,18 @@ export class GameController {
       markers,
       haunted: this.paletteFor(this.session?.racers[0]?.x ?? 0) === SPOOKY,
       secretsFound: store.data.secrets.found,
+      chaser: s.chaser,
+      boss: this.kind === 'custom' && this.phase !== 'results' ? this.boss : null,
+      lightsOut: this.kind === 'endless' && this.variant === 'lightsout' ? lightsFlash(audio.beatPhase()) : undefined,
     });
     if (this.kind === 'attract' || this.phase === 'results') return;
     const ctx = this.renderer.ctx;
     for (const v of views) {
       if (this.kind === 'endless') {
         drawEndlessHud(ctx, v.rect, v.racer, store.data.best[this.bestKey()] ?? 0, this.renderer.dpr, this.variant === 'gemrush' ? { timer: Math.max(0, GEM_RUSH_SECONDS - s.time) } : this.variant === 'classic' ? undefined : { label: VARIANT_INFO[this.variant].name });
+        if (this.rhythm) drawRhythmHud(ctx, v.rect, this.rhythm.score, this.rhythm.combo, this.rhythm.mult, audio.beatPhase(), this.renderer.dpr);
       } else if (this.kind === 'custom' && this.req?.mode === 'custom') {
-        drawLevelHud(ctx, v.rect, s, v.racer, this.renderer.dpr, levelName(this.req.level), this.req.level.best);
+        drawLevelHud(ctx, v.rect, s, v.racer, this.renderer.dpr, this.boss ? '' : levelName(this.req.level), this.req.level.best);
       } else {
         drawRaceHud(ctx, v.rect, s, v.racer, this.renderer.dpr, v.label, v.labelColor);
       }
@@ -622,22 +755,31 @@ export class GameController {
     const level = this.level();
     if (level) return BIOMES[level.theme % BIOMES.length];
     if (s && s.raceLike) return BIOMES[(s.opts.seed >>> 0) % BIOMES.length];
+    const levels = s?.levels;
+    if (levels) {
+      const span = levels.at(Math.max(0, x - START_X));
+      return paletteInLevel(span.index, x - START_X - span.start, span.end - span.start).palette;
+    }
     return paletteAt(Math.max(0, x - START_X), this.biomeOffset).palette;
   }
 
   /** World banners and distance milestones for the local endless runner. */
   private progressEvents(): void {
     if (this.kind !== 'endless' || this.phase !== 'running') return;
-    const me = this.session!.racers[0];
-    const world = Math.floor(me.distance / BIOME_LENGTH);
-    if (world !== this.lastBiome) {
-      this.lastBiome = world;
-      const pal = BIOMES[world % BIOMES.length];
-      this.hud?.showHint(`Level ${world + 1}`, pal.name, 2200, '20%');
+    const s = this.session!;
+    const me = s.racers[0];
+    const span = s.levels?.at(me.distance);
+    const level = span ? span.index : Math.floor(me.distance / BIOME_LENGTH);
+    if (level !== this.lastBiome) {
+      this.lastBiome = level;
+      const pal = BIOMES[level % BIOMES.length];
+      this.hud?.showHint(`Level ${level + 1}`, pal.name, 2200, '20%');
       audio.play('portal');
+      // A milestone right as a level starts would cover its banner.
+      this.lastMilestone = Math.max(this.lastMilestone, Math.floor(me.distance / 250) * 250 + 250);
     }
     const milestone = Math.floor(me.distance / 250) * 250;
-    if (milestone > this.lastMilestone && milestone % BIOME_LENGTH !== 0) {
+    if (milestone > this.lastMilestone) {
       this.lastMilestone = milestone;
       this.renderer.fx.text(me.x + 3, me.body.y + 2.2, `${milestone} m!`, '#ffd23f', 0.9, 1.4);
       audio.play('box');
@@ -662,27 +804,23 @@ export class GameController {
     const s = this.session!;
     const me = s.racers.find((r) => r.kind === 'human') ?? s.racers[0];
     if (this.kind === 'endless') {
-      const level = Math.floor(me.distance / BIOME_LENGTH);
+      // A level lasts exactly its song: the next level starts the next song.
+      const span = s.levels?.at(me.distance);
+      const level = span ? span.index : Math.floor(me.distance / BIOME_LENGTH);
       if (level !== this.songBiome && this.phase === 'running') {
         this.songBiome = level;
         music.world(level % WORLD_SONGS, level);
       }
-      // Beat-synced runs: keep the song at the time the runner's position calls for.
+      // Keep the song at the time the runner's position calls for (the course is built on its beat).
       const sync = music.syncSong;
-      if (sync && this.phase === 'running' && ++this.syncTick % 15 === 0) {
-        const d = s.opts.diff;
-        const kid = !!s.opts.kid;
-        let t = 0;
-        for (let x = sync.level * BIOME_LENGTH; x + 1 <= me.distance; x++) t += 1 / endlessSpeedAt(x + START_X + 0.5, kid, d);
-        audio.syncTo(sync.id, t);
-      }
+      if (sync && span && sync.level === span.index && this.phase === 'running' && ++this.syncTick % 15 === 0) audio.syncTo(sync.id, s.levels!.secondsInto(me.distance));
       audio.intensity = Math.min(1, 0.35 + me.distance / 3000);
     } else if (this.kind === 'custom') {
       audio.intensity = Math.min(1, 0.55 + me.distance / 600);
       // Haunted Run: the course is charted to Swing Along, so keep the song exactly where the runner is.
       const req = this.req;
-      if (req?.mode === 'custom' && req.haunted && this.phase === 'running' && ++this.syncTick % 10 === 0) {
-        audio.syncTo(HAUNTED_TRACK, Math.max(0, (me.x - (LEVEL_START_X + 0.5)) / levelSpeed(req.level)), 0.06, 900);
+      if (req?.mode === 'custom' && (req.haunted || req.boss) && this.phase === 'running' && ++this.syncTick % 10 === 0) {
+        audio.syncTo(req.haunted ? HAUNTED_TRACK : req.level.music, Math.max(0, (me.x - (LEVEL_START_X + 0.5)) / levelSpeed(req.level)), 0.06, 900);
       }
     } else if (this.kind !== 'attract') {
       audio.intensity = 0.8;
@@ -774,12 +912,15 @@ export class GameController {
     const v = this.variant;
     const distance = Math.floor(r.distance);
     // Gem Rush scores gems; every other variant scores metres.
-    const score = v === 'gemrush' ? r.gems : distance;
+    const score = v === 'gemrush' ? r.gems : v === 'rhythm' ? (this.rhythm?.score ?? 0) : distance;
     const key = this.bestKey();
     if (v === 'daily') pruneDaily(d.best);
     const prevBest = d.best[key] ?? 0;
     const newBest = score > prevBest;
     if (newBest) d.best[key] = score;
+    // Levels you can start from next time: every level this run reached.
+    const levels = this.session?.levels;
+    if (v === 'classic' && levels) d.levels[key] = Math.min(MAX_START_LEVEL, Math.max(d.levels[key] ?? 1, levels.at(r.distance).index + 1));
     d.stats.runs += 1;
     d.stats.totalDistance += distance;
     if (v === 'classic' || v === 'oneheart') d.stats.bestDistance = Math.max(d.stats.bestDistance, distance);
@@ -801,14 +942,18 @@ export class GameController {
       ['clean_distance', Math.floor(r.bestClean)],
     ]);
     missions.unshift(...bonus);
+    const rh = this.rhythm;
+    if (rh) missions.unshift(`Best combo ${rh.bestCombo} · ${rh.perfects} Perfect · ${rh.greats} Great · ${rh.misses} Miss`);
     const ups = this.grantXp(xp);
     // Gem Rush is all gems, so it pays out half of them (keeps the shop fair).
     // Extreme pays 1.3x, Easy a little less (the Daily Run is the same for everyone).
     const diff = v === 'daily' ? 'medium' : d.settings.difficulty;
     const rate = d.settings.kidMode ? 1 : DIFFICULTY_GEM_RATE[diff];
     const base = v === 'gemrush' ? Math.ceil(r.gems / 2) : r.gems;
-    const payout = Math.round(base * rate);
-    if (rate !== 1 && base > 0) missions.push(rate > 1 ? `Extreme bonus: ${base} → ${payout} gems` : `Easy pays ${Math.round(rate * 100)}% gems`);
+    const dark = v === 'lightsout' ? LIGHTS_OUT_GEM_RATE : 1;
+    const payout = Math.round(base * rate * dark);
+    if (dark !== 1 && base > 0) missions.push(`Lights Out bonus: ${base} → ${payout} gems`);
+    else if (rate !== 1 && base > 0) missions.push(rate > 1 ? `Extreme bonus: ${base} → ${payout} gems` : `Easy pays ${Math.round(rate * 100)}% gems`);
     store.addGems(payout);
     store.commit();
     void store.flush();
@@ -827,7 +972,7 @@ export class GameController {
           missionsDone: missions,
           kidMode: v === 'classic' && d.settings.kidMode,
           label: v === 'classic' ? undefined : VARIANT_INFO[v].name,
-          unit: v === 'gemrush' ? 'gems' : 'm',
+          unit: v === 'gemrush' ? 'gems' : v === 'rhythm' ? 'pts' : 'm',
         },
         {
           onAgain: () => this.play({ mode: 'endless', variant: v, level: this.startLevel }),
@@ -865,7 +1010,7 @@ export class GameController {
     const report = (e: MissionEvent) => {
       for (const m of reportMission(d, e, 1)) missions.push(describe(m));
     };
-    if (completed && fromStart && !req.haunted) {
+    if (completed && fromStart && !req.haunted && !req.boss) {
       if (req.test && verifiedNow) report('level_verify');
       else if (!req.test && level.origin !== 'mine' && level.length >= 60) report('custom_clear');
     }
@@ -880,6 +1025,22 @@ export class GameController {
         missions.push(`Haunted Run cleared on ${diff === 'hard' ? 'Hard' : 'Easy'}! +${pay} gems`);
       } else if (pay > 0) missions.push(`Haunted Run: +${pay} gems${diff === 'easy' ? ' (Easy pays half)' : ''}`);
       d.stats.gemsCollected += r.gems;
+      if (s.chaser?.caught && !missions.length) missions.push('Clear obstacles cleanly and grab gems to keep it back');
+    }
+    const boss = this.boss;
+    if (req.boss && boss) {
+      const def = boss.def;
+      const rec = d.bosses[def.id] ?? { wins: 0, best: 0 };
+      rec.best = Math.max(rec.best, 1 - boss.hp / boss.max);
+      if (completed) {
+        const pay = bossReward(d.bosses, def);
+        rec.wins += 1;
+        store.addGems(pay);
+        missions.push(`${def.name} defeated! +${pay} gems`);
+        const next = BOSSES[BOSSES.indexOf(def) + 1];
+        if (next && rec.wins === 1) missions.push(`${next.name} is ready for you!`);
+      } else missions.push(`${def.name} had ${boss.hp} of ${boss.max} health left. Grab the glowing orbs to hit it!`);
+      d.bosses[def.id] = rec;
     }
     if (missions.length) {
       ui.sfx('reward');
@@ -899,7 +1060,8 @@ export class GameController {
         hits: r.hits,
         verifiedNow,
         missionsDone: missions,
-        notesTitle: req.haunted ? 'Haunted Run' : undefined,
+        win: req.boss && this.boss ? { big: 'VICTORY!', sub: `You beat ${this.boss.name}!` } : undefined,
+        notesTitle: req.boss ? (completed ? 'Boss defeated!' : r.dead ? 'Knocked out!' : 'It got away!') : req.haunted ? (s.chaser?.caught ? (s.chaser.kind === 'ghost' ? 'The ghost caught you! 👻' : 'The zombie caught you! 🧟') : 'Haunted Run') : undefined,
         rate: req.rate,
       },
       {
@@ -961,12 +1123,15 @@ export class GameController {
       audio.play(place === 1 ? 'win' : 'finish');
       haptics.success();
       if (this.kind === 'online') this.room?.sendFinish(r.finishTime);
-      if (this.kind !== 'duel') this.hud?.showHint(place === 1 ? 'You win!' : 'Finished!', '', 1600, '30%');
+      if (this.kind !== 'duel' && !this.boss) this.hud?.showHint(place === 1 ? 'You win!' : 'Finished!', '', 1600, '30%');
     }
     if (this.kind === 'custom') {
       if (r.kind === 'human' && this.phase === 'running') {
         this.phase = 'finishing';
-        this.finishTimer = window.setTimeout(() => this.endLevel(r, true), 1400);
+        // A boss still standing when the song ends gets away.
+        const escaped = !!this.boss && this.boss.hp > 0;
+        if (escaped) this.hud?.showHint(`${this.boss!.name} got away!`, '', 1600, '30%');
+        this.finishTimer = window.setTimeout(() => this.endLevel(r, !escaped), 1400);
       }
       return;
     }
@@ -1045,10 +1210,13 @@ export class GameController {
         ['distance', Math.floor(me.distance)],
       ]);
     } else if (this.kind === 'duel') {
-      const p1 = s.racers[0];
-      reward = { gems: p1.gems + 15, trophies: 0, xp: 25 };
+      // Duels are just for fun: two players on one phone could farm them, so
+      // gems, XP and run missions stay out (only "play a Duel" counts).
       d.stats.duelsPlayed += 1;
-      this.reportRun(p1, [['duel_play', 1]]);
+      for (const m of reportMission(d, 'duel_play', 1)) {
+        ui.toast(`Mission complete: ${describe(m)}`, 'check');
+        ui.sfx('reward');
+      }
     }
     if (reward) {
       store.addGems(reward.gems);
@@ -1186,6 +1354,6 @@ export class GameController {
 /** The Daily Run's soundtrack outside events: every regular recorded run track (not the player's own picks, so the beat is the same for everyone). */
 function dailySoundtrack(): number[] {
   return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
-    .filter(({ t }) => t.role === 'run' && !t.event)
+    .filter(({ t }) => t.role === 'run' && !t.event && !t.exclusive)
     .map(({ id }) => id);
 }

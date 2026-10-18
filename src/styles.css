@@ -477,7 +477,7 @@ p {
 }
 
 .btn.pulse {
-  animation: pulse 1.6s ease-in-out infinite;
+  animation: pulse 1.6s ease-in-out 5;
 }
 
 .btn.pulse:active {
@@ -505,7 +505,7 @@ p {
   font-weight: 700;
   color: #fff;
   z-index: 2;
-  animation: badge-bob 1.2s ease-in-out infinite;
+  animation: badge-bob 1.2s ease-in-out 5;
 }
 
 @keyframes badge-bob {
@@ -1052,7 +1052,7 @@ p {
 .day.today {
   border-color: var(--yellow);
   background: rgba(255, 210, 63, 0.16);
-  animation: pulse 1.4s ease-in-out infinite;
+  animation: pulse 1.4s ease-in-out 5;
 }
 
 .day.big {
@@ -1636,7 +1636,7 @@ input[type='range']::-moz-range-thumb {
   background: linear-gradient(90deg, var(--pink), var(--orange));
   font-weight: 700;
   font-size: 0.95rem;
-  animation: wiggle 1s ease-in-out infinite;
+  animation: wiggle 1s ease-in-out 5;
 }
 
 @keyframes wiggle {
@@ -2939,7 +2939,7 @@ button.player-slot {
   font: inherit;
   cursor: pointer;
   text-align: left;
-  animation: ev-bob 2.4s ease-in-out infinite;
+  animation: ev-bob 2.4s ease-in-out 5;
 }
 
 .event-chip .ev-pumpkin {
@@ -3589,7 +3589,7 @@ button.player-slot {
 
 /* ------------------------------------------------------------------ home screen motion */
 .screen.menu .logo {
-  animation: logo-bob 4.2s ease-in-out infinite;
+  animation: logo-bob 4.2s ease-in-out 5;
 }
 
 @keyframes logo-bob {
@@ -3729,4 +3729,39 @@ html:not(.fx-blur) * {
   gap: 0.3rem 0.9rem;
   font-size: 0.85rem;
   color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------------ boss battles */
+.boss-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.07);
+  border: 2px solid color-mix(in srgb, var(--boss) 55%, transparent);
+}
+
+.boss-row p {
+  margin: 0.15rem 0 0;
+}
+
+.boss-mark {
+  width: 2.4rem;
+  height: 2.4rem;
+  flex: none;
+  background: var(--boss);
+  box-shadow: 0 0 0.8rem color-mix(in srgb, var(--boss) 60%, transparent);
+}
+
+.boss-mark.square {
+  border-radius: 0.4rem;
+}
+
+.boss-mark.triangle {
+  clip-path: polygon(50% 4%, 96% 92%, 4% 92%);
+}
+
+.boss-mark.hexagon {
+  clip-path: polygon(25% 5%, 75% 5%, 100% 50%, 75% 95%, 25% 95%, 0 50%);
 }

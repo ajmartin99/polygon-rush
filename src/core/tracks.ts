@@ -27,6 +27,8 @@ export interface TrackDef {
   source: string;
   /** File under public/music/. */
   file: string;
+  /** Length in seconds (an Endless level lasts exactly one song). */
+  duration: number;
   /** Tempo and first-beat offset (s), for the beat-synced visuals. */
   bpm: number;
   offset: number;
@@ -37,6 +39,8 @@ export interface TrackDef {
   gain?: number;
   /** Seasonal: only in rotation while the event runs (and always in its Daily Run). */
   event?: EventId;
+  /** Belongs to one mode (the Haunted Run): never in rotation, song pickers or player levels. */
+  exclusive?: 'haunted';
 }
 
 /** Order is the id space: only ever append. */
@@ -48,6 +52,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/summers',
     file: 'summers.mp3',
+    duration: 174.9,
     bpm: 105.5,
     offset: 0.03,
     role: 'menu',
@@ -59,6 +64,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/hella-bumps-menu-music',
     file: 'hella-bumps.mp3',
+    duration: 58.7,
     bpm: 122.7,
     offset: 0.13,
     role: 'menu',
@@ -70,6 +76,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/bouncy-hamster-dancing-menu-music',
     file: 'bouncy-hamster-dancing.mp3',
+    duration: 65.0,
     bpm: 130.7,
     offset: 0.14,
     role: 'menu',
@@ -81,6 +88,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/mocha-frapp',
     file: 'mocha-frapp.mp3',
+    duration: 129.9,
     bpm: 122.7,
     offset: 0.01,
     role: 'menu',
@@ -92,6 +100,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/shortcuts',
     file: 'shortcuts.mp3',
+    duration: 289.5,
     bpm: 109.3,
     offset: 0.15,
     role: 'run',
@@ -104,6 +113,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/awake-megawall-10',
     file: 'awake.mp3',
+    duration: 57.4,
     bpm: 133.6,
     offset: 0.2,
     role: 'run',
@@ -116,6 +126,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/black-diamond',
     file: 'black-diamond.mp3',
+    duration: 201.5,
     bpm: 143.2,
     offset: 0.249,
     role: 'run',
@@ -128,6 +139,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/hyper-ultra-racing',
     file: 'hyper-ultra-racing.mp3',
+    duration: 79.7,
     bpm: 174,
     offset: 0.04,
     role: 'run',
@@ -140,6 +152,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC-BY 3.0',
     source: 'https://opengameart.org/content/wargod',
     file: 'wargod.mp3',
+    duration: 181.8,
     bpm: 140,
     offset: 0.629,
     role: 'run',
@@ -152,6 +165,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC-BY 3.0',
     source: 'https://opengameart.org/content/red-doors-v20',
     file: 'red-doors.mp3',
+    duration: 134.7,
     bpm: 139.9,
     offset: 0.01,
     role: 'run',
@@ -164,6 +178,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/chase-2',
     file: 'chase.mp3',
+    duration: 262.0,
     bpm: 143.2,
     offset: 0.299,
     role: 'run',
@@ -176,6 +191,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/liquid-flame',
     file: 'liquid-flame.mp3',
+    duration: 220.8,
     bpm: 130.7,
     offset: 0.249,
     role: 'run',
@@ -188,6 +204,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/elevate-instrument-tracks',
     file: 'elevate.mp3',
+    duration: 161.4,
     bpm: 87.2,
     offset: 0.08,
     role: 'run',
@@ -199,9 +216,11 @@ export const TRACKS: TrackDef[] = [
     license: 'CC-BY 4.0',
     source: 'https://opengameart.org/content/swing-along',
     file: 'swing-along.mp3',
+    duration: 135.0,
     bpm: 130.7,
     offset: 0.07,
     role: 'run',
+    exclusive: 'haunted',
   },
   {
     title: 'Space Sprinkles',
@@ -210,6 +229,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC-BY 3.0',
     source: 'https://opengameart.org/content/space-sprinkles',
     file: 'space-sprinkles.mp3',
+    duration: 162.5,
     bpm: 85.9,
     offset: 0.259,
     role: 'run',
@@ -221,6 +241,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/fever-stadium',
     file: 'fever-stadium.mp3',
+    duration: 85.9,
     bpm: 165,
     offset: 0.08,
     role: 'run',
@@ -233,6 +254,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC-BY 4.0',
     source: 'https://opengameart.org/content/rainbow-rush',
     file: 'rainbow-rush.mp3',
+    duration: 158.7,
     bpm: 89.8,
     offset: 0.589,
     role: 'run',
@@ -245,6 +267,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/funky-disco-beats-to-boogiewoogie-to',
     file: 'funky-disco-beats.mp3',
+    duration: 133.1,
     bpm: 109.3,
     offset: 0.509,
     role: 'run',
@@ -256,6 +279,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/funky-house',
     file: 'funky-house.mp3',
+    duration: 68.8,
     bpm: 127.9,
     offset: 0.14,
     role: 'run',
@@ -267,6 +291,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC-BY 4.0',
     source: 'https://opengameart.org/content/rocktheme',
     file: 'rock-theme.mp3',
+    duration: 101.7,
     bpm: 171.8,
     offset: 0.21,
     role: 'run',
@@ -279,6 +304,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/blossom-mountainremake',
     file: 'blossom-mountain.mp3',
+    duration: 102.9,
     bpm: 140,
     offset: 0.389,
     role: 'run',
@@ -291,6 +317,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC-BY 4.0',
     source: 'https://opengameart.org/content/prismatic-light',
     file: 'prismatic-light.mp3',
+    duration: 229.7,
     bpm: 139.9,
     offset: 0.399,
     role: 'run',
@@ -303,6 +330,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC-BY 3.0',
     source: 'https://opengameart.org/content/maximum-overdrive',
     file: 'maximum-overdrive.mp3',
+    duration: 210.8,
     bpm: 95.5,
     offset: 0.05,
     role: 'run',
@@ -314,6 +342,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/pixel-sprinter',
     file: 'pixel-sprinter.mp3',
+    duration: 44.6,
     bpm: 115.6,
     offset: 0.2,
     role: 'run',
@@ -326,6 +355,7 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/hyperflight-racing',
     file: 'hyperflight-racing.mp3',
+    duration: 60.7,
     bpm: 133.6,
     offset: 0.379,
     role: 'run',
@@ -338,16 +368,17 @@ export const TRACKS: TrackDef[] = [
     license: 'CC0',
     source: 'https://opengameart.org/content/trance-boss-battle',
     file: 'trance-boss-battle.mp3',
+    duration: 102.4,
     bpm: 150,
     offset: 0.07,
     role: 'run',
     fast: true,
   },
   // Spooky Season (Halloween)
-  { title: '8-bit Haunted House', artist: 'Wolfgang_', genre: 'Spooky Chiptune', license: 'CC0', source: 'https://opengameart.org/content/8-bit-haunted-house-theme', file: 'haunted-house.mp3', bpm: 150.3, offset: 0.09, role: 'run', fast: true, event: 'halloween' },
-  { title: 'Doll House', artist: 'Alexandr Zhelanov', genre: 'Spooky Piano', license: 'CC-BY 4.0', source: 'https://opengameart.org/content/doll-house', file: 'doll-house.mp3', bpm: 100.2, offset: 0.269, role: 'run', event: 'halloween' },
-  { title: 'Dissonant Waltz', artist: 'Yubatake', genre: 'Haunted Waltz', license: 'CC-BY 4.0', source: 'https://opengameart.org/content/dissonant-waltz', file: 'dissonant-waltz.mp3', bpm: 100.2, offset: 0.429, role: 'run', event: 'halloween' },
-  { title: 'The 9th Circle', artist: 'Joth', genre: 'Industrial Dubstep', license: 'CC0', source: 'https://opengameart.org/content/the-9th-circle', file: 'the-9th-circle.mp3', bpm: 120.3, offset: 0.359, role: 'run', fast: true, event: 'halloween' },
+  { title: '8-bit Haunted House', artist: 'Wolfgang_', genre: 'Spooky Chiptune', license: 'CC0', source: 'https://opengameart.org/content/8-bit-haunted-house-theme', file: 'haunted-house.mp3', duration: 44.9, bpm: 150.3, offset: 0.09, role: 'run', fast: true, event: 'halloween' },
+  { title: 'Doll House', artist: 'Alexandr Zhelanov', genre: 'Spooky Piano', license: 'CC-BY 4.0', source: 'https://opengameart.org/content/doll-house', file: 'doll-house.mp3', duration: 24.9, bpm: 100.2, offset: 0.269, role: 'run', event: 'halloween' },
+  { title: 'Dissonant Waltz', artist: 'Yubatake', genre: 'Haunted Waltz', license: 'CC-BY 4.0', source: 'https://opengameart.org/content/dissonant-waltz', file: 'dissonant-waltz.mp3', duration: 170.0, bpm: 100.2, offset: 0.429, role: 'run', event: 'halloween' },
+  { title: 'The 9th Circle', artist: 'Joth', genre: 'Industrial Dubstep', license: 'CC0', source: 'https://opengameart.org/content/the-9th-circle', file: 'the-9th-circle.mp3', duration: 170.8, bpm: 120.3, offset: 0.359, role: 'run', fast: true, event: 'halloween' },
 ];
 
 export interface MusicInfo {
@@ -357,6 +388,11 @@ export interface MusicInfo {
   kind: 'synth' | 'track' | 'user';
   artist?: string;
   license?: string;
+}
+
+/** Songs anyone can pick (everything but tracks that belong to one mode). */
+export function isPickable(id: number): boolean {
+  return !trackOf(id)?.exclusive;
 }
 
 export function isTrackId(id: number): boolean {
@@ -391,7 +427,7 @@ export function musicInfo(id: number): MusicInfo | null {
 /** Recorded tracks for a context, as music ids. */
 export function tracksFor(context: 'menu' | 'run' | 'race', now = new Date()): number[] {
   return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
-    .filter(({ t }) => !t.event || activeEvent(now)?.id === t.event)
+    .filter(({ t }) => !t.exclusive && (!t.event || activeEvent(now)?.id === t.event))
     .filter(({ t }) => (context === 'menu' ? t.role === 'menu' : context === 'race' ? t.fast === true : t.role === 'run'))
     .map(({ id }) => id);
 }
@@ -399,6 +435,6 @@ export function tracksFor(context: 'menu' | 'run' | 'race', now = new Date()): n
 /** A seasonal event's own soundtrack (its recorded tracks, plus tracks tagged for it). */
 export function eventTracks(event: EventId): number[] {
   return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
-    .filter(({ t }) => t.event === event || (event === 'halloween' && t.file === 'swing-along.mp3'))
+    .filter(({ t }) => t.event === event && !t.exclusive)
     .map(({ id }) => id);
 }

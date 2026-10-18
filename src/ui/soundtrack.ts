@@ -61,7 +61,7 @@ export function openSoundtrack(): void {
     // ---- recorded tracks
     if (TRACKS.length) {
       body.append(h('h3', null, 'Game music'));
-      TRACKS.forEach((t, i) => body.append(songRow(TRACK_BASE + i, t.title, `${t.genre} · ${t.artist} · ${t.license}`)));
+      TRACKS.forEach((t, i) => !t.exclusive && body.append(songRow(TRACK_BASE + i, t.title, `${t.genre} · ${t.artist} · ${t.license}`)));
     }
     // ---- classic synth songs
     body.append(

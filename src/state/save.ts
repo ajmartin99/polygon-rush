@@ -2,6 +2,8 @@
  * Persistent save-game schema. Bump SAVE_VERSION and extend `migrate` when the
  * shape changes so existing players never lose progress.
  */
+import { LEVEL_NOMINAL } from '../game/levels';
+import type { BossId, BossProgress } from '../meta/bosses';
 import { DIFFICULTIES, type Difficulty } from '../game/constants';
 import { FREE_EMOTES } from '../meta/emotes';
 import { SKINS, TRAILS, type Unlock } from '../meta/catalog';
@@ -130,11 +132,15 @@ export interface SaveData {
   secrets: { found: number[] };
   /** Haunted Run attempts, Heart Regens and records. */
   haunted: HauntedState;
+  /** Boss Battles: wins and best damage per boss. */
+  bosses: BossProgress;
   /** Players you banned from rooms you host (anonymous room id + their name then). */
   roomBans: { rid: string; name: string; at: number }[];
   /** Played the beta (1.0.x): exclusive rewards granted. */
   beta: { tester: boolean; version: string; at: number };
   best: Record<string, number>;
+  /** Highest Endless level reached (1-based), per difficulty (same keys as `best`). */
+  levels: Record<string, number>;
   stats: Stats;
   creator: CreatorProgress;
   missions: { active: MissionState[]; completed: number; counter: number };
@@ -229,8 +235,10 @@ export function createSave(now = Date.now()): SaveData {
     secrets: { found: [] },
     roomBans: [],
     haunted: emptyHaunted(),
+    bosses: {},
     beta: { tester: false, version: '', at: 0 },
     best: {},
+    levels: {},
     stats: emptyStats(),
     creator: emptyCreator(),
     missions: { active: [], completed: 0, counter: 0 },
@@ -285,7 +293,17 @@ export function migrate(raw: unknown): SaveData {
   save.phrases.owned = str(save.phrases.owned);
   save.haunted.used = Math.max(0, Math.floor(save.haunted.used) || 0);
   save.haunted.regens = Math.max(0, Math.min(999, Math.floor(save.haunted.regens) || 0));
+  for (const [k, rec] of Object.entries(save.bosses)) {
+    if (!isObj(rec)) delete (save.bosses as Record<string, unknown>)[k];
+    else save.bosses[k as BossId] = { wins: Math.max(0, Math.floor(Number(rec.wins)) || 0), best: Math.max(0, Math.min(1, Number(rec.best) || 0)) };
+  }
   save.roomBans = save.roomBans.filter((b) => b && typeof b.rid === 'string' && /^[a-f0-9]{16}$/.test(b.rid) && typeof b.name === 'string').slice(-200);
+  // Levels became one song long: older saves unlock levels from their best distance.
+  for (const [k, m] of Object.entries(save.best)) {
+    if (!/^endless(_|$)/.test(k) || save.levels[k] !== undefined) continue;
+    save.levels[k] = Math.max(1, Math.min(40, Math.floor((Number(m) || 0) / LEVEL_NOMINAL) + 1));
+  }
+  for (const k of Object.keys(save.levels)) save.levels[k] = Math.max(1, Math.min(40, Math.floor(save.levels[k]) || 1));
   save.secrets.found = [...new Set(save.secrets.found.filter((n) => Number.isInteger(n) && n >= 1 && n <= 40))];
   // Items only a purchase gives: kept only with the purchase (Google Play restores it on launch).
   const paid = (u: Unlock) => (u.kind === 'legend' && !save.purchases.legend) || (u.kind === 'starter' && !save.purchases.starter);

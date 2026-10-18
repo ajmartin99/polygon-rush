@@ -39,7 +39,9 @@ export type Sfx =
   | 'open'
   | 'error'
   | 'reward'
-  | 'levelUp';
+  | 'levelUp'
+  | 'groan'
+  | 'boo';
 
 const mtof = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
 
@@ -195,6 +197,9 @@ class AudioEngine {
   }
 
   suspend(): void {
+    // Stop the synth scheduler too: a 25 ms timer firing in the background drains the battery.
+    clearInterval(this.timer);
+    this.timer = 0;
     this.trackEl?.pause();
     if (this.audible && this.audible.el !== this.trackEl) this.audible.el.pause();
     const ctx = this.ctx as AudioContext | null;
@@ -202,6 +207,7 @@ class AudioEngine {
   }
 
   resume(): void {
+    if (this.playing && !this.timer) this.timer = window.setInterval(() => this.schedule(this.ctx!.currentTime + 0.12), 25);
     if (this.trackEl) void this.trackEl.play().catch(() => {});
     if (this.audible && this.audible.el !== this.trackEl) void this.audible.el.play().catch(() => {});
     const ctx = this.ctx as AudioContext | null;
@@ -437,11 +443,29 @@ class AudioEngine {
   private stopSynth(): void {
     this.playing = false;
     clearInterval(this.timer);
+    this.timer = 0;
     this.songIndex = -1;
     this.pending = -1;
   }
 
   /** 0 right on a beat → 1 just before the next (for visual pulsing). */
+  /**
+   * Seconds from the nearest beat as the player hears it (negative = early,
+   * positive = late), allowing for the device's audio output delay. Null
+   * when no music is playing.
+   */
+  beatError(): number | null {
+    const ctx = this.ctx as (AudioContext & { outputLatency?: number }) | null;
+    if (!ctx || !(this.beatLength > 0)) return null;
+    const lat = ctx.outputLatency || ctx.baseLatency || 0;
+    let t: number;
+    if (this.trackEl) t = this.trackEl.currentTime - this.trackOffset - lat;
+    else if (this.playing) t = ctx.currentTime - this.lastBeatTime - lat;
+    else return null;
+    const ph = (((t / this.beatLength) % 1) + 1) % 1;
+    return (ph < 0.5 ? ph : ph - 1) * this.beatLength;
+  }
+
   beatPhase(): number {
     if (this.trackEl) {
       const t = this.trackEl.currentTime - this.trackOffset;
@@ -1200,6 +1224,18 @@ class AudioEngine {
       }
       case 'bigGem':
         this.arp([84, 88, 91, 96], 0.05, 'sine', 0.2);
+        break;
+      case 'groan':
+        // A zombie's low, wobbly moan.
+        this.tone('sawtooth', 140, 82, 0.62, 0.13);
+        this.tone('sawtooth', 147, 78, 0.6, 0.09, 0.03);
+        this.burst(0.4, 0.12, 380);
+        break;
+      case 'boo':
+        // A ghost's rising, then falling "boooo".
+        this.tone('sine', 260, 520, 0.24, 0.2);
+        this.tone('sine', 520, 230, 0.5, 0.18, 0.22);
+        this.tone('triangle', 390, 780, 0.24, 0.06);
         break;
       case 'hit':
         this.burst(0.25, 0.5, 900);

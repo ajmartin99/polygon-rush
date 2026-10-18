@@ -1,7 +1,9 @@
 import { Emitter } from '../core/emitter';
 import { Rng } from '../core/rng';
 import { DT, ENDLESS_TUNING, MODE_INDEX, PLAYER_HALF, RACE_SPEED, endlessSpeedAt, type Difficulty } from './constants';
+import { Chaser, obstacleMarks, type ChaserDiff, type ChaserEvent, type ChaserKind } from './chaser';
 import { LevelGen, type GenOptions } from './generator';
+import { LevelTimeline, type LevelSong } from './levels';
 import { buildWorld, levelSpeed, modeAt, type LevelContent } from './level';
 import { newEvents, stepBody } from './physics';
 import { Racer, type RacerSpec } from './racer';
@@ -31,8 +33,14 @@ export interface SessionOptions {
   stunOnly?: boolean;
   /** Endless: start this many metres in (a later level); distance counts from 0. */
   startDistance?: number;
-  /** Endless: build each level on its song's beat (see LevelGen). */
-  beat?: GenOptions['beat'];
+  /**
+   * Endless: the song planned for each level (0-based index from the run's
+   * very start). Each level lasts exactly its song, and its course is built
+   * on the song's beat.
+   */
+  levelSong?: (index: number) => LevelSong;
+  /** Endless: the level (0-based) the run starts in, at `startDistance`. */
+  startLevel?: number;
   /** Endless: Daily Run twists (see LevelGen). */
   startMode?: GenOptions['startMode'];
   heatFloor?: number;
@@ -48,6 +56,8 @@ export interface SessionOptions {
   level?: LevelContent;
   /** Custom levels: start here instead of the beginning ("play from here"). */
   startX?: number;
+  /** Haunted Run: a zombie / ghost chases the (single) runner. */
+  chaser?: ChaserDiff;
 }
 
 export interface GameEvents extends Record<string, unknown> {
@@ -63,6 +73,7 @@ export interface GameEvents extends Record<string, unknown> {
   portal: { racer: Racer; mode: ShapeMode };
   hint: { racer: Racer; key: string; text: string; sub: string };
   death: { racer: Racer };
+  chaser: { racer: Racer; event: ChaserEvent; kind: ChaserKind };
   finish: { racer: Racer; time: number; place: number };
 }
 
@@ -89,6 +100,10 @@ export class GameSession extends Emitter<GameEvents> {
   private readonly rng: Rng;
   /** Track speed for race-likes and player levels; null = endless curve. */
   private readonly fixedSpeed: number | null;
+  /** Endless: the run's song-long levels (null elsewhere). */
+  readonly levels: LevelTimeline | null;
+  /** Haunted Run: what's chasing the first racer. */
+  readonly chaser: Chaser | null;
 
   constructor(opts: SessionOptions) {
     super();
@@ -98,11 +113,15 @@ export class GameSession extends Emitter<GameEvents> {
     let startX = START_X;
     const offset = opts.kind === 'endless' ? Math.max(0, Math.floor(opts.startDistance ?? 0)) : 0;
     if (opts.level) {
+      this.levels = null;
       buildWorld(opts.level, this.world);
       this.gen = null;
       this.fixedSpeed = levelSpeed(opts.level);
       if (opts.kind === 'custom' && opts.startX !== undefined) startX = Math.max(START_X, Math.min(opts.level.length - 2, opts.startX));
     } else {
+      const kid = !!opts.kid;
+      this.levels =
+        opts.kind === 'endless' && opts.levelSong ? new LevelTimeline(opts.startLevel ?? 0, offset, opts.levelSong, (d) => endlessSpeedAt(d + START_X, kid, opts.diff)) : null;
       this.gen = new LevelGen(this.world, {
         seed: opts.seed,
         kind: raceLike ? 'race' : 'endless',
@@ -115,7 +134,7 @@ export class GameSession extends Emitter<GameEvents> {
         difficulty: raceLike ? opts.difficulty ?? 0.35 : undefined,
         startX: START_X + offset,
         offset,
-        beat: raceLike ? undefined : opts.beat,
+        levels: this.levels ?? undefined,
         startMode: opts.startMode,
         heatFloor: opts.heatFloor,
         sectionScale: opts.sectionScale,
@@ -142,6 +161,7 @@ export class GameSession extends Emitter<GameEvents> {
       this.racers.push(r);
     });
     this.gen?.ensure(startX + 80);
+    this.chaser = opts.chaser ? new Chaser(opts.chaser, this.hazardMarks()) : null;
   }
 
 
@@ -258,6 +278,7 @@ export class GameSession extends Emitter<GameEvents> {
     r.bestClean = Math.max(r.bestClean, r.x - r.cleanFrom);
 
     this.collect(r, prevX);
+    if (this.chaser && r === this.racers[0] && !r.finished) this.stepChaser(r, dt);
 
     if (!r.finished && r.x >= this.finishX) {
       r.finished = true;
@@ -265,6 +286,36 @@ export class GameSession extends Emitter<GameEvents> {
       r.place = ++this.finishCount;
       r.invuln = 0;
       this.emit('finish', { racer: r, time: r.finishTime, place: r.place });
+    }
+  }
+
+  /** Obstacles a chased runner clears: spikes, saws, blocks and pits (ends of ground). */
+  private hazardMarks(): number[] {
+    const hazards: { x0: number; x1: number }[] = [];
+    const ground: { x0: number; x1: number }[] = [];
+    for (const o of this.world.query(-Infinity, Infinity)) {
+      if (o.kind === 'spike' || o.kind === 'saw' || (o.kind === 'solid' && o.role === 'block')) hazards.push({ x0: o.x0, x1: o.x1 });
+      else if (o.kind === 'solid' && o.role === 'ground') ground.push({ x0: o.x0, x1: o.x1 });
+    }
+    // Pits: the gaps between stretches of ground.
+    ground.sort((a, b) => a.x0 - b.x0);
+    let end = -Infinity;
+    for (const g of ground) {
+      if (Number.isFinite(end) && g.x0 > end + 0.01) hazards.push({ x0: end, x1: g.x0 });
+      end = Math.max(end, g.x1);
+    }
+    return obstacleMarks(hazards);
+  }
+
+  private stepChaser(r: Racer, dt: number): void {
+    const c = this.chaser!;
+    const event = c.update(dt, { x: r.x, y: r.body.y, mode: r.body.mode, gdir: r.body.gdir });
+    if (!event) return;
+    this.emit('chaser', { racer: r, event, kind: c.kind });
+    if (event === 'caught') {
+      r.hearts = 0;
+      r.dead = true;
+      this.emit('death', { racer: r });
     }
   }
 
@@ -313,6 +364,11 @@ export class GameSession extends Emitter<GameEvents> {
         return;
       }
       r.invuln = 1.7;
+      if (this.chaser && r === this.racers[0]) {
+        this.emit('hit', { racer: r, fell });
+        this.emit('chaser', { racer: r, event: this.chaser.onHit(), kind: this.chaser.kind });
+        return;
+      }
     } else if (this.opts.kind === 'attract') {
       r.invuln = 1.2;
     } else {
@@ -360,6 +416,7 @@ export class GameSession extends Emitter<GameEvents> {
             const value = o.big ? 5 : 1;
             r.gems += value;
             this.emit('gem', { racer: r, value, x: o.x, y: o.y });
+            if (this.chaser && r === this.racers[0]) this.emit('chaser', { racer: r, event: this.chaser.onGem(value), kind: this.chaser.kind });
           }
           break;
         }

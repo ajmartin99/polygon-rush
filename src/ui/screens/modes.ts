@@ -1,3 +1,5 @@
+import { BOSSES } from '../../meta/bosses';
+import { openBosses } from '../bosses';
 import { DIFFICULTY_NAMES } from '../../state/save';
 import { store } from '../../state/store';
 import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, MAX_START_LEVEL, dailyRewardKey, dailySeed, dailyTwist, unlockedLevels, variantBestKey, VARIANT_INFO, type EndlessVariant } from '../../meta/modes';
@@ -30,10 +32,11 @@ export class ModesScreen extends BaseScreen {
     const best = (v: EndlessVariant) => d.best[variantBestKey(v, d.settings)] ?? 0;
     const endless = (v: EndlessVariant) => () => nav.play({ mode: 'endless', variant: v });
     const dailyDone = Boolean(d.best[dailyRewardKey()]);
-    const unlocked = unlockedLevels(best('classic'));
+    const unlocked = unlockedLevels(d.levels[variantBestKey('classic', d.settings)] ?? 1);
     const haunted = activeEvent()?.id === 'halloween';
     const hs = d.haunted;
     const left = haunted ? attemptsLeft(hs) : 0;
+    const bossesBeaten = BOSSES.filter((b) => (d.bosses[b.id]?.wins ?? 0) > 0).length;
     const cards: ModeCard[] = [
       ...(haunted
         ? [
@@ -66,7 +69,7 @@ export class ModesScreen extends BaseScreen {
         icon: 'target',
         color: 'violet',
         tag: `${unlocked} of ${MAX_START_LEVEL} open`,
-        stat: unlocked > 1 ? `Up to Level ${unlocked}` : 'Reach 500 m for Level 2',
+        stat: unlocked > 1 ? `Up to Level ${unlocked}` : 'Finish the first song for Level 2',
         go: () => nav.go('levels'),
       },
       {
@@ -88,6 +91,36 @@ export class ModesScreen extends BaseScreen {
         tag: DIFFICULTY_NAMES[d.settings.difficulty],
         stat: best('oneheart') ? `Best ${fmt(best('oneheart'))} m` : undefined,
         go: endless('oneheart'),
+      },
+      {
+        id: 'bosses',
+        name: 'Boss Battles',
+        blurb: 'A giant boss attacks on the beat. Grab the glowing orbs to fire back and drain its health before its song ends!',
+        icon: 'crown',
+        color: 'orange',
+        tag: `${bossesBeaten} of ${BOSSES.length} beaten`,
+        stat: bossesBeaten < BOSSES.length ? `Next: ${BOSSES.find((b) => !d.bosses[b.id]?.wins)!.name}` : 'All beaten!',
+        go: () => openBosses(),
+      },
+      {
+        id: 'rhythm',
+        name: VARIANT_INFO.rhythm.name,
+        blurb: VARIANT_INFO.rhythm.blurb,
+        icon: 'music',
+        color: 'pink',
+        tag: DIFFICULTY_NAMES[d.settings.difficulty],
+        stat: best('rhythm') ? `Best ${fmt(best('rhythm'))}` : 'New!',
+        go: endless('rhythm'),
+      },
+      {
+        id: 'lightsout',
+        name: VARIANT_INFO.lightsout.name,
+        blurb: VARIANT_INFO.lightsout.blurb,
+        icon: 'bolt',
+        color: 'violet',
+        tag: DIFFICULTY_NAMES[d.settings.difficulty],
+        stat: best('lightsout') ? `Best ${fmt(best('lightsout'))} m` : 'New!',
+        go: endless('lightsout'),
       },
       {
         id: 'gemrush',
@@ -123,7 +156,7 @@ export class ModesScreen extends BaseScreen {
       {
         id: 'duel',
         name: 'Duel',
-        blurb: 'Split screen on one device.',
+        blurb: 'Split screen on one device, just for fun.',
         icon: 'duel',
         color: 'pink',
         tag: '2 players',

@@ -191,13 +191,16 @@ export function blendPalette(a: Palette, b: Palette, t: number): Palette {
   return out;
 }
 
-/** World index at a track position (endless) — transitions over the last 40 m. */
+/** World index at a track position (menu demo, previews) — transitions over the last 40 m. */
 export function paletteAt(x: number, offset = 0): { palette: Palette; index: number } {
-  const span = BIOME_LENGTH;
-  const i = Math.floor(x / span);
-  const local = x - i * span;
-  const a = BIOMES[(i + offset) % BIOMES.length];
-  const b = BIOMES[(i + 1 + offset) % BIOMES.length];
-  const t = local > span - 40 ? (local - (span - 40)) / 40 : 0;
-  return { palette: blendPalette(a, b, t), index: (i + offset) % BIOMES.length };
+  const i = Math.floor(x / BIOME_LENGTH);
+  return paletteInLevel(i + offset, x - i * BIOME_LENGTH, BIOME_LENGTH);
+}
+
+/** The world of level `index` (0-based), `into` metres into a level `length` long, fading into the next world over its last 40 m. */
+export function paletteInLevel(index: number, into: number, length: number): { palette: Palette; index: number } {
+  const a = BIOMES[index % BIOMES.length];
+  const b = BIOMES[(index + 1) % BIOMES.length];
+  const t = into > length - 40 ? Math.min(1, (into - (length - 40)) / 40) : 0;
+  return { palette: blendPalette(a, b, t), index: index % BIOMES.length };
 }

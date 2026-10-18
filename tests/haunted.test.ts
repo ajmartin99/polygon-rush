@@ -80,3 +80,16 @@ describe('Haunted Run', () => {
     expect(hauntedPayout('easy', 100, true)).toBe((100 + HAUNTED_RULES.finishBonus) / 2);
   });
 });
+
+describe('Swing Along belongs to the Haunted Run', () => {
+  it('is never in rotation or pickable, even at Halloween', async () => {
+    const { tracksFor, isPickable } = await import('../src/core/tracks');
+    const halloween = new Date(2026, 9, 25);
+    for (const ctx of ['menu', 'run', 'race'] as const) {
+      expect(tracksFor(ctx, halloween)).not.toContain(HAUNTED_TRACK);
+      expect(tracksFor(ctx, new Date(2026, 5, 1))).not.toContain(HAUNTED_TRACK);
+    }
+    expect(isPickable(HAUNTED_TRACK)).toBe(false);
+    expect(isPickable(HAUNTED_TRACK + 1)).toBe(true);
+  });
+});

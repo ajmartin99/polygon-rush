@@ -61,6 +61,8 @@ export const CONFIG = {
       gemsLarge: 'gems_large',
       starterPack: 'starter_pack',
       legendPack: 'legend_pack',
+      hauntedRegen1: 'haunted_regen_1',
+      hauntedRegen4: 'haunted_regen_4',
     },
   },
   /**

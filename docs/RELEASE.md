@@ -89,6 +89,7 @@ The version code is derived from the version: `1.0.0` → `10000`, `1.2.3` → `
    * `starter_pack`: Starter Pack: No Ads + 2,500 gems + Golden skin — $4.99
    * `legend_pack`: Legend Pack: legendary skins & trails — $3.99
    * `gems_small` (600 gems) $0.99 · `gems_medium` (2,000) $2.99 · `gems_large` (6,000) $6.99
+   * `haunted_regen_1`: Heart Regen (Haunted Run refill) $0.99 · `haunted_regen_4`: 4 Heart Regens $1.99 (both consumable)
 4. **Target audience & content:** see [MONETIZATION.md](MONETIZATION.md#google-play-families-policy). The game is designed for mixed audiences (kids and adults) with a neutral age screen.
 5. **Data safety:** answers are in [store/listing.md](../store/listing.md#data-safety-form).
 6. **Store listing:** text in `store/listing.md`; graphics in `store/` (icon 512, feature graphic 1024×500, screenshots 1920×1080).
@@ -110,7 +111,7 @@ npx -y -p playwright@1 node scripts/generate-art.mjs
 
 ## Studio website (softgamebros.com)
 
-The `site/` folder is the Soft Game Bros website: the studio page, the Polygon Rush page and its privacy policy. It is plain HTML and CSS (no build step), served by Cloudflare Pages:
+The `site/` folder is the Soft-Game Brothers website: the studio page, the Polygon Rush page and its privacy policy. It is plain HTML and CSS (no build step), served by Cloudflare Pages:
 
 1. Cloudflare → **Workers & Pages** → Create → **Pages** → Connect to Git → `ajmartin99/polygon-rush`.
 2. Production branch `main`, framework preset **None**, build command empty, build output directory `site`.
@@ -118,6 +119,6 @@ The `site/` folder is the Soft Game Bros website: the studio page, the Polygon R
 
 Every push to `main` that changes `site/` redeploys it. Edit `site/polygon-rush/privacy/index.html` and `src/meta/legal.ts` together so the web and in-app policies match.
 
-**AdMob:** once you have an AdMob account, add `site/app-ads.txt` with the line AdMob shows you (`google.com, pub-…, DIRECT, f08c47fec0942fa0`) and set the Play listing's website to `https://softgamebros.com`.
+**AdMob:** `site/app-ads.txt` lists the Soft-Game Brothers publisher id (`pub-8916807186236706`) and is served at `https://softgamebros.com/app-ads.txt`. Set the Play listing's website to `https://softgamebros.com` so AdMob can find it (it checks within about a day). If AdMob ever shows a different line, copy that one into the file.
 
 **Email:** Cloudflare → softgamebros.com → Email → Email Routing forwards `polygonrush@`, `privacy@` and `safety@` to the owner's inbox.

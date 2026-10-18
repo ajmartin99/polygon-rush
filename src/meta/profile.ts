@@ -68,10 +68,11 @@ export const BADGES: Badge[] = [
   badge({ id: 'extreme5k', name: 'Chaos Tamer', title: 'Chaos Tamer', how: 'Reach 5,000 m on Extreme, where the saws start moving', icon: 'bolt', color: '#ff2f6d', group: 'run', value: extreme, target: 5000 }),
   badge({ id: 'daily7', name: 'Daily Rusher', title: 'Daily Rusher', how: 'Play 7 Daily Runs', icon: 'target', color: '#3ad7ff', group: 'run', value: (c) => c.save.stats.dailyRuns, target: 7 }),
   badge({ id: 'daily30', name: 'Every Day', title: 'Never Misses a Day', how: 'Reach the Daily Run target on 30 days', icon: 'target', color: '#3ee6b0', group: 'run', value: (c) => c.save.stats.dailyTargets, target: 30 }),
-  badge({ id: 'haunted', name: 'Ghost Runner', title: 'Ghost Runner', how: 'Reach 1,000 m in a Haunted Daily (Halloween)', icon: 'sparkle', color: '#ff7a2f', group: 'run', value: (c) => c.save.stats.hauntedBest, target: 1000 }),
-  badge({ id: 'egg1', name: 'Egg Hunter', title: 'Egg Hunter', how: 'Find a secret egg (one hides in every Endless level)', icon: 'egg', color: '#ffd23f', group: 'run', value: (c) => c.save.secrets.found.length, target: 1 }),
-  badge({ id: 'egg10', name: 'Treasure Seeker', title: 'Treasure Seeker', how: 'Find 10 secret eggs', icon: 'egg', color: '#ff7af0', group: 'run', value: (c) => c.save.secrets.found.length, target: 10 }),
-  badge({ id: 'egg40', name: 'Secret Keeper', title: 'Keeper of Secrets', how: 'Find all 40 secret eggs', icon: 'egg', color: '#3ee6b0', group: 'run', value: (c) => c.save.secrets.found.length, target: 40 }),
+  badge({ id: 'haunted', name: 'Ghost Runner', title: 'Ghost Runner', how: 'Finish the Haunted Run (Halloween)', icon: 'sparkle', color: '#ff7a2f', group: 'run', value: (c) => c.save.haunted.clears.hard + c.save.haunted.clears.easy, target: 1 }),
+  badge({ id: 'nightmare', name: 'Nightmare Slayer', title: 'Nightmare Slayer', how: 'Finish the Haunted Run on Hard', icon: 'crown', color: '#8b2fd0', group: 'run', value: (c) => c.save.haunted.clears.hard, target: 1 }),
+  badge({ id: 'egg1', name: 'Shape Hunter', title: 'Shape Hunter', how: 'Find a Golden Shape (one hides in every Endless level)', icon: 'egg', color: '#ffd23f', group: 'run', value: (c) => c.save.secrets.found.length, target: 1 }),
+  badge({ id: 'egg10', name: 'Treasure Seeker', title: 'Treasure Seeker', how: 'Find 10 Golden Shapes', icon: 'egg', color: '#ff7af0', group: 'run', value: (c) => c.save.secrets.found.length, target: 10 }),
+  badge({ id: 'egg40', name: 'Golden Collector', title: 'Golden Collector', how: 'Find all 40 Golden Shapes', icon: 'egg', color: '#3ee6b0', group: 'run', value: (c) => c.save.secrets.found.length, target: 40 }),
   badge({ id: 'bouncy', name: 'Bouncy', title: 'Bouncer', how: 'Jump 10,000 times', icon: 'shapes', color: '#ff5fa2', group: 'run', value: (c) => c.save.stats.jumps, target: 10000 }),
   badge({ id: 'shifter', name: 'Shape Shifter', title: 'Shape Shifter', how: 'Fly through 500 shape portals', icon: 'shapes', color: '#7b5cff', group: 'run', value: (c) => c.save.stats.portals, target: 500 }),
   // ---- racing
@@ -146,7 +147,7 @@ export interface ProfileCard {
   show: string[];
   /** Number of badges earned. */
   badges: number;
-  /** Secret eggs found. */
+  /** Golden Shapes found. */
   eggs: number;
   /** Friend tag (13+ only, so others in a room can send a request). */
   tag?: number;

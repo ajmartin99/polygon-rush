@@ -5,6 +5,7 @@
 import { DIFFICULTIES, type Difficulty } from '../game/constants';
 import { FREE_EMOTES } from '../meta/emotes';
 import { SKINS, TRAILS, type Unlock } from '../meta/catalog';
+import { emptyHaunted, type HauntedState } from '../meta/haunted';
 
 export const SAVE_VERSION = 1;
 
@@ -69,7 +70,7 @@ export interface Stats {
   /** Daily Runs played, and how many reached the day's target. */
   dailyRuns: number;
   dailyTargets: number;
-  /** Best distance in a Haunted Daily (Halloween). */
+  /** Best distance in a Haunted Daily (Halloween, 1.0.7-1.0.8; the Haunted Run replaced it). */
   hauntedBest: number;
   /** Community levels beaten from the start (each counted once). */
   communityClears: number;
@@ -125,8 +126,10 @@ export interface SaveData {
   emotes: { owned: string[] };
   /** Quick Chat phrase packs bought in the Shop. */
   phrases: { owned: string[] };
-  /** Secret eggs found: Endless level numbers (1-based). */
+  /** Golden Shapes found: Endless level numbers (1-based). */
   secrets: { found: number[] };
+  /** Haunted Run attempts, Heart Regens and records. */
+  haunted: HauntedState;
   /** Players you banned from rooms you host (anonymous room id + their name then). */
   roomBans: { rid: string; name: string; at: number }[];
   /** Played the beta (1.0.x): exclusive rewards granted. */
@@ -225,6 +228,7 @@ export function createSave(now = Date.now()): SaveData {
     phrases: { owned: [] },
     secrets: { found: [] },
     roomBans: [],
+    haunted: emptyHaunted(),
     beta: { tester: false, version: '', at: 0 },
     best: {},
     stats: emptyStats(),
@@ -279,6 +283,8 @@ export function migrate(raw: unknown): SaveData {
   save.skins.owned = str(save.skins.owned);
   save.trails.owned = str(save.trails.owned);
   save.phrases.owned = str(save.phrases.owned);
+  save.haunted.used = Math.max(0, Math.floor(save.haunted.used) || 0);
+  save.haunted.regens = Math.max(0, Math.min(999, Math.floor(save.haunted.regens) || 0));
   save.roomBans = save.roomBans.filter((b) => b && typeof b.rid === 'string' && /^[a-f0-9]{16}$/.test(b.rid) && typeof b.name === 'string').slice(-200);
   save.secrets.found = [...new Set(save.secrets.found.filter((n) => Number.isInteger(n) && n >= 1 && n <= 40))];
   // Items only a purchase gives: kept only with the purchase (Google Play restores it on launch).

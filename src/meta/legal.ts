@@ -58,7 +58,7 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'Contact',
-    body: 'Soft Game Bros. Data and privacy requests: privacy@softgamebros.com. Safety concerns: safety@softgamebros.com. Help with the game: polygonrush@softgamebros.com.',
+    body: 'Soft-Game Brothers. Data and privacy requests: privacy@softgamebros.com. Safety concerns: safety@softgamebros.com. Help with the game: polygonrush@softgamebros.com.',
   },
 ];
 

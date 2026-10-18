@@ -37,11 +37,11 @@ export interface GenOptions {
   heatFloor?: number;
   /** Endless: scale shape sections (shorter = more shape changes). */
   sectionScale?: number;
-  /** Endless: hide a secret egg somewhere in each level (classic Endless only). */
+  /** Endless: hide a Golden Shape somewhere in each level (classic Endless only). */
   secrets?: boolean;
 }
 
-/** Levels that have a secret egg (matches the Levels screen). */
+/** Levels that have a Golden Shape (matches the Levels screen). */
 export const SECRET_LEVELS = 40;
 
 export interface BeatGrid {

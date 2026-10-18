@@ -1,11 +1,11 @@
 {
   "name": "polygon-rush",
   "private": true,
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Polygon Rush - an endless shape-shifting runner. Rush, jump, flip and fly through infinite polygon worlds solo, against rivals, or with friends.",
   "type": "module",
   "license": "UNLICENSED",
-  "author": "Soft Game Bros <polygonrush@softgamebros.com>",
+  "author": "Soft-Game Brothers <polygonrush@softgamebros.com>",
   "homepage": "https://softgamebros.com/polygon-rush/",
   "engines": {
     "node": ">=22"

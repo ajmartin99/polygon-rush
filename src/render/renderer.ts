@@ -48,7 +48,7 @@ export interface RenderOptions {
   markers?: { x: number; label: string; color: string }[];
   /** Halloween dressing: moon and bats, ground fog, saws as jack-o'-lanterns. */
   haunted?: boolean;
-  /** Secret eggs already found (drawn faded). */
+  /** Golden Shapes already found (drawn faded). */
   secretsFound?: readonly number[];
 }
 
@@ -250,7 +250,7 @@ export class Renderer {
           if (!collected?.has(o.id)) this.drawPickup(o.type, sx(o.x), sy(o.y) + Math.sin(time * 3) * s * 0.08, s, time);
           break;
         case 'secret':
-          if (!collected?.has(o.id)) this.drawEgg(sx(o.x), sy(o.y) + Math.sin(time * 2.5) * s * 0.07, s, time, !!this.secretsFound.includes(o.level));
+          if (!collected?.has(o.id)) this.drawGoldenShape(sx(o.x), sy(o.y) + Math.sin(time * 2.5) * s * 0.07, s, time, !!this.secretsFound.includes(o.level), o.level);
           break;
         case 'box':
           if (!collected?.has(o.id)) this.drawBox(sx(o.x), sy(o.y) + Math.sin(time * 3 + o.x) * s * 0.08, s, time);
@@ -702,11 +702,16 @@ export class Renderer {
     ctx.globalAlpha = 1;
   }
 
-  /** A golden egg with a soft glow and a twinkle (faded once found). */
-  private drawEgg(px: number, py: number, s: number, t: number, found: boolean): void {
+  /**
+   * A Golden Shape: a spinning gold runner form (square, triangle, hexagon or
+   * diamond, by level) with a soft glow and a twinkle (faded once found).
+   */
+  private drawGoldenShape(px: number, py: number, s: number, t: number, found: boolean, level: number): void {
     const ctx = this.ctx;
-    const w = 0.36 * s;
-    const hgt = 0.48 * s;
+    const r = 0.38 * s;
+    const sides = [4, 3, 6, 4][(level - 1) % 4];
+    const tilt = (level - 1) % 4 === 3 ? 0 : sides === 3 ? -Math.PI / 2 : sides === 4 ? Math.PI / 4 : 0;
+    const spin = Math.sin(t * 1.6) * 0.35;
     ctx.save();
     ctx.globalAlpha = found ? 0.45 : 1;
     const glow = ctx.createRadialGradient(px, py, 0, px, py, s * 1.1);
@@ -714,36 +719,45 @@ export class Renderer {
     glow.addColorStop(1, 'rgba(255,224,102,0)');
     ctx.fillStyle = glow;
     ctx.fillRect(px - s * 1.1, py - s * 1.1, s * 2.2, s * 2.2);
-    const body = ctx.createLinearGradient(px - w, py - hgt, px + w, py + hgt);
+    ctx.translate(px, py);
+    // A coin-like turn: squash the width as it spins.
+    ctx.scale(0.55 + 0.45 * Math.abs(Math.cos(t * 2.2)), 1);
+    ctx.rotate(spin);
+    const pts: [number, number][] = [];
+    for (let i = 0; i < sides; i++) {
+      const a = tilt + (i / sides) * Math.PI * 2;
+      const rr = (level - 1) % 4 === 3 && i % 2 === 0 ? r * 0.68 : r * ((level - 1) % 4 === 3 ? 1.15 : 1);
+      pts.push([Math.cos(a) * rr, Math.sin(a) * rr]);
+    }
+    const body = ctx.createLinearGradient(-r, -r, r, r);
     body.addColorStop(0, found ? '#d8d2ff' : '#fff3b0');
     body.addColorStop(0.5, found ? '#a99cf0' : '#ffd23f');
     body.addColorStop(1, found ? '#6f62c2' : '#e09a00');
     ctx.fillStyle = body;
     ctx.beginPath();
-    ctx.moveTo(px, py - hgt);
-    ctx.bezierCurveTo(px + w * 1.05, py - hgt, px + w * 1.15, py + hgt * 0.75, px, py + hgt * 0.75);
-    ctx.bezierCurveTo(px - w * 1.15, py + hgt * 0.75, px - w * 1.05, py - hgt, px, py - hgt);
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.closePath();
     ctx.fill();
-    ctx.strokeStyle = 'rgba(80,40,0,0.55)';
-    ctx.lineWidth = Math.max(1, s * 0.05);
+    ctx.strokeStyle = 'rgba(80,40,0,0.6)';
+    ctx.lineWidth = Math.max(1, s * 0.06);
+    ctx.lineJoin = 'round';
     ctx.stroke();
-    // Zigzag band.
-    ctx.strokeStyle = found ? '#ffffff' : '#ff7af0';
-    ctx.lineWidth = Math.max(1.5, s * 0.07);
+    // Inner bevel.
+    ctx.strokeStyle = found ? 'rgba(255,255,255,0.7)' : 'rgba(255,248,210,0.9)';
+    ctx.lineWidth = Math.max(1, s * 0.035);
     ctx.beginPath();
-    for (let i = 0; i <= 6; i++) {
-      const x = px - w * 0.95 + (i / 6) * w * 1.9;
-      const y = py + hgt * 0.05 + (i % 2 ? -1 : 1) * hgt * 0.1;
-      if (i) ctx.lineTo(x, y);
-      else ctx.moveTo(x, y);
-    }
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x * 0.6, y * 0.6) : ctx.moveTo(x * 0.6, y * 0.6)));
+    ctx.closePath();
     ctx.stroke();
+    ctx.restore();
+    ctx.save();
+    ctx.globalAlpha = found ? 0.45 : 1;
     // Twinkle.
     const tw = 0.5 + 0.5 * Math.sin(t * 5);
     ctx.fillStyle = `rgba(255,255,255,${0.5 + 0.5 * tw})`;
     const sp = s * (0.08 + 0.06 * tw);
-    const cx = px + w * 0.45;
-    const cy = py - hgt * 0.55;
+    const cx = px + r * 0.55;
+    const cy = py - r * 0.65;
     ctx.beginPath();
     ctx.moveTo(cx, cy - sp * 2);
     ctx.lineTo(cx + sp * 0.5, cy);

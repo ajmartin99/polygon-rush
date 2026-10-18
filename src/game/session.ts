@@ -37,7 +37,7 @@ export interface SessionOptions {
   startMode?: GenOptions['startMode'];
   heatFloor?: number;
   sectionScale?: number;
-  /** Endless: hide a secret egg in each level. */
+  /** Endless: hide a Golden Shape in each level. */
   secrets?: boolean;
   tutorial?: boolean;
   /** Race length (race/duel/online). */

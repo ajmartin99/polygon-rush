@@ -8,8 +8,9 @@ const svg = (body: string, vb = '0 0 24 24'): string =>
 export const ICONS = {
   thumbUp: svg(`<path d="M7 10v10H4a1 1 0 0 1-1-1v-8a1 1 0 0 1 1-1zm2 0 4-7a2.2 2.2 0 0 1 3 2.6L15 9h4.6a2 2 0 0 1 2 2.4l-1.5 7A2 2 0 0 1 18.1 20H9z" fill="currentColor"/>`),
   thumbDown: svg(`<path d="M7 14V4H4a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1zm2 0 4 7a2.2 2.2 0 0 0 3-2.6L15 15h4.6a2 2 0 0 0 2-2.4l-1.5-7A2 2 0 0 0 18.1 4H9z" fill="currentColor"/>`),
+  /** A Golden Shape (the hidden collectible): a gold hexagon with the four runner forms' corners. */
   egg: svg(
-    `<path d="M12 2.5c3.9 0 7 6.3 7 11 0 4.4-3.1 7.5-7 7.5s-7-3.1-7-7.5c0-4.7 3.1-11 7-11z" fill="#ffd23f" stroke="#7a4a00" stroke-width="1.3"/><path d="M5.6 12.4l2.1-1.6 2.1 1.6 2.2-1.6 2.1 1.6 2.1-1.6 2.2 1.6" fill="none" stroke="#ff5fa2" stroke-width="1.6" stroke-linejoin="round"/><path d="M15 6.5l.6 1.4 1.4.6-1.4.6-.6 1.4-.6-1.4-1.4-.6 1.4-.6z" fill="#fff"/>`,
+    `<path d="M12 2.2l8.5 4.9v9.8L12 21.8l-8.5-4.9V7.1z" fill="#ffd23f" stroke="#7a4a00" stroke-width="1.3" stroke-linejoin="round"/><path d="M12 2.2v9.8l8.5-4.9M12 12l-8.5-4.9" fill="none" stroke="#fff3b0" stroke-width="1.1" stroke-linejoin="round"/><path d="M12 12v9.8" stroke="#e09a00" stroke-width="1.1"/><path d="M16.6 4.6l.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5z" fill="#fff"/>`,
   ),
   gem: svg(
     `<path d="M6 3h12l4 6-10 12L2 9z" fill="#3ad7ff"/><path d="M2 9h20L12 21z" fill="#1fa6e0"/><path d="M6 3l3 6h6l3-6z" fill="#8ff0ff"/><path d="M9 9l3 12 3-12z" fill="#5fe2ff"/><path d="M6 3h12l4 6-10 12L2 9z" fill="none" stroke="#0b3f66" stroke-width="1.4" stroke-linejoin="round"/>`,
@@ -93,7 +94,7 @@ export const ICONS = {
     `<path d="M12 2.5 20 5.5v6c0 5-3.4 8.6-8 10-4.6-1.4-8-5-8-10v-6z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><rect x="8.5" y="11" width="7" height="5.5" rx="1" fill="currentColor"/><path d="M10 11V9.5a2 2 0 0 1 4 0V11" fill="none" stroke="currentColor" stroke-width="1.8"/>`,
   ),
   dice: svg(
-    `<rect x="3" y="3" width="18" height="18" rx="4" fill="currentColor"/><circle cx="8" cy="8" r="1.7" fill="#21125a"/><circle cx="16" cy="8" r="1.7" fill="#21125a"/><circle cx="12" cy="12" r="1.7" fill="#21125a"/><circle cx="8" cy="16" r="1.7" fill="#21125a"/><circle cx="16" cy="16" r="1.7" fill="#21125a"/>`,
+    `<rect x="3" y="3" width="18" height="18" rx="4" fill="#ffffff" stroke="#21125a" stroke-width="1.4"/><circle cx="8" cy="8" r="1.7" fill="#21125a"/><circle cx="16" cy="8" r="1.7" fill="#21125a"/><circle cx="12" cy="12" r="1.7" fill="#21125a"/><circle cx="8" cy="16" r="1.7" fill="#21125a"/><circle cx="16" cy="16" r="1.7" fill="#21125a"/>`,
   ),
   copy: svg(
     `<rect x="8" y="8" width="12.5" height="12.5" rx="2.5" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M5 15.5H4.5a1.5 1.5 0 0 1-1.5-1.5V4.5A1.5 1.5 0 0 1 4.5 3H14a1.5 1.5 0 0 1 1.5 1.5V5" fill="none" stroke="currentColor" stroke-width="2.2"/>`,

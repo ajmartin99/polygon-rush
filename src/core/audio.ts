@@ -347,14 +347,14 @@ class AudioEngine {
    * position calls for. Only nudges when it has drifted (a slow-down, a
    * boost, a loop or a late start), with a quick dip so the jump isn't heard.
    */
-  syncTo(id: number, seconds: number): void {
+  syncTo(id: number, seconds: number, tolerance = 0.3, cooldownMs = 3000): void {
     const el = this.trackEl;
     if (!el || !this.ctx || this.trackId !== id || this.audible?.el !== el || el.seeking || !isFinite(el.duration) || el.duration <= 0) return;
     const want = seconds % el.duration;
     const drift = Math.abs(el.currentTime - want);
-    if (drift < 0.3 || drift > el.duration - 0.3) return;
+    if (drift < tolerance || drift > el.duration - tolerance) return;
     const now = performance.now();
-    if (now - this.lastSync < 3000) return;
+    if (now - this.lastSync < cooldownMs) return;
     this.lastSync = now;
     const g = this.audible.g;
     const level = g.gain.value;

@@ -52,6 +52,10 @@ export type PlayRequest =
       onResult?: (r: LevelRunResult) => void;
       /** Community levels: thumbs up/down on the results screen. */
       rate?: LevelRating;
+      /** Haunted Run: its difficulty (beat sync, payout, attempts). */
+      haunted?: 'hard' | 'easy';
+      /** Replaces Retry / Restart (the Haunted Run spends an attempt). */
+      onRetry?: () => void;
     };
 
 export interface LevelRating {

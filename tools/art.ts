@@ -4,6 +4,7 @@
  * so marketing art always matches the game. Driven by scripts/generate-art.mjs.
  */
 import '@fontsource/fredoka/latin-700.css';
+import '@fontsource/fredoka/latin-500.css';
 import { drawCharacter, drawParticleShape } from '../src/render/character';
 import { BIOMES, lighten, rgba } from '../src/render/biomes';
 import { skinById } from '../src/meta/catalog';
@@ -231,17 +232,50 @@ function render(kind: Kind, w: number, h: number): string {
       break;
     }
     case 'splash': {
-      const g = ctx.createRadialGradient(w / 2, h * 0.45, 0, w / 2, h / 2, Math.max(w, h) * 0.7);
-      g.addColorStop(0, '#3a1f8f');
-      g.addColorStop(1, '#1a1040');
-      ctx.fillStyle = g;
+      // The studio card (matches the app's own boot card in index.html, so the hand-off is seamless).
+      ctx.fillStyle = '#1a1040';
       ctx.fillRect(0, 0, w, h);
-      hero(ctx, w / 2 + m * 0.03, h / 2 - m * 0.12, m * 0.22);
-      title(ctx, w / 2, h / 2 + m * 0.12, m * 0.075);
+      studioCard(ctx, w / 2, h / 2, m);
       break;
     }
   }
   return c.toDataURL('image/png');
+}
+
+/**
+ * Soft-Game Brothers card: the studio mark (square, triangle, circle), the
+ * name and the website, laid out like the boot card (16px = 1rem at 360dp).
+ */
+function studioCard(ctx: CanvasRenderingContext2D, cx: number, cy: number, m: number): void {
+  const rem = m / 22.5;
+  const mark = 5.5 * rem;
+  const top = cy - (mark + 0.75 * rem + 2.4 * rem + 0.35 * rem + 1.3 * rem) / 2;
+  const u = mark / 34;
+  const x0 = cx - mark / 2;
+  ctx.fillStyle = '#ffd23f';
+  ctx.beginPath();
+  ctx.roundRect(x0 + 2 * u, top + 14 * u, 14 * u, 14 * u, 3 * u);
+  ctx.fill();
+  ctx.fillStyle = '#3ee6b0';
+  ctx.beginPath();
+  ctx.moveTo(x0 + 24 * u, top + 4 * u);
+  ctx.lineTo(x0 + 32 * u, top + 18 * u);
+  ctx.lineTo(x0 + 16 * u, top + 18 * u);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#ff6fae';
+  ctx.beginPath();
+  ctx.arc(x0 + 25 * u, top + 26 * u, 6 * u, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `700 ${2 * rem}px Fredoka`;
+  const nameY = top + mark + 0.75 * rem + 1.2 * rem;
+  ctx.fillText('Soft-Game Brothers', cx, nameY);
+  ctx.fillStyle = '#3ee6b0';
+  ctx.font = `500 ${1.05 * rem}px Fredoka`;
+  ctx.fillText('softgamebros.com', cx, nameY + 1.2 * rem + 0.35 * rem + 0.65 * rem);
 }
 
 declare global {
@@ -252,6 +286,7 @@ declare global {
 
 window.renderArt = async (kind, w, h) => {
   await document.fonts.load('700 40px Fredoka');
+  await document.fonts.load('500 40px Fredoka');
   await document.fonts.ready;
   return render(kind, w, h);
 };

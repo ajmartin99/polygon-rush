@@ -1,3 +1,4 @@
+import { openHauntedRun } from './haunted-run';
 import { activeEvent, eventEndLabel, giftKey } from '../meta/events';
 import { skinById, trailById } from '../meta/catalog';
 import { store } from '../state/store';
@@ -35,7 +36,7 @@ export function openEventModal(): void {
   const m = ui.modal(
     [
       h('h2', null, `🎃 ${ev.name}`),
-      h('p.muted', null, `Spooky skins, trails, a haunted Daily Run and a Halloween tune, ${eventEndLabel(ev)}. Everything you get is yours to keep.`),
+      h('p.muted', null, `Spooky skins, trails, the Haunted Run and a Halloween tune, ${eventEndLabel(ev)}. Everything you get is yours to keep.`),
       ev.gift.kind === 'skin' ? previewCanvas({ skin: ev.gift.id, animate: true, scale: 0.6 }, 'hero-preview') : null,
       h('p', null, claimed ? `You have the ${giftName}. Happy Halloween!` : `Your free gift: the ${giftName} skin!`),
       h(
@@ -43,7 +44,7 @@ export function openEventModal(): void {
         null,
         button({ label: 'Halloween shop', icon: 'cart', cls: 'ghost lg', onClick: () => (m.close(), nav.go('shop')) }),
         claimed
-          ? button({ label: 'Haunted Daily Run', icon: 'play', cls: 'orange lg', onClick: () => (m.close(), nav.play({ mode: 'endless', variant: 'daily' })) })
+          ? button({ label: 'Haunted Run', icon: 'play', cls: 'orange lg', onClick: () => (m.close(), openHauntedRun()) })
           : button({
               label: 'Claim gift',
               icon: 'gift',

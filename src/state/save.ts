@@ -3,6 +3,7 @@
  * shape changes so existing players never lose progress.
  */
 import { LEVEL_NOMINAL } from '../game/levels';
+import type { BossId, BossProgress } from '../meta/bosses';
 import { DIFFICULTIES, type Difficulty } from '../game/constants';
 import { FREE_EMOTES } from '../meta/emotes';
 import { SKINS, TRAILS, type Unlock } from '../meta/catalog';
@@ -131,6 +132,8 @@ export interface SaveData {
   secrets: { found: number[] };
   /** Haunted Run attempts, Heart Regens and records. */
   haunted: HauntedState;
+  /** Boss Battles: wins and best damage per boss. */
+  bosses: BossProgress;
   /** Players you banned from rooms you host (anonymous room id + their name then). */
   roomBans: { rid: string; name: string; at: number }[];
   /** Played the beta (1.0.x): exclusive rewards granted. */
@@ -232,6 +235,7 @@ export function createSave(now = Date.now()): SaveData {
     secrets: { found: [] },
     roomBans: [],
     haunted: emptyHaunted(),
+    bosses: {},
     beta: { tester: false, version: '', at: 0 },
     best: {},
     levels: {},
@@ -289,6 +293,10 @@ export function migrate(raw: unknown): SaveData {
   save.phrases.owned = str(save.phrases.owned);
   save.haunted.used = Math.max(0, Math.floor(save.haunted.used) || 0);
   save.haunted.regens = Math.max(0, Math.min(999, Math.floor(save.haunted.regens) || 0));
+  for (const [k, rec] of Object.entries(save.bosses)) {
+    if (!isObj(rec)) delete (save.bosses as Record<string, unknown>)[k];
+    else save.bosses[k as BossId] = { wins: Math.max(0, Math.floor(Number(rec.wins)) || 0), best: Math.max(0, Math.min(1, Number(rec.best) || 0)) };
+  }
   save.roomBans = save.roomBans.filter((b) => b && typeof b.rid === 'string' && /^[a-f0-9]{16}$/.test(b.rid) && typeof b.name === 'string').slice(-200);
   // Levels became one song long: older saves unlock levels from their best distance.
   for (const [k, m] of Object.entries(save.best)) {

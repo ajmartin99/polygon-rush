@@ -1,3 +1,5 @@
+import { BOSSES } from '../../meta/bosses';
+import { openBosses } from '../bosses';
 import { DIFFICULTY_NAMES } from '../../state/save';
 import { store } from '../../state/store';
 import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, MAX_START_LEVEL, dailyRewardKey, dailySeed, dailyTwist, unlockedLevels, variantBestKey, VARIANT_INFO, type EndlessVariant } from '../../meta/modes';
@@ -34,6 +36,7 @@ export class ModesScreen extends BaseScreen {
     const haunted = activeEvent()?.id === 'halloween';
     const hs = d.haunted;
     const left = haunted ? attemptsLeft(hs) : 0;
+    const bossesBeaten = BOSSES.filter((b) => (d.bosses[b.id]?.wins ?? 0) > 0).length;
     const cards: ModeCard[] = [
       ...(haunted
         ? [
@@ -88,6 +91,16 @@ export class ModesScreen extends BaseScreen {
         tag: DIFFICULTY_NAMES[d.settings.difficulty],
         stat: best('oneheart') ? `Best ${fmt(best('oneheart'))} m` : undefined,
         go: endless('oneheart'),
+      },
+      {
+        id: 'bosses',
+        name: 'Boss Battles',
+        blurb: 'A giant boss attacks on the beat. Grab the glowing orbs to fire back and drain its health before its song ends!',
+        icon: 'crown',
+        color: 'orange',
+        tag: `${bossesBeaten} of ${BOSSES.length} beaten`,
+        stat: bossesBeaten < BOSSES.length ? `Next: ${BOSSES.find((b) => !d.bosses[b.id]?.wins)!.name}` : 'All beaten!',
+        go: () => openBosses(),
       },
       {
         id: 'rhythm',

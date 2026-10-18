@@ -1,3 +1,4 @@
+import type { BossId } from '../meta/bosses';
 import type { EndlessVariant } from '../meta/modes';
 import type { Screen } from './ui';
 import { ui } from './ui';
@@ -54,6 +55,8 @@ export type PlayRequest =
       rate?: LevelRating;
       /** Haunted Run: its difficulty (beat sync, payout, attempts). */
       haunted?: 'hard' | 'easy';
+      /** Boss Battles: which boss (its health bar, orbs and rewards). */
+      boss?: BossId;
       /** Replaces Retry / Restart (the Haunted Run spends an attempt). */
       onRetry?: () => void;
     };

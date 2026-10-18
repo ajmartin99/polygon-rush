@@ -10,7 +10,7 @@ import type { NetRoom } from '../services/net';
 import { applyXp, endlessXp, leagueFor, LEAGUES, raceReward, REVIVE_GEM_COST, type LevelUp } from '../meta/economy';
 import { describe, reportMission, type MissionEvent } from '../meta/missions';
 import { skinById, trailById } from '../meta/catalog';
-import { Renderer, type ViewSpec } from '../render/renderer';
+import { Renderer, type BossView, type ViewSpec } from '../render/renderer';
 import { BIOMES, paletteAt, paletteInLevel, type Palette } from '../render/biomes';
 import { drawEndlessHud, drawRhythmHud, drawLevelHud, drawRaceHud } from '../render/hud';
 import { nav, type LevelRunResult, type PlayRequest, type Rival } from '../ui/nav';
@@ -31,6 +31,7 @@ import { HAUNTED_TRACK, hauntedPayout } from '../meta/haunted';
 import { InputManager } from './input';
 import type { Racer, RacerSpec } from './racer';
 import { RhythmScore } from './rhythm';
+import { BOSSES, bossById, bossHealth, bossReward, type BossDef } from '../meta/bosses';
 import type { ChaserEvent, ChaserKind } from './chaser';
 import { GameSession, type BoxItem, type SessionKind } from './session';
 import { SHAPE_INFO, type ShapeMode } from './shapes';
@@ -71,6 +72,8 @@ export class GameController {
   private hud: GameHud | null = null;
   private req: PlayRequest | null = null;
   private variant: EndlessVariant = 'classic';
+  /** Boss Battles: the boss being fought (null in other modes). */
+  private boss: (BossView & { def: BossDef }) | null = null;
   /** Rhythm Rush scoring (null in other modes). */
   private rhythm: RhythmScore | null = null;
   /** The press state last step (Rhythm Rush judges each new press). */
@@ -226,6 +229,11 @@ export class GameController {
       case 'custom': {
         this.kind = 'custom';
         this.session = new GameSession({ kind: 'custom', seed: 1, level: req.level, startX: req.startX, racers: [me], chaser: req.haunted });
+        const def = req.boss ? bossById(req.boss) : undefined;
+        if (def) {
+          const { hp } = bossHealth(req.level);
+          this.boss = { def, name: def.name, shape: def.shape, color: def.color, hp, max: hp, hit: 0, shot: 0, down: 0 };
+        }
         break;
       }
       case 'endless': {
@@ -341,7 +349,7 @@ export class GameController {
     } else if (this.kind === 'custom' && req.mode === 'custom') {
       music.level(req.level.music, req.level.theme, !!req.haunted);
       const track = trackOf(req.level.music);
-      if (track && !req.haunted) ui.toast(`♪ ${track.title} by ${track.artist} (${track.license})`, 'music', 3000);
+      if (track && !req.haunted && !req.boss) ui.toast(`♪ ${track.title} by ${track.artist} (${track.license})`, 'music', 3000);
       audio.intensity = 0.7;
       this.go();
       hud.showHint(levelName(req.level), req.level.authors.length ? `by ${req.level.authors.join(', ')}` : 'Tap or hold to play!', 1800, '40%');
@@ -388,6 +396,7 @@ export class GameController {
       this.room = null;
     }
     this.keepRoom = false;
+    this.boss = null;
     this.session = null;
     this.kind = null;
     this.phase = 'idle';
@@ -441,6 +450,7 @@ export class GameController {
         haptics.medium();
       }),
       s.on('gem', ({ racer, value, x, y }) => {
+        if (this.boss && value > 1 && local(racer)) return this.bossHit(racer);
         if (local(racer) || this.kind === 'attract') this.renderer.fx.gem(x, y, value, local(racer));
         if (!local(racer)) return;
         audio.play(value > 1 ? 'bigGem' : 'gem');
@@ -500,6 +510,28 @@ export class GameController {
         this.onFinish(racer, place);
       }),
     );
+  }
+
+  /** Boss Battles: a charge orb grabbed fires straight back at the boss. */
+  private bossHit(r: Racer): void {
+    const b = this.boss;
+    if (!b || b.hp <= 0) return;
+    b.hp -= 1;
+    b.hit = 0.3;
+    b.shot = 1;
+    audio.play('boost');
+    haptics.medium();
+    if (b.hp > 0) return;
+    // Defeated! It spins away; the run ends a moment later as a win.
+    b.down = 1;
+    r.invuln = 10;
+    this.renderer.fx.addShake(0.6);
+    this.hud?.showHint(`${b.name} defeated!`, 'You win!', 1800, '30%');
+    setTimeout(() => audio.play('newBest'), 250);
+    if (this.phase === 'running') {
+      this.phase = 'finishing';
+      this.finishTimer = window.setTimeout(() => this.endLevel(r, true), 1800);
+    }
   }
 
   /** Haunted Run: the zombie / ghost on your heels. */
@@ -632,6 +664,12 @@ export class GameController {
     }
     this.updateMusic();
     this.progressEvents();
+    const b = this.boss;
+    if (b && this.phase !== 'paused') {
+      b.hit = Math.max(0, b.hit - raw);
+      b.shot = Math.max(0, b.shot - raw * 4);
+      if (b.down > 0) b.down = Math.max(0.001, b.down - raw * 0.7);
+    }
     this.draw(raw);
   };
 
@@ -692,6 +730,7 @@ export class GameController {
       haunted: this.paletteFor(this.session?.racers[0]?.x ?? 0) === SPOOKY,
       secretsFound: store.data.secrets.found,
       chaser: s.chaser,
+      boss: this.kind === 'custom' && this.phase !== 'results' ? this.boss : null,
       lightsOut: this.kind === 'endless' && this.variant === 'lightsout' ? lightsFlash(audio.beatPhase()) : undefined,
     });
     if (this.kind === 'attract' || this.phase === 'results') return;
@@ -701,7 +740,7 @@ export class GameController {
         drawEndlessHud(ctx, v.rect, v.racer, store.data.best[this.bestKey()] ?? 0, this.renderer.dpr, this.variant === 'gemrush' ? { timer: Math.max(0, GEM_RUSH_SECONDS - s.time) } : this.variant === 'classic' ? undefined : { label: VARIANT_INFO[this.variant].name });
         if (this.rhythm) drawRhythmHud(ctx, v.rect, this.rhythm.score, this.rhythm.combo, this.rhythm.mult, audio.beatPhase(), this.renderer.dpr);
       } else if (this.kind === 'custom' && this.req?.mode === 'custom') {
-        drawLevelHud(ctx, v.rect, s, v.racer, this.renderer.dpr, levelName(this.req.level), this.req.level.best);
+        drawLevelHud(ctx, v.rect, s, v.racer, this.renderer.dpr, this.boss ? '' : levelName(this.req.level), this.req.level.best);
       } else {
         drawRaceHud(ctx, v.rect, s, v.racer, this.renderer.dpr, v.label, v.labelColor);
       }
@@ -780,8 +819,8 @@ export class GameController {
       audio.intensity = Math.min(1, 0.55 + me.distance / 600);
       // Haunted Run: the course is charted to Swing Along, so keep the song exactly where the runner is.
       const req = this.req;
-      if (req?.mode === 'custom' && req.haunted && this.phase === 'running' && ++this.syncTick % 10 === 0) {
-        audio.syncTo(HAUNTED_TRACK, Math.max(0, (me.x - (LEVEL_START_X + 0.5)) / levelSpeed(req.level)), 0.06, 900);
+      if (req?.mode === 'custom' && (req.haunted || req.boss) && this.phase === 'running' && ++this.syncTick % 10 === 0) {
+        audio.syncTo(req.haunted ? HAUNTED_TRACK : req.level.music, Math.max(0, (me.x - (LEVEL_START_X + 0.5)) / levelSpeed(req.level)), 0.06, 900);
       }
     } else if (this.kind !== 'attract') {
       audio.intensity = 0.8;
@@ -971,7 +1010,7 @@ export class GameController {
     const report = (e: MissionEvent) => {
       for (const m of reportMission(d, e, 1)) missions.push(describe(m));
     };
-    if (completed && fromStart && !req.haunted) {
+    if (completed && fromStart && !req.haunted && !req.boss) {
       if (req.test && verifiedNow) report('level_verify');
       else if (!req.test && level.origin !== 'mine' && level.length >= 60) report('custom_clear');
     }
@@ -987,6 +1026,21 @@ export class GameController {
       } else if (pay > 0) missions.push(`Haunted Run: +${pay} gems${diff === 'easy' ? ' (Easy pays half)' : ''}`);
       d.stats.gemsCollected += r.gems;
       if (s.chaser?.caught && !missions.length) missions.push('Clear obstacles cleanly and grab gems to keep it back');
+    }
+    const boss = this.boss;
+    if (req.boss && boss) {
+      const def = boss.def;
+      const rec = d.bosses[def.id] ?? { wins: 0, best: 0 };
+      rec.best = Math.max(rec.best, 1 - boss.hp / boss.max);
+      if (completed) {
+        const pay = bossReward(d.bosses, def);
+        rec.wins += 1;
+        store.addGems(pay);
+        missions.push(`${def.name} defeated! +${pay} gems`);
+        const next = BOSSES[BOSSES.indexOf(def) + 1];
+        if (next && rec.wins === 1) missions.push(`${next.name} is ready for you!`);
+      } else missions.push(`${def.name} had ${boss.hp} of ${boss.max} health left. Grab the glowing orbs to hit it!`);
+      d.bosses[def.id] = rec;
     }
     if (missions.length) {
       ui.sfx('reward');
@@ -1006,7 +1060,8 @@ export class GameController {
         hits: r.hits,
         verifiedNow,
         missionsDone: missions,
-        notesTitle: req.haunted ? (s.chaser?.caught ? (s.chaser.kind === 'ghost' ? 'The ghost caught you! 👻' : 'The zombie caught you! 🧟') : 'Haunted Run') : undefined,
+        win: req.boss && this.boss ? { big: 'VICTORY!', sub: `You beat ${this.boss.name}!` } : undefined,
+        notesTitle: req.boss ? (completed ? 'Boss defeated!' : r.dead ? 'Knocked out!' : 'It got away!') : req.haunted ? (s.chaser?.caught ? (s.chaser.kind === 'ghost' ? 'The ghost caught you! 👻' : 'The zombie caught you! 🧟') : 'Haunted Run') : undefined,
         rate: req.rate,
       },
       {
@@ -1068,12 +1123,15 @@ export class GameController {
       audio.play(place === 1 ? 'win' : 'finish');
       haptics.success();
       if (this.kind === 'online') this.room?.sendFinish(r.finishTime);
-      if (this.kind !== 'duel') this.hud?.showHint(place === 1 ? 'You win!' : 'Finished!', '', 1600, '30%');
+      if (this.kind !== 'duel' && !this.boss) this.hud?.showHint(place === 1 ? 'You win!' : 'Finished!', '', 1600, '30%');
     }
     if (this.kind === 'custom') {
       if (r.kind === 'human' && this.phase === 'running') {
         this.phase = 'finishing';
-        this.finishTimer = window.setTimeout(() => this.endLevel(r, true), 1400);
+        // A boss still standing when the song ends gets away.
+        const escaped = !!this.boss && this.boss.hp > 0;
+        if (escaped) this.hud?.showHint(`${this.boss!.name} got away!`, '', 1600, '30%');
+        this.finishTimer = window.setTimeout(() => this.endLevel(r, !escaped), 1400);
       }
       return;
     }

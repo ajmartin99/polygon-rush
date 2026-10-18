@@ -55,6 +55,23 @@ export interface RenderOptions {
   chaser?: Chaser | null;
   /** Lights Out: the course is dark; 0..1 is how bright the beat flash is right now. */
   lightsOut?: number;
+  /** Boss Battles: the boss (big gems are drawn as its charge orbs). */
+  boss?: BossView | null;
+}
+
+/** What the renderer needs to draw a boss fight. */
+export interface BossView {
+  name: string;
+  shape: 'square' | 'triangle' | 'hexagon';
+  color: string;
+  hp: number;
+  max: number;
+  /** Seconds left on the hit flash / recoil. */
+  hit: number;
+  /** Shot in flight: 1 just fired → 0 landed. */
+  shot: number;
+  /** Defeated: 1 → 0 as it shrinks away (0 = still fighting). */
+  down: number;
 }
 
 /** A free camera for scenes without a racer (the editor). */
@@ -163,6 +180,8 @@ export class Renderer {
   /** The runner's x for the view being drawn (moving saws follow it). */
   private runnerX = 0;
   private haunted = false;
+  private bossFight = false;
+  private beatPhase = 0;
   private secretsFound: readonly number[] = [];
 
   private drawView(session: GameSession, view: ViewSpec, dt: number, time: number, opts: RenderOptions): void {
@@ -170,6 +189,8 @@ export class Renderer {
     const cam = this.camera(view, dt);
     this.runnerX = view.racer.x;
     this.haunted = !!opts.haunted;
+    this.bossFight = !!opts.boss;
+    this.beatPhase = opts.beat;
     this.secretsFound = opts.secretsFound ?? [];
     const r = view.rect;
     const s = cam.scale;
@@ -208,6 +229,7 @@ export class Renderer {
     if (chaser) this.drawChaser(chaser, sx, sy, s, time);
     if (!me.dead) this.drawRacer(me, sx, sy, s, time, 1, pal);
     this.fx.draw(ctx, sx, sy, s, false, x0, x1);
+    if (opts.boss) this.drawBoss(opts.boss, r, me, sx, sy, s, time);
     if (opts.lightsOut !== undefined) this.drawDarkness(r, sx(me.x), sy(me.body.y), s, opts.lightsOut);
     if (chaser && chaser.danger > 0.35) {
       // Danger glow from the left edge, pulsing like a heartbeat.
@@ -261,7 +283,9 @@ export class Renderer {
           this.drawOrb(sx(o.x), sy(o.y), s, time, usedOrb === o.id);
           break;
         case 'gem':
-          if (!collected?.has(o.id)) this.drawGem(sx(o.x), sy(o.y) + Math.sin(time * 4 + o.x) * s * 0.06, s, o.big, time + o.x);
+          if (collected?.has(o.id)) break;
+          if (this.bossFight && o.big) this.drawChargeOrb(sx(o.x), sy(o.y), s, time + o.x);
+          else this.drawGem(sx(o.x), sy(o.y) + Math.sin(time * 4 + o.x) * s * 0.06, s, o.big, time + o.x);
           break;
         case 'pickup':
           if (!collected?.has(o.id)) this.drawPickup(o.type, sx(o.x), sy(o.y) + Math.sin(time * 3) * s * 0.08, s, time);
@@ -800,6 +824,135 @@ export class Renderer {
     g.addColorStop(1, `rgba(4,2,14,${a})`);
     ctx.fillStyle = g;
     ctx.fillRect(r.x, r.y, r.w, r.h);
+  }
+
+  /** Boss Battles: the boss floating ahead, its health bar, and your shots flying back at it. */
+  private drawBoss(b: BossView, r: ViewRect, me: Racer, sx: (x: number) => number, sy: (y: number) => number, s: number, time: number): void {
+    const ctx = this.ctx;
+    const bx = r.x + r.w * 0.8 + b.hit * s * 1.2;
+    const by = sy(4.4) + Math.sin(time * 2.2) * s * 0.35;
+    const size = s * 1.6 * (b.down > 0 ? b.down : 1) * (1 + 0.06 * Math.max(0, 1 - this.beatPhase * 4));
+    // A shot from the runner to the boss.
+    if (b.shot > 0) {
+      const k = 1 - b.shot;
+      const px = sx(me.x) + (bx - sx(me.x)) * k;
+      const py = sy(me.body.y) + (by - sy(me.body.y)) * k - Math.sin(k * Math.PI) * s * 1.5;
+      const g = ctx.createRadialGradient(px, py, 0, px, py, s * 0.6);
+      g.addColorStop(0, 'rgba(255,255,255,1)');
+      g.addColorStop(0.4, 'rgba(120,240,255,0.9)');
+      g.addColorStop(1, 'rgba(120,240,255,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(px - s * 0.6, py - s * 0.6, s * 1.2, s * 1.2);
+    }
+    if (size > 1) {
+      ctx.save();
+      ctx.translate(bx, by);
+      ctx.rotate(b.down > 0 ? (1 - b.down) * 6 : Math.sin(time * 1.3) * 0.08);
+      ctx.globalAlpha = b.down > 0 ? b.down : 1;
+      const sides = b.shape === 'square' ? 4 : b.shape === 'triangle' ? 3 : 6;
+      const rot = b.shape === 'square' ? Math.PI / 4 : b.shape === 'triangle' ? -Math.PI / 2 : 0;
+      const glow = ctx.createRadialGradient(0, 0, size * 0.4, 0, 0, size * 1.6);
+      glow.addColorStop(0, rgba(b.color, 0.45));
+      glow.addColorStop(1, rgba(b.color, 0));
+      ctx.fillStyle = glow;
+      ctx.fillRect(-size * 1.6, -size * 1.6, size * 3.2, size * 3.2);
+      ctx.beginPath();
+      for (let i = 0; i < sides; i++) {
+        const a = rot + (i / sides) * Math.PI * 2;
+        const x = Math.cos(a) * size;
+        const y = Math.sin(a) * size;
+        if (i) ctx.lineTo(x, y);
+        else ctx.moveTo(x, y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = b.hit > 0 ? '#ffffff' : b.color;
+      ctx.fill();
+      ctx.lineWidth = Math.max(2, s * 0.12);
+      ctx.strokeStyle = darken(b.color, 0.45);
+      ctx.stroke();
+      // Angry eyes looking at you (left), brows down.
+      const ey = -size * 0.12;
+      for (const ex of [-size * 0.32, size * 0.08]) {
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.ellipse(ex, ey, size * 0.15, size * 0.18, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#1b1140';
+        ctx.beginPath();
+        ctx.arc(ex - size * 0.05, ey + size * 0.03, size * 0.08, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.strokeStyle = '#1b1140';
+      ctx.lineWidth = Math.max(2, size * 0.07);
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.5, ey - size * 0.3);
+      ctx.lineTo(-size * 0.18, ey - size * 0.2);
+      ctx.moveTo(size * 0.25, ey - size * 0.3);
+      ctx.lineTo(-size * 0.07, ey - size * 0.2);
+      ctx.stroke();
+      // Grimace.
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.35, size * 0.3);
+      for (let i = 1; i <= 4; i++) ctx.lineTo(-size * 0.35 + i * size * 0.15, size * (i % 2 ? 0.22 : 0.3));
+      ctx.stroke();
+      // A crown for the king of the world.
+      ctx.fillStyle = '#ffd23f';
+      ctx.strokeStyle = '#a06a00';
+      ctx.lineWidth = Math.max(1, size * 0.04);
+      const cy = b.shape === 'triangle' ? -size * 1.05 : -size * 0.95;
+      ctx.beginPath();
+      ctx.moveTo(-size * 0.35, cy + size * 0.2);
+      ctx.lineTo(-size * 0.35, cy - size * 0.05);
+      ctx.lineTo(-size * 0.17, cy + size * 0.07);
+      ctx.lineTo(0, cy - size * 0.15);
+      ctx.lineTo(size * 0.17, cy + size * 0.07);
+      ctx.lineTo(size * 0.35, cy - size * 0.05);
+      ctx.lineTo(size * 0.35, cy + size * 0.2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+    // Health bar with the boss's name.
+    const u = Math.min(r.h, r.w / 1.45) / 22;
+    const bw = r.w * 0.36;
+    const x0 = r.x + (r.w - bw) / 2;
+    // Under the level's progress bar, its name where the level title would be.
+    const y0 = r.y + u * 4.2;
+    ctx.fillStyle = 'rgba(16,8,48,0.7)';
+    ctx.beginPath();
+    ctx.roundRect(x0 - u * 0.3, y0 - u * 0.3, bw + u * 0.6, u * 1.3, u * 0.6);
+    ctx.fill();
+    ctx.fillStyle = b.color;
+    ctx.beginPath();
+    ctx.roundRect(x0, y0, Math.max(0, bw * (b.hp / b.max)), u * 0.7, u * 0.35);
+    ctx.fill();
+    ctx.font = `700 ${Math.round(u * 0.85)}px Fredoka, system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.lineWidth = Math.max(2, u * 0.16);
+    ctx.strokeStyle = 'rgba(16,8,48,0.85)';
+    ctx.strokeText(b.name, r.x + r.w / 2, y0 - u * 0.4);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(b.name, r.x + r.w / 2, y0 - u * 0.4);
+  }
+
+  /** Boss Battles: a charge orb (grab it to fire it back at the boss). */
+  private drawChargeOrb(px: number, py: number, s: number, t: number): void {
+    const ctx = this.ctx;
+    const rr = s * (0.34 + 0.04 * Math.sin(t * 6));
+    const g = ctx.createRadialGradient(px, py, 0, px, py, rr * 2.2);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.35, 'rgba(120,240,255,0.95)');
+    g.addColorStop(0.6, 'rgba(80,140,255,0.45)');
+    g.addColorStop(1, 'rgba(80,140,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(px - rr * 2.2, py - rr * 2.2, rr * 4.4, rr * 4.4);
+    ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+    ctx.lineWidth = Math.max(1, s * 0.05);
+    ctx.beginPath();
+    ctx.arc(px, py, rr * 1.3, t * 3, t * 3 + Math.PI * 1.2);
+    ctx.stroke();
   }
 
   /** Haunted Run chaser: a zombie on the ground (or the ceiling), a ghost in the air. */

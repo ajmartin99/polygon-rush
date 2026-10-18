@@ -1,6 +1,6 @@
 import { BUFFER, CEIL, COYOTE, DT, HAZARD_HALF, PHYS, PLAYER_HALF, STEP_UP } from './constants';
 import type { ShapeMode } from './shapes';
-import type { Solid, World, WorldObj } from './world';
+import { sawY, type Solid, type World, type WorldObj } from './world';
 
 /** Pure physical state of a racer. Plain data so it can be cloned for AI look-ahead. */
 export interface Body {
@@ -293,7 +293,7 @@ export function stepBody(b: Body, held: boolean, world: World, o: StepOpts, ev: 
         if (o.ghost) break;
         const r = obj.r * 0.78 + hh;
         const dx = b.x - obj.x;
-        const dy = b.y - obj.y;
+        const dy = b.y - sawY(obj, b.x);
         if (dx * dx + dy * dy < r * r) ev.hit = true;
         break;
       }

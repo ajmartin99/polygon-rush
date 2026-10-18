@@ -244,7 +244,7 @@ function clamp01(n: number): number {
   return Number.isFinite(n) ? Math.min(1, Math.max(0, n)) : 1;
 }
 
-export const DIFFICULTY_NAMES: Record<Difficulty, string> = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+export const DIFFICULTY_NAMES: Record<Difficulty, string> = { easy: 'Easy', medium: 'Normal', hard: 'Extreme' };
 
 /** Endless records are kept per difficulty (medium keeps the original key). */
 export function endlessBestKey(s: Pick<Settings, 'kidMode' | 'difficulty'>): string {

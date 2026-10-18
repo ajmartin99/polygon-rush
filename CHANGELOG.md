@@ -4,6 +4,15 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+### Added
+- **Beat-synced levels:** each Endless level is built on the beat of the song that plays in it. Obstacles arrive on the beat, and fast songs (drum & bass) feel different from chill ones. Daily Run and races stay identical for everyone.
+- **Endless heats up:** the further you run, the more chaotic it gets. Moving saws drop from the sky, rise from the ground, sweep tunnels and chase the Roller. Patterns come back to back, gaps tighten and the speed keeps climbing.
+- **Difficulty tiers:** Easy (kid friendly, pays 80% gems), Normal, and Extreme (keeps getting harder and pays 1.3x gems).
+
+### Changed
+- Songs no longer cut out between levels: the next song preloads and the two crossfade.
+- Free Chat only appears when the game server can send verification email.
+
 ## [1.0.6] - 2026-10-18
 
 Includes 1.0.5 (a rebuild of 1.0.4).

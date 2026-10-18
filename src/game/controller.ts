@@ -20,7 +20,7 @@ import { roomChatPanel } from '../ui/room-chat';
 import { FREE_EMOTES, emoteIndex } from '../meta/emotes';
 import { decodeLevel, levelName, type LevelContent } from './level';
 import type { Scene } from './scene';
-import { DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED, endlessSpeedAt } from './constants';
+import { DIFFICULTY_GEM_RATE, DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED, endlessSpeedAt } from './constants';
 import { activeEvent, SPOOKY } from '../meta/events';
 import { clampStartLevel, levelStart, levelWorld } from '../meta/modes';
 import { endlessBestKey } from '../state/save';
@@ -753,7 +753,12 @@ export class GameController {
     missions.unshift(...bonus);
     const ups = this.grantXp(xp);
     // Gem Rush is all gems, so it pays out half of them (keeps the shop fair).
-    const payout = v === 'gemrush' ? Math.ceil(r.gems / 2) : r.gems;
+    // Extreme pays 1.3x, Easy a little less (the Daily Run is the same for everyone).
+    const diff = v === 'daily' ? 'medium' : d.settings.difficulty;
+    const rate = d.settings.kidMode ? 1 : DIFFICULTY_GEM_RATE[diff];
+    const base = v === 'gemrush' ? Math.ceil(r.gems / 2) : r.gems;
+    const payout = Math.round(base * rate);
+    if (rate !== 1 && base > 0) missions.push(rate > 1 ? `Extreme bonus: ${base} → ${payout} gems` : `Easy pays ${Math.round(rate * 100)}% gems`);
     store.addGems(payout);
     store.commit();
     void store.flush();

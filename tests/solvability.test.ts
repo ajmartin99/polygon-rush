@@ -186,3 +186,21 @@ describe('beat-synced endless levels', () => {
     expect(a.objs.map((o) => o.x0.toFixed(3)).join()).toBe(b.objs.map((o) => o.x0.toFixed(3)).join());
   });
 });
+
+describe('heat: long runs get chaotic but stay beatable', () => {
+  for (const [seed, diff, dist] of [[91, 'hard', 7000], [92, 'hard', 7000], [93, 'hard', 7000], [101, 'hard', 6000], [102, 'hard', 6000], [103, 'hard', 6000], [104, 'hard', 6000], [94, 'medium', 7000], [95, 'medium', 6000], [105, 'medium', 6000], [106, 'medium', 6000], [96, 'easy', 5000]] as const) {
+    it(`${diff} seed ${seed} to ${dist} m`, () => {
+      const r = playLevel(seed, 'endless', dist, { diff });
+      expect(r.hits, JSON.stringify(r.hits)).toEqual([]);
+    });
+  }
+
+  it('unlocks moving hazards only once the run heats up', () => {
+    const world = new World();
+    const gen = new LevelGen(world, { seed: 97, kind: 'endless', diff: 'hard' });
+    gen.ensure(600);
+    expect(world.objs.some((o) => o.kind === 'saw' && o.move)).toBe(false);
+    gen.ensure(5000);
+    expect(world.objs.filter((o) => o.kind === 'saw' && o.move).length).toBeGreaterThan(10);
+  });
+});

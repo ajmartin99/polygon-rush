@@ -2,7 +2,7 @@ import { CEIL, VIEW_BOTTOM, VIEW_H, VIEW_TOP } from '../game/constants';
 import type { GameSession } from '../game/session';
 import type { Racer } from '../game/racer';
 import { SHAPE_INFO, type ShapeMode } from '../game/shapes';
-import type { World, WorldObj } from '../game/world';
+import { sawY, type World, type WorldObj } from '../game/world';
 import { skinById } from '../meta/catalog';
 import { darken, lighten, rgba, type Palette } from './biomes';
 import { drawCharacter } from './character';
@@ -151,9 +151,13 @@ export class Renderer {
     for (const v of views) this.drawView(session, v, dt, time, opts);
   }
 
+  /** The runner's x for the view being drawn (moving saws follow it). */
+  private runnerX = 0;
+
   private drawView(session: GameSession, view: ViewSpec, dt: number, time: number, opts: RenderOptions): void {
     const ctx = this.ctx;
     const cam = this.camera(view, dt);
+    this.runnerX = view.racer.x;
     const r = view.rect;
     const s = cam.scale;
     const pal = opts.palette(view.racer.x);
@@ -221,7 +225,7 @@ export class Renderer {
           this.drawSpike(pal, sx(o.x), sy(o.y), o.size * s, o.dir);
           break;
         case 'saw':
-          this.drawSaw(pal, sx(o.x), sy(o.y), o.r * s, time);
+          this.drawSaw(pal, sx(o.x), sy(sawY(o, this.runnerX)), o.r * s, time);
           break;
         case 'pad':
           this.drawPad(sx(o.x), sy(o.y), s, o.dir, time);

@@ -34,6 +34,20 @@ export interface Saw extends Base {
   x: number;
   y: number;
   r: number;
+  /**
+   * Moving saw: slides from y=`from` to y=`to` while the runner travels from
+   * `ax` to `bx`. Tied to the runner's position (not the clock), so it is
+   * the same for physics, the bot and the screen.
+   */
+  move?: { ax: number; bx: number; from: number; to: number };
+}
+
+/** Where a (possibly moving) saw is when the runner is at `runnerX`. */
+export function sawY(s: Saw, runnerX: number): number {
+  const m = s.move;
+  if (!m) return s.y;
+  const t = Math.min(1, Math.max(0, (runnerX - m.ax) / (m.bx - m.ax)));
+  return m.from + (m.to - m.from) * t * t * (3 - 2 * t);
 }
 
 export interface Gem extends Base {

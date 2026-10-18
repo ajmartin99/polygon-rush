@@ -31,6 +31,12 @@ export interface GenOptions {
    * the same course whatever music they hear (Daily Run, races).
    */
   beat?: (level: number) => BeatGrid | null;
+  /** Endless: the shape the course starts in (Daily Run twists). */
+  startMode?: ShapeMode;
+  /** Endless: heat never drops below this (moving hazards from the start). */
+  heatFloor?: number;
+  /** Endless: scale shape sections (shorter = more shape changes). */
+  sectionScale?: number;
 }
 
 export interface BeatGrid {
@@ -97,13 +103,14 @@ export class LevelGen {
     this.groundFrom = start - (opts.offset ? 40 : 12);
     this.x = start + (opts.kind === 'race' ? 18 : 14);
     const off = opts.offset ?? 0;
-    this.sectionEnd = opts.kind === 'race' ? this.x + this.rng.range(150, 200) : off + 240 + this.rng.range(0, 60);
+    this.sectionEnd = opts.kind === 'race' ? this.x + this.rng.range(150, 200) : off + (240 + this.rng.range(0, 60)) * (opts.sectionScale ?? 1);
     this.nextPickup = opts.kind === 'endless' ? off + 160 + this.rng.range(0, 80) : Infinity;
     this.nextBox = opts.kind === 'race' ? this.x + 30 : Infinity;
     world.sections.push({ x0: -Infinity, x1: Infinity, mode: 'square', ceiling: false });
     if (opts.kind === 'race' && opts.length) world.finishX = opts.length;
     // Opening runway with a few welcoming gems.
     this.gemLine(start + 5, this.x - 1, 1.1, 1.5);
+    if (opts.kind === 'endless' && opts.startMode && opts.startMode !== 'square') this.transition(opts.startMode);
     this.flush();
   }
 
@@ -136,7 +143,7 @@ export class LevelGen {
   /** Endless chaos 0..1 past the normal curve (0 in races and the tutorial). */
   get heat(): number {
     if (this.opts.kind !== 'endless' || (this.opts.tutorial && this.tutorialStep < TUTORIAL.length)) return 0;
-    return endlessHeatAt(this.x, !!this.opts.kid, this.opts.diff);
+    return Math.max(this.opts.heatFloor ?? 0, endlessHeatAt(this.x, !!this.opts.kid, this.opts.diff));
   }
 
   // ------------------------------------------------------------------ main
@@ -289,7 +296,7 @@ export class LevelGen {
     const race = this.opts.kind === 'race';
     const span = next === 'square' ? (race ? this.rng.range(110, 170) : this.rng.range(220, 360)) : race ? this.rng.range(100, 150) : this.rng.range(140, 230);
     // Hot runs switch shapes more often.
-    this.sectionEnd = this.x + span * (1 - 0.3 * this.heat);
+    this.sectionEnd = this.x + span * (1 - 0.3 * this.heat) * (this.opts.kind === 'endless' ? this.opts.sectionScale ?? 1 : 1);
   }
 
   private pickNextMode(prev: ShapeMode): ShapeMode {

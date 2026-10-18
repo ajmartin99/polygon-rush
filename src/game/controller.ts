@@ -24,7 +24,9 @@ import { DIFFICULTY_GEM_RATE, DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED
 import { activeEvent, SPOOKY } from '../meta/events';
 import { clampStartLevel, levelStart, levelWorld } from '../meta/modes';
 import { endlessBestKey } from '../state/save';
-import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, VARIANT_INFO, dailyRewardKey, dailySeed, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
+import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, VARIANT_INFO, dailyRewardKey, dailySeed, dailyTwist, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
+import { HAUNTED_SONG } from '../core/songs';
+import { eventTracks, TRACK_BASE, TRACKS } from '../core/tracks';
 import { InputManager } from './input';
 import type { Racer, RacerSpec } from './racer';
 import { GameSession, type BoxItem, type SessionKind } from './session';
@@ -211,22 +213,29 @@ export class GameController {
         const v = (this.variant = req.variant ?? 'classic');
         // Classic runs can start from any level already reached on this difficulty.
         const level = (this.startLevel = v === 'classic' ? clampStartLevel(req.level, d.best[endlessBestKey(d.settings)] ?? 0) : 1);
-        // The Daily Run is the same course and rules for everyone.
+        // The Daily Run is the same course, rules and soundtrack for everyone,
+        // with its own twist each day (Halloween: the haunted course).
         const daily = v === 'daily';
-        // Every other run is built on the beat of the songs it will play.
-        music.resetPlan(!daily);
+        const seed = daily ? dailySeed() : (Math.random() * 2 ** 31) >>> 0;
+        const haunted = daily && activeEvent()?.id === 'halloween';
+        const twist = daily ? dailyTwist(seed, haunted) : null;
+        // Every run is built on the beat of the songs it will play.
+        music.resetPlan(true, daily ? { songs: haunted ? [HAUNTED_SONG, ...eventTracks('halloween')] : dailySoundtrack(), seed } : undefined);
         this.session = new GameSession({
           kind: 'endless',
-          seed: daily ? dailySeed() : (Math.random() * 2 ** 31) >>> 0,
+          seed,
+          startMode: twist?.startMode,
+          heatFloor: twist?.heatFloor,
+          sectionScale: twist?.sectionScale,
           kid: daily ? false : d.settings.kidMode,
           diff: daily ? 'medium' : d.settings.difficulty,
           tutorial: v === 'classic' && level === 1 && d.stats.runs < 2,
           hearts: v === 'oneheart' ? 1 : undefined,
           noHearts: v === 'oneheart',
           stunOnly: v === 'gemrush',
-          gemChance: v === 'gemrush' ? 0.9 : undefined,
+          gemChance: v === 'gemrush' ? 0.9 : twist?.gemChance,
           startDistance: levelStart(level),
-          beat: daily ? undefined : (l: number) => music.planLevel(l),
+          beat: (l: number) => music.planLevel(l),
           racers: [me],
         });
         break;
@@ -564,6 +573,7 @@ export class GameController {
       beat: audio.beatPhase(),
       dim: this.kind === 'attract',
       markers,
+      haunted: this.paletteFor(this.session?.racers[0]?.x ?? 0) === SPOOKY,
     });
     if (this.kind === 'attract' || this.phase === 'results') return;
     const ctx = this.renderer.ctx;
@@ -1117,4 +1127,11 @@ export class GameController {
       Math.round(me.speed * 10) / 10,
     ]);
   }
+}
+
+/** The Daily Run's soundtrack outside events: every regular recorded run track (not the player's own picks, so the beat is the same for everyone). */
+function dailySoundtrack(): number[] {
+  return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
+    .filter(({ t }) => t.role === 'run' && !t.event)
+    .map(({ id }) => id);
 }

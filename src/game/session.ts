@@ -33,6 +33,10 @@ export interface SessionOptions {
   startDistance?: number;
   /** Endless: build each level on its song's beat (see LevelGen). */
   beat?: GenOptions['beat'];
+  /** Endless: Daily Run twists (see LevelGen). */
+  startMode?: GenOptions['startMode'];
+  heatFloor?: number;
+  sectionScale?: number;
   tutorial?: boolean;
   /** Race length (race/duel/online). */
   length?: number;
@@ -109,6 +113,9 @@ export class GameSession extends Emitter<GameEvents> {
         startX: START_X + offset,
         offset,
         beat: raceLike ? undefined : opts.beat,
+        startMode: opts.startMode,
+        heatFloor: opts.heatFloor,
+        sectionScale: opts.sectionScale,
       });
       startX = START_X + offset;
       this.fixedSpeed = raceLike ? RACE_SPEED : null;

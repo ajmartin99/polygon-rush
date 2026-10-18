@@ -8,6 +8,8 @@ All notable changes to Polygon Rush are documented here.
 - **Beat-synced levels:** each Endless level is built on the beat of the song that plays in it. Obstacles arrive on the beat, and fast songs (drum & bass) feel different from chill ones. Daily Run and races stay identical for everyone.
 - **Endless heats up:** the further you run, the more chaotic it gets. Moving saws drop from the sky, rise from the ground, sweep tunnels and chase the Roller. Patterns come back to back, gaps tighten and the speed keeps climbing.
 - **Difficulty tiers:** Easy (kid friendly, pays 80% gems), Normal, and Extreme (keeps getting harder and pays 1.3x gems).
+- **Haunted Daily:** in October the Daily Run plays only Halloween music (4 new licensed spooky tracks plus Haunted Hop and Swing Along), its course is built on their beat, and it looks the part: moon, bats, fog, pumpkin saws and ghost saws from the start.
+- **Daily twists:** every day's course has its own starting shape and twist (Saw Storm, Shape Shifter, Gem Shower or Remix), shown on the Daily card. The Daily also has its own fixed soundtrack, the same for everyone.
 
 ### Changed
 - Songs no longer cut out between levels: the next song preloads and the two crossfade.

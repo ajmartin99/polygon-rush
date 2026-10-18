@@ -1,6 +1,6 @@
 import { DIFFICULTY_NAMES } from '../../state/save';
 import { store } from '../../state/store';
-import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, MAX_START_LEVEL, dailyRewardKey, unlockedLevels, variantBestKey, VARIANT_INFO, type EndlessVariant } from '../../meta/modes';
+import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, MAX_START_LEVEL, dailyRewardKey, dailySeed, dailyTwist, unlockedLevels, variantBestKey, VARIANT_INFO, type EndlessVariant } from '../../meta/modes';
 import { leagueFor } from '../../meta/economy';
 import { activeEvent } from '../../meta/events';
 import { BaseScreen, titleBar } from '../components';
@@ -54,7 +54,7 @@ export class ModesScreen extends BaseScreen {
       {
         id: 'daily',
         name: haunted ? 'Haunted Daily Run' : VARIANT_INFO.daily.name,
-        blurb: haunted ? 'Today’s course, Halloween style. No revives!' : VARIANT_INFO.daily.blurb,
+        blurb: `${haunted ? 'Halloween course and soundtrack, ghost saws included. No revives!' : VARIANT_INFO.daily.blurb} Today: ${dailyTwist(dailySeed(), haunted).labels.join(' · ')}.`,
         icon: 'gift',
         color: 'mint',
         tag: dailyDone ? 'Done today ✓' : `Reach ${DAILY_TARGET} m: +${DAILY_REWARD}`,

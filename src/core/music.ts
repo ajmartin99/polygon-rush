@@ -6,6 +6,7 @@ import type { BeatGrid } from '../game/generator';
 import { myMusic } from '../services/mymusic';
 import { activeEvent } from '../meta/events';
 import { Emitter } from './emitter';
+import { Rng } from './rng';
 
 /**
  * What plays where:
@@ -72,16 +73,35 @@ class MusicDirector extends Emitter<{ song: number }> {
    * Daily Run, which must be the same for everyone). Call before the run's
    * course is generated.
    */
-  resetPlan(on: boolean): void {
+  resetPlan(on: boolean, fixed?: { songs: number[]; seed: number }): void {
     this.plan.clear();
     this.planBag = [];
     this.planning = on;
+    this.fixed = null;
+    if (on && fixed && fixed.songs.length) {
+      // A set soundtrack (the Daily Run): the same songs in the same order for everyone today.
+      const rng = new Rng(fixed.seed ^ 0x5eed);
+      const order = fixed.songs.slice();
+      for (let i = order.length - 1; i > 0; i--) {
+        const j = rng.int(0, i);
+        [order[i], order[j]] = [order[j], order[i]];
+      }
+      this.fixed = order;
+    }
   }
+
+  /** The Daily Run's set soundtrack (null for normal runs). */
+  private fixed: number[] | null = null;
 
   /** Song for a level, chosen once (shuffled, no repeats until all have played). */
   private planned(level: number): number {
     let id = this.plan.get(level);
     if (id !== undefined) return id;
+    if (this.fixed) {
+      id = this.fixed[level % this.fixed.length];
+      this.plan.set(level, id);
+      return id;
+    }
     const pool = this.pool('run');
     this.planBag = this.planBag.filter((i) => pool.includes(i));
     if (!this.planBag.length) {

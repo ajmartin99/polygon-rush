@@ -1,4 +1,5 @@
 import { SONGS } from './songs';
+import { activeEvent, type EventId } from '../meta/events';
 
 /**
  * Recorded music: royalty-free tracks under licenses that allow use in a
@@ -34,6 +35,8 @@ export interface TrackDef {
   fast?: boolean;
   /** Relative loudness trim (dB) to match the rest of the soundtrack. */
   gain?: number;
+  /** Seasonal: only in rotation while the event runs (and always in its Daily Run). */
+  event?: EventId;
 }
 
 /** Order is the id space: only ever append. */
@@ -340,6 +343,11 @@ export const TRACKS: TrackDef[] = [
     role: 'run',
     fast: true,
   },
+  // Spooky Season (Halloween)
+  { title: '8-bit Haunted House', artist: 'Wolfgang_', genre: 'Spooky Chiptune', license: 'CC0', source: 'https://opengameart.org/content/8-bit-haunted-house-theme', file: 'haunted-house.mp3', bpm: 150.3, offset: 0.09, role: 'run', fast: true, event: 'halloween' },
+  { title: 'Doll House', artist: 'Alexandr Zhelanov', genre: 'Spooky Piano', license: 'CC-BY 4.0', source: 'https://opengameart.org/content/doll-house', file: 'doll-house.mp3', bpm: 100.2, offset: 0.269, role: 'run', event: 'halloween' },
+  { title: 'Dissonant Waltz', artist: 'Yubatake', genre: 'Haunted Waltz', license: 'CC-BY 4.0', source: 'https://opengameart.org/content/dissonant-waltz', file: 'dissonant-waltz.mp3', bpm: 100.2, offset: 0.429, role: 'run', event: 'halloween' },
+  { title: 'The 9th Circle', artist: 'Joth', genre: 'Industrial Dubstep', license: 'CC0', source: 'https://opengameart.org/content/the-9th-circle', file: 'the-9th-circle.mp3', bpm: 120.3, offset: 0.359, role: 'run', fast: true, event: 'halloween' },
 ];
 
 export interface MusicInfo {
@@ -381,8 +389,16 @@ export function musicInfo(id: number): MusicInfo | null {
 }
 
 /** Recorded tracks for a context, as music ids. */
-export function tracksFor(context: 'menu' | 'run' | 'race'): number[] {
+export function tracksFor(context: 'menu' | 'run' | 'race', now = new Date()): number[] {
   return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
+    .filter(({ t }) => !t.event || activeEvent(now)?.id === t.event)
     .filter(({ t }) => (context === 'menu' ? t.role === 'menu' : context === 'race' ? t.fast === true : t.role === 'run'))
+    .map(({ id }) => id);
+}
+
+/** A seasonal event's own soundtrack (its recorded tracks, plus tracks tagged for it). */
+export function eventTracks(event: EventId): number[] {
+  return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
+    .filter(({ t }) => t.event === event || (event === 'halloween' && t.file === 'swing-along.mp3'))
     .map(({ id }) => id);
 }

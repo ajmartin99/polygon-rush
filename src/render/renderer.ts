@@ -46,6 +46,8 @@ export interface RenderOptions {
   dim?: boolean;
   /** Vertical marker flags on the track (e.g. your best distance). */
   markers?: { x: number; label: string; color: string }[];
+  /** Halloween dressing: moon and bats, ground fog, saws as jack-o'-lanterns. */
+  haunted?: boolean;
 }
 
 /** A free camera for scenes without a racer (the editor). */
@@ -153,11 +155,13 @@ export class Renderer {
 
   /** The runner's x for the view being drawn (moving saws follow it). */
   private runnerX = 0;
+  private haunted = false;
 
   private drawView(session: GameSession, view: ViewSpec, dt: number, time: number, opts: RenderOptions): void {
     const ctx = this.ctx;
     const cam = this.camera(view, dt);
     this.runnerX = view.racer.x;
+    this.haunted = !!opts.haunted;
     const r = view.rect;
     const s = cam.scale;
     const pal = opts.palette(view.racer.x);
@@ -182,6 +186,7 @@ export class Renderer {
 
     const me = view.racer;
     this.drawTrack(session.world, x0, x1, sx, sy, s, pal, time, me.collected, me.body.usedOrb);
+    if (this.haunted) this.drawFog(r, sy, s, cam.x, time);
 
     this.fx.draw(ctx, sx, sy, s, true, x0, x1);
     for (const other of session.racers) {
@@ -225,7 +230,8 @@ export class Renderer {
           this.drawSpike(pal, sx(o.x), sy(o.y), o.size * s, o.dir);
           break;
         case 'saw':
-          this.drawSaw(pal, sx(o.x), sy(sawY(o, this.runnerX)), o.r * s, time);
+          if (this.haunted) this.drawPumpkin(sx(o.x), sy(sawY(o, this.runnerX)), o.r * s, time + o.x);
+          else this.drawSaw(pal, sx(o.x), sy(sawY(o, this.runnerX)), o.r * s, time);
           break;
         case 'pad':
           this.drawPad(sx(o.x), sy(o.y), s, o.dir, time);
@@ -335,6 +341,8 @@ export class Renderer {
       ctx.ellipse(sunX, sunY, sunR * 1.5, sunR * 0.35, -0.3, 0, Math.PI * 2);
       ctx.stroke();
     }
+
+    if (this.haunted) this.drawMoonAndBats(r, cam, sunX, sunY, sunR, time, pulse);
 
     // Far floating polygons: slow parallax, gentle spin, pulse on the beat.
     const farPar = 0.12;
@@ -496,6 +504,105 @@ export class Renderer {
     ctx.moveTo(bx - hw * 0.45, by - h * 0.12);
     ctx.lineTo(bx - hw * 0.05, by - h * 0.75);
     ctx.stroke();
+  }
+
+  /** Halloween: a pale moon with a few bats flapping across it. */
+  private drawMoonAndBats(r: ViewRect, cam: Camera, mx: number, my: number, mr: number, time: number, pulse: number): void {
+    const ctx = this.ctx;
+    const s = cam.scale;
+    const rr = mr * 0.62;
+    ctx.fillStyle = '#fff3d6';
+    ctx.beginPath();
+    ctx.arc(mx, my, rr * (1 + pulse * 0.03), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(214,190,150,0.55)';
+    for (const [dx, dy, cr] of [[-0.3, -0.2, 0.16], [0.25, 0.15, 0.22], [-0.05, 0.38, 0.12]] as const) {
+      ctx.beginPath();
+      ctx.arc(mx + dx * rr, my + dy * rr, cr * rr, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    const n = Math.round(7 * this.detail) || 3;
+    ctx.fillStyle = '#1a0b2b';
+    for (let i = 0; i < n; i++) {
+      const speed = 0.6 + hash(i + 41) * 0.8;
+      const span = r.w + s * 6;
+      const bx = r.x + span - ((((time * speed * s * 1.6 + cam.x * s * 0.08 + hash(i + 5) * span) % span) + span) % span);
+      const by = r.y + r.h * (0.12 + hash(i + 13) * 0.35) + Math.sin(time * 2 + i) * s * 0.3;
+      const sz = s * (0.35 + hash(i + 29) * 0.3);
+      const flap = Math.sin(time * 14 + i * 2);
+      ctx.beginPath();
+      ctx.moveTo(bx, by);
+      ctx.quadraticCurveTo(bx - sz * 0.6, by - sz * (0.2 + flap * 0.6), bx - sz * 1.3, by - sz * flap * 0.3);
+      ctx.quadraticCurveTo(bx - sz * 0.7, by + sz * 0.1, bx, by + sz * 0.25);
+      ctx.quadraticCurveTo(bx + sz * 0.7, by + sz * 0.1, bx + sz * 1.3, by - sz * flap * 0.3);
+      ctx.quadraticCurveTo(bx + sz * 0.6, by - sz * (0.2 + flap * 0.6), bx, by);
+      ctx.fill();
+    }
+  }
+
+  /** Halloween: drifting fog over the ground. */
+  private drawFog(r: ViewRect, sy: (y: number) => number, s: number, camX: number, time: number): void {
+    const ctx = this.ctx;
+    const g0 = sy(0);
+    const fog = ctx.createLinearGradient(0, g0 - s * 1.6, 0, g0 + s * 0.3);
+    fog.addColorStop(0, 'rgba(230,215,255,0)');
+    fog.addColorStop(0.7, 'rgba(230,215,255,0.16)');
+    fog.addColorStop(1, 'rgba(230,215,255,0.05)');
+    ctx.fillStyle = fog;
+    ctx.fillRect(r.x, g0 - s * 1.6, r.w, s * 1.9);
+    ctx.fillStyle = 'rgba(240,230,255,0.09)';
+    for (let i = 0; i < 5; i++) {
+      const w = r.w * 0.5;
+      const x = r.x + ((((i * w * 0.6 - camX * s * 0.6 - time * s * 0.8) % (r.w + w)) + r.w + w) % (r.w + w)) - w;
+      ctx.beginPath();
+      ctx.ellipse(x + w / 2, g0 - s * 0.35, w / 2, s * 0.45, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  /** Halloween: saws become grinning jack-o'-lanterns (same size and hitbox). */
+  private drawPumpkin(cx: number, cy: number, rr: number, time: number): void {
+    const ctx = this.ctx;
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(Math.sin(time * 5) * 0.18);
+    const glow = ctx.createRadialGradient(0, 0, rr * 0.3, 0, 0, rr * 1.5);
+    glow.addColorStop(0, 'rgba(255,170,40,0.35)');
+    glow.addColorStop(1, 'rgba(255,170,40,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(-rr * 1.5, -rr * 1.5, rr * 3, rr * 3);
+    // Ribbed body.
+    for (const [dx, w, c] of [[-0.45, 0.6, '#e8650f'], [0.45, 0.6, '#e8650f'], [0, 0.62, '#ff8a1f']] as const) {
+      ctx.fillStyle = c;
+      ctx.beginPath();
+      ctx.ellipse(dx * rr, rr * 0.05, w * rr, rr * 0.9, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.strokeStyle = '#a63f05';
+    ctx.lineWidth = Math.max(1.2, rr * 0.06);
+    ctx.stroke();
+    // Stem.
+    ctx.fillStyle = '#3d6b1e';
+    ctx.fillRect(-rr * 0.1, -rr * 1.05, rr * 0.2, rr * 0.3);
+    // Carved face with a flickering candle.
+    const flick = 0.75 + 0.25 * Math.sin(time * 23) * Math.sin(time * 7);
+    ctx.fillStyle = `rgba(255,${Math.round(220 * flick)},90,1)`;
+    ctx.beginPath();
+    ctx.moveTo(-rr * 0.5, -rr * 0.15);
+    ctx.lineTo(-rr * 0.22, -rr * 0.15);
+    ctx.lineTo(-rr * 0.36, -rr * 0.45);
+    ctx.closePath();
+    ctx.moveTo(rr * 0.5, -rr * 0.15);
+    ctx.lineTo(rr * 0.22, -rr * 0.15);
+    ctx.lineTo(rr * 0.36, -rr * 0.45);
+    ctx.closePath();
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(-rr * 0.55, rr * 0.15);
+    for (let i = 0; i <= 6; i++) ctx.lineTo(-rr * 0.55 + (i * rr * 1.1) / 6, rr * (i % 2 ? 0.28 : 0.15));
+    ctx.quadraticCurveTo(0, rr * 0.75, -rr * 0.55, rr * 0.15);
+    ctx.fill();
+    ctx.restore();
   }
 
   private drawSaw(pal: Palette, cx: number, cy: number, rr: number, time: number): void {

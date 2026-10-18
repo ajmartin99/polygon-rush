@@ -21,8 +21,9 @@ export function nowPlaying(): HTMLElement {
     'div.now-playing',
     null,
     ic('music'),
-    h('div.lbl', null, h('span', null, 'Now playing'), label),
-    button({ icon: 'skip', cls: 'icon ghost', aria: 'Skip song', onClick: () => music.skip() }),
+    h('div.lbl', null, h('span', null, music.locked ? 'Level song' : 'Now playing'), label),
+    // A level's song is chosen by its builder: no skipping.
+    music.locked ? null : button({ icon: 'skip', cls: 'icon ghost', aria: 'Skip song', onClick: () => music.skip() }),
   );
   const off = music.on('song', (i) => {
     if (!el.isConnected) return off();

@@ -2,7 +2,7 @@
 
 ![Polygon Rush](store/feature-graphic-1024x500.png)
 
-**An endless, shape-shifting runner for every age.** Rush through infinite polygon worlds as a **Jumper** (square), **Glider** (triangle), **Roller** (hexagon) and **Hopper** (diamond). Play solo, race CPU rivals, duel a friend on the same phone, race up to three friends online with a room code, or **build your own levels**, alone or together.
+**An endless, shape-shifting runner for every age, by [Soft Game Bros](https://softgamebros.com).** Rush through infinite polygon worlds as a **Jumper** (square), **Glider** (triangle), **Roller** (hexagon) and **Hopper** (diamond). Play solo, race CPU rivals, duel a friend on the same phone, race up to three friends online with a room code, or **build your own levels**, alone or together.
 
 Think *Geometry Dash* rhythm and precision meets *Fun Run* racing chaos, wrapped in a bright, kid-friendly look with an original soundtrack.
 
@@ -19,12 +19,12 @@ Think *Geometry Dash* rhythm and precision meets *Fun Run* racing chaos, wrapped
 * **2-Player Duel** on one device (split screen), plus **Play with Friends** online via private 4-character rooms (peer-to-peer).
 * **Create mode:** a touch level editor (blocks, ledges, spikes, saws, gems, pads, orbs, power-ups, shape portals, pits) with undo/redo, test-from-here, and beat-it-to-share verification. Levels travel as compact `PR1-…` codes. Four built-in Featured levels to play or remix.
 * **Build Together:** up to 4 players edit one level live (host-ordered edits with instant local preview, coloured cursors, lock and remove), then race it.
-* **Chat that fits the age:** Quick Chat (preset phrases & emotes) for everyone; optional typed **Free Chat** for verified 16+ players, or 13–15 with a parent's email approval, filtered, moderated and reportable. Public build rooms, public race rooms and **Quick Match** for 13+ (under-13s keep private code rooms). These need the optional [community server](server/README.md).
-* **Six worlds** with their own palettes, parallax scenery and an **original synthesised soundtrack**: 17 songs in 15 genres (chiptune, drum & bass, house, rock, lo-fi, electro swing…). The menu has its own theme, each world keeps its signature song, and playlists shuffle between them, with Skip and a Soundtrack picker in Settings.
+* **Chat that fits the age:** Quick Chat only (preset phrases & emotes, with extra phrase packs in the shop). There is no typed chat. Friends by Name#number, Community levels, public build rooms, public race rooms and **Quick Match** for 13+ (under-13s keep private code rooms) use the [community server](server/README.md).
+* **Six worlds** with their own palettes and parallax scenery, and a soundtrack of original synthesised songs plus licensed tracks (credits in `public/music/CREDITS.txt`). Endless levels are built on the beat of each level's song.
 * **Level select:** start Endless from any 500 m level you've reached.
 * **Game Modes hub:** Endless, a **Daily Run** (same course for everyone, daily reward), **One Heart**, **Gem Rush** (60 s), Race, Online, Duel and Player Levels.
 * **Seasonal events:** Spooky Season (Oct 1 – Nov 7) brings Halloween skins and trails, a free Wicked Witch skin, a haunted menu and Daily Run, and the Haunted Hop theme.
-* **Easy / Medium / Hard**, chosen on first launch: separate speed and pattern curves and best scores, plus harder combo patterns as runs heat up.
+* **Easy / Normal / Extreme**, chosen on first launch: separate speed and pattern curves and best scores; Endless keeps getting more chaotic the further you go.
 * **Player profiles:** badges, titles, banners and stats to show off in rooms. Only game facts are shared, never free text.
 * **23 skins** (patterns and silly faces: shades, kitty, dino, robot, galaxy, gold…), **11 trails**, missions, daily gifts, levels, Kid Mode.
 * **Kid-safe by design:** neutral age screen, G-rated child-directed ads for under-13s, a grown-up check before purchases, parental controls (online, Quick Chat, public rooms, Free Chat, purchases), generated names only, no analytics. Under-13s never get typed chat or public rooms. See [docs/SAFETY.md](docs/SAFETY.md).
@@ -32,7 +32,7 @@ Think *Geometry Dash* rhythm and precision meets *Fun Run* racing chaos, wrapped
 
 ## Tech
 
-TypeScript + Canvas 2D + Web Audio, bundled by Vite and packaged for Android with **Capacitor 8** (target SDK 36, landscape, immersive). There are no game-engine or audio-file dependencies: physics, level generation, AI, rendering and music are all in `src/`.
+TypeScript + Canvas 2D + Web Audio, bundled by Vite and packaged for Android with **Capacitor 8** (target SDK 36, landscape, immersive). There are no game-engine dependencies: physics, level generation, CPU rivals, rendering and music are all in `src/`.
 
 ```
 src/
@@ -79,4 +79,15 @@ Step-by-step (signing key, secrets, AdMob ids, Play Console products, privacy pa
 
 ## License
 
-CC0 1.0 — see [LICENSE](LICENSE). The bundled Fredoka font is under the SIL Open Font License 1.1.
+Proprietary: © 2026 Soft Game Bros, all rights reserved. See [LICENSE](LICENSE). The bundled Fredoka font is under the SIL Open Font License 1.1, and licensed music is credited in `public/music/CREDITS.txt`.
+
+## About
+
+Polygon Rush is developed and published by **Soft Game Bros**.
+
+* Help with the game: polygonrush@softgamebros.com
+* Privacy and data requests: privacy@softgamebros.com
+* Parents and safety reports: safety@softgamebros.com
+* Website and privacy policy: https://softgamebros.com/polygon-rush/
+
+Copyright © 2026 Soft Game Bros. All rights reserved. See [LICENSE](LICENSE).

@@ -179,14 +179,21 @@ class MusicDirector extends Emitter<{ song: number }> {
     this.start('level', ok ? song : theme % WORLD_SONGS, true);
   }
 
+  /** A player-made level is playing: its song is part of the level and can't be changed. */
+  get locked(): boolean {
+    return this.context === 'level';
+  }
+
   /** Play a specific song now (Soundtrack picker), keeping the context's rotation afterwards. */
   pick(song: number): void {
+    if (this.locked) return;
     if (!this.context) this.context = 'menu';
     this.play(song);
   }
 
   /** Skip to the next song in the rotation. */
   skip(): void {
+    if (this.locked) return;
     if (!this.context) this.context = 'menu';
     this.next();
   }

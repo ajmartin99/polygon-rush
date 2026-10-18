@@ -86,6 +86,12 @@ needs a person, and what to do when something serious happens.
     minute, invites expire after 10 minutes, players unseen for 2 years are deleted.
   * "Delete friends data" on the Friends screen removes the player, friends,
     requests and invites from the server.
+* **Build room hosts (all ages):** tap a player to stop or allow their building,
+  remove them (that device can't rejoin for 10 minutes; nobody else is blocked),
+  or ban them from every room the host runs. Bans use an anonymous per-device
+  room id (a one-way hash of the device key) that only the host sees and keeps
+  on their own phone. Public build rooms start new players as watchers until the
+  host lets them build.
 * **Community levels (all ages):**
   * A shared level is only its level code (pieces, generated or filtered name,
     builder racer names) plus play, clear and like counts. No comments, no text.

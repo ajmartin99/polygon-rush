@@ -370,6 +370,7 @@ p {
 .btn.mint { --c: var(--mint); --cd: var(--mint-d); color: #053a2a; text-shadow: 0 0.1rem 0 rgba(255, 255, 255, 0.35); }
 .btn.cyan { --c: var(--cyan); --cd: var(--cyan-d); color: #04314a; text-shadow: 0 0.1rem 0 rgba(255, 255, 255, 0.35); }
 .btn.orange { --c: var(--orange); --cd: var(--orange-d); }
+.btn.violet { --c: var(--violet); --cd: var(--violet-d); }
 .btn.red { --c: var(--red); --cd: var(--red-d); }
 .btn.ghost {
   --c: rgba(255, 255, 255, 0.14);
@@ -546,13 +547,15 @@ p {
 .level-chip .lvl {
   display: grid;
   place-items: center;
-  width: 1.85rem;
-  height: 1.85rem;
+  flex: none;
+  /* Rotated 45°, so its corners reach ~0.33rem past the box: the margins keep it off the name. */
+  width: 1.6rem;
+  height: 1.6rem;
   border-radius: 0.5rem;
   transform: rotate(45deg);
   background: linear-gradient(135deg, var(--yellow), var(--orange));
   box-shadow: 0 0 0 0.12rem #fff;
-  margin: 0 0.25rem;
+  margin: 0 0.45rem 0 0.4rem;
 }
 
 .level-chip .lvl span {
@@ -3630,4 +3633,24 @@ button.player-slot {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
+}
+
+.ed-watch {
+  display: inline-grid;
+  place-items: center;
+  width: 0.9rem;
+  height: 0.9rem;
+  margin-left: 0.15rem;
+  opacity: 0.8;
+}
+
+.ed-watch svg {
+  width: 100%;
+  height: 100%;
+}
+
+/* Live blur behind panels redraws every frame over the moving game: High graphics only. */
+html:not(.fx-blur) * {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }

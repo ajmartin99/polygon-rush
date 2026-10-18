@@ -105,7 +105,7 @@ export class EditorSession extends Emitter<SessionEvents> {
   }
 
   get canEdit(): boolean {
-    return !this.room || this.room.isHost || !this.room.locked;
+    return !this.room || this.room.isHost || (!this.room.locked && this.room.canBuild());
   }
 
   /** Current level as saved data. */
@@ -186,10 +186,14 @@ export class EditorSession extends Emitter<SessionEvents> {
     return ok;
   }
 
-  /** Co-op builders: keep your own copy of the room's level. */
+  /**
+   * Keep your own copy of the room's level. You can edit it later only if you
+   * helped build it (your name is in its builders); otherwise it's play-only.
+   */
   saveCopy(): LevelData | null {
     const now = Date.now();
-    const copy: LevelData = { ...contentOf(this.doc.toContent()), id: newLevelId(), created: now, updated: now, verified: false, best: 0, plays: 0, origin: 'coop' };
+    const built = this.doc.authors.includes(this.myName);
+    const copy: LevelData = { ...contentOf(this.doc.toContent()), id: newLevelId(), created: now, updated: now, verified: false, best: 0, plays: 0, origin: built ? 'coop' : 'code' };
     return levels.put(copy) ? copy : null;
   }
 
@@ -203,8 +207,14 @@ export class EditorSession extends Emitter<SessionEvents> {
   // ------------------------------------------------------------ co-op
   private wireRoom(room: NetRoom): void {
     const doc = this.doc;
+    let couldBuild = room.canBuild();
     this.offs.push(
       room.on('lobby', (players) => {
+        if (!room.isHost && room.canBuild() !== couldBuild) {
+          couldBuild = room.canBuild();
+          this.chat.system(couldBuild ? 'The host lets you build. Have fun!' : 'The host paused your building. You can still watch and chat.');
+          this.emit('lock', room.locked);
+        }
         for (const id of [...this.cursors.keys()]) if (!players.some((p) => p.id === id)) this.cursors.delete(id);
         this.emit('players', players);
       }),

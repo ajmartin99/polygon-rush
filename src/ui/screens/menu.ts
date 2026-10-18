@@ -80,7 +80,7 @@ export class MenuScreen extends BaseScreen {
         gemChip(this),
         friendsBtn,
         button({ icon: 'cart', cls: 'icon mint', aria: 'Shop', onClick: () => nav.go('shop') }),
-        button({ icon: 'gear', cls: 'icon ghost', aria: 'Settings', onClick: () => nav.go('settings') }),
+        button({ icon: 'gear', cls: 'icon violet', aria: 'Settings', onClick: () => nav.go('settings') }),
       ),
       h(
         'div.menu-main',

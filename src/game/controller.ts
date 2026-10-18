@@ -82,7 +82,6 @@ export class GameController {
   private lastMilestone = 0;
   /** This Daily Run is the Halloween one. */
   private hauntedDaily = false;
-  private frameSkip = false;
   private scene: Scene | null = null;
   /** Build rooms outlive the race played in them. */
   private keepRoom = false;
@@ -118,7 +117,9 @@ export class GameController {
 
   private applyGraphics(): void {
     const g = store.settings.graphics;
-    this.renderer.maxDpr = g === 'low' ? 1 : g === 'high' ? 2.5 : this.lowPerfStrikes > 0 ? 1.25 : 2;
+    this.renderer.maxDpr = g === 'low' ? 1 : g === 'high' ? 2.5 : this.lowPerfStrikes > 0 ? 1.25 : 1.75;
+    // Live background blur behind panels is costly on phones: High graphics only.
+    document.documentElement.classList.toggle('fx-blur', g === 'high');
     const low = g === 'low' || (g === 'auto' && this.lowPerfStrikes > 0);
     this.renderer.detail = low ? 0.5 : 1;
     this.renderer.fx.quality = low ? 0.5 : 1;
@@ -508,8 +509,17 @@ export class GameController {
   }
 
   // ================================================================== loop
+  /** When the next frame is due (frame cap). */
+  private nextFrame = 0;
+
   private frame = (now: number): void => {
     requestAnimationFrame(this.frame);
+    // 120 Hz phones ask for twice the frames this game needs: run at most 60 fps in play
+    // and 30 fps for the menu backdrop and the editor (less heat, longer battery).
+    // A schedule (not a minimum gap) so 90 Hz screens still average 60.
+    const gap = this.scene !== null || this.kind === 'attract' ? 1000 / 30 : 1000 / 60;
+    if (now < this.nextFrame - 2) return;
+    this.nextFrame = Math.max(this.nextFrame + gap, now);
     const raw = Math.min(0.1, (now - (this.last || now)) / 1000);
     this.last = now;
     this.trackPerf(raw);
@@ -540,9 +550,8 @@ export class GameController {
     }
     if (this.kind === 'attract') {
       this.keepAttractAlive();
-      // The menu backdrop renders at 30 fps to save battery.
-      this.frameSkip = !this.frameSkip;
-      if (this.frameSkip) return;
+      // A full-screen page (Shop, Settings, Create…) hides the backdrop: don't draw it.
+      if (ui.coversGame) return;
     }
     if (this.kind === 'endless' && this.variant === 'gemrush' && this.phase === 'running' && s.time >= GEM_RUSH_SECONDS) {
       s.running = false;
@@ -551,7 +560,7 @@ export class GameController {
     }
     this.updateMusic();
     this.progressEvents();
-    this.draw(this.kind === 'attract' ? raw * 2 : raw);
+    this.draw(raw);
   };
 
   private applyInput(): void {

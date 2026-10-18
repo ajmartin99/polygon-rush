@@ -40,6 +40,8 @@ export interface Saw extends Base {
    * the same for physics, the bot and the screen.
    */
   move?: { ax: number; bx: number; from: number; to: number };
+  /** Haunted Run: drawn as a zombie (on the ground) or a ghost (in the air) instead of a saw. */
+  mob?: 'zombie' | 'ghost';
 }
 
 /** Where a (possibly moving) saw is when the runner is at `runnerX`. */

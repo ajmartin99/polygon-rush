@@ -42,6 +42,10 @@ export interface Piece {
   v: number;
 }
 
+/** Saw variants only the game's own courses use (not in the editor): Haunted Run monsters. */
+export const SAW_ZOMBIE = 2;
+export const SAW_GHOST = 3;
+
 /** How many variants each piece cycles through when tapped again. */
 export const VARIANTS: Record<PieceType, number> = {
   block: 1,
@@ -293,6 +297,18 @@ export function buildWorld(level: LevelContent, world = new World()): World {
         break;
       }
       case 'saw': {
+        if (p.v === SAW_ZOMBIE) {
+          // A zombie standing in the way (jump it).
+          const zy = p.y + 0.6;
+          out.push({ id: id(), kind: 'saw', x: cx, y: zy, r: 0.6, mob: 'zombie', x0: cx - 0.6, x1: cx + 0.6, y0: zy - 0.6, y1: zy + 0.6 });
+          break;
+        }
+        if (p.v === SAW_GHOST) {
+          // A ghost drifting down into its spot as you come (fly around it).
+          const r = 0.8;
+          out.push({ id: id(), kind: 'saw', x: cx, y: cy, r, mob: 'ghost', move: { ax: cx - 12, bx: cx - 2, from: cy + 1.2, to: cy }, x0: cx - r, x1: cx + r, y0: cy - r, y1: cy + 1.2 + r });
+          break;
+        }
         const r = p.v ? 1.1 : 0.6;
         out.push({ id: id(), kind: 'saw', x: cx, y: cy, r, x0: cx - r, x1: cx + r, y0: cy - r, y1: cy + r });
         break;

@@ -52,7 +52,7 @@ export function openHauntedRun(): void {
     const bonus = (d: HauntedDiff) => fmt(Math.round(HAUNTED_RULES.finishBonus * HAUNTED_RULES.gemRate[d]));
     body.append(
       h('h2', null, '🎃 Haunted Run'),
-      h('p.muted.small', null, 'Today’s course is charted to Swing Along: jump, flip and glide on the beat. A zombie is right behind you, and it turns into a ghost when you fly! Clear obstacles cleanly and grab gems to keep it back. Reach the end of the song for a big gem bonus.'),
+      h('p.muted.small', null, 'Today’s course is charted to Swing Along: jump, flip and glide on the beat. Jump the zombies shambling in your way, and fly around the ghosts haunting the sky! Reach the end of the song for a big gem bonus.'),
       h(
         'div.hr-hearts',
         { 'aria-label': `${left} of ${HAUNTED_RULES.attempts} attempts left` },

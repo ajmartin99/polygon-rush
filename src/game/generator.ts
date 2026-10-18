@@ -41,6 +41,9 @@ export interface GenOptions {
   secrets?: boolean;
 }
 
+/** Of the small gems a pattern asks for, only every this-many-th is placed. */
+const GEM_EVERY = 3;
+
 /** Levels that have a Golden Shape (matches the Levels screen). */
 export const SECRET_LEVELS = 40;
 
@@ -93,6 +96,7 @@ export class LevelGen {
   private beatLevel: LevelSpan | null = null;
   private beatX = 0;
   private beatT = 0;
+  private gemCount = 0;
   /** Pattern starts placed on a beat (for tests and tuning). */
   beatsHit = 0;
   /** Secret eggs: own RNG so they don't reshuffle the rest of the course. */
@@ -461,6 +465,8 @@ export class LevelGen {
   }
 
   gem(x: number, y: number, big = false): void {
+    // Lines and arcs keep their shape with fewer gems in them (gems were far too plentiful).
+    if (!big && this.gemCount++ % GEM_EVERY !== 0) return;
     this.pending.push({ id: this.world.newId(), kind: 'gem', x, y, big, x0: x - 0.4, x1: x + 0.4, y0: y - 0.4, y1: y + 0.4 });
   }
 

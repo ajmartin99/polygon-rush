@@ -10,6 +10,9 @@ import { Racer, type RacerSpec } from './racer';
 import type { ShapeMode } from './shapes';
 import { World, type PickupType, type WorldObj } from './world';
 
+/** What a big gem is worth. */
+export const BIG_GEM = 3;
+
 /** Gems lost per bump in timed (stun-only) Endless. */
 export const GEM_RUSH_BUMP_COST = 5;
 
@@ -413,7 +416,7 @@ export class GameSession extends Emitter<GameEvents> {
           const hit = r.magnet > 0 ? dx * dx + dy * dy < MAGNET_RADIUS * MAGNET_RADIUS : Math.abs(dx) < 0.85 && Math.abs(dy) < 0.95;
           if (hit) {
             r.collected.add(o.id);
-            const value = o.big ? 5 : 1;
+            const value = o.big ? BIG_GEM : 1;
             r.gems += value;
             this.emit('gem', { racer: r, value, x: o.x, y: o.y });
             if (this.chaser && r === this.racers[0]) this.emit('chaser', { racer: r, event: this.chaser.onGem(value), kind: this.chaser.kind });

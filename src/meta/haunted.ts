@@ -29,7 +29,7 @@ export const HAUNTED_RULES = {
   windowMs: 24 * 60 * 60 * 1000,
   gemRate: { hard: 1, easy: 0.5 } as Record<HauntedDiff, number>,
   /** Paid on reaching the end of the song (scaled by the rate). */
-  finishBonus: 1200,
+  finishBonus: 300,
   /** Hearts in a run: Hard is one bump and out. */
   hearts: { hard: 1, easy: 3 } as Record<HauntedDiff, number>,
   /** Speed index into LEVEL_SPEEDS. */

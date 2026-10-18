@@ -24,7 +24,23 @@ export interface GenOptions {
   startX?: number;
   /** Endless: distance already covered at the start (starting from a later level). */
   offset?: number;
+  /**
+   * Endless: the beat of the song that will play in each level (0-based level
+   * index from the run's very start). Gaps between patterns snap to it, so
+   * obstacles arrive on the beat. Leave unset where every player must get
+   * the same course whatever music they hear (Daily Run, races).
+   */
+  beat?: (level: number) => BeatGrid | null;
 }
+
+export interface BeatGrid {
+  bpm: number;
+  /** Seconds from the song's start to its first beat. */
+  offset: number;
+}
+
+/** Metres per level: each level gets its own song and beat grid. */
+export const BEAT_LEVEL_LENGTH = 500;
 
 interface Pattern {
   id: string;
@@ -62,6 +78,13 @@ export class LevelGen {
   private tutorialStep = 0;
   private lastPattern = '';
   patternsPlaced = 0;
+  /** Beat grid cache: level, its grid, and a running (x, seconds since the level began) point. */
+  private beatLevel = -1;
+  private beatGrid: BeatGrid | null = null;
+  private beatX = 0;
+  private beatT = 0;
+  /** Pattern starts placed on a beat (for tests and tuning). */
+  beatsHit = 0;
 
   constructor(world: World, opts: GenOptions) {
     this.world = world;
@@ -153,7 +176,7 @@ export class LevelGen {
     const d = this.d;
     const tutorial = this.opts.tutorial && this.tutorialStep <= TUTORIAL.length;
     const secs = this.rng.range(0.42, 0.75) * (1.25 - 0.45 * d) * (tutorial ? 1.6 : 1) * (this.opts.kid ? 1.25 : 1) * (this.opts.kind === 'endless' ? ENDLESS_TUNING[this.opts.diff ?? 'medium'].runway : 1);
-    const len = Math.max(3, v * secs);
+    const len = this.onBeat(Math.max(3, v * secs));
     const x0 = this.x;
     const midY = this.mode === 'square' ? 1.0 : this.mode === 'hexagon' ? (this.side < 0 ? 0.5 : CEIL - 0.5) : MID;
     if (x0 >= this.nextPickup && len >= 4) {
@@ -168,6 +191,49 @@ export class LevelGen {
       this.gemLine(x0 + 1, x0 + len - 1, midY, 1.2);
     }
     this.x += len;
+  }
+
+  // ------------------------------------------------------------------ beat sync
+  /** World x where the run's distance is 0 (level boundaries are measured from here). */
+  private get origin(): number {
+    return (this.opts.startX ?? 0) - (this.opts.offset ?? 0);
+  }
+
+  /** Seconds a runner needs from the start of x's level to x (speed ramps, so integrate). */
+  private secondsIntoLevel(x: number): { level: number; t: number; grid: BeatGrid | null } {
+    const level = Math.floor(Math.max(0, x - this.origin) / BEAT_LEVEL_LENGTH);
+    if (level !== this.beatLevel) {
+      this.beatLevel = level;
+      this.beatGrid = this.opts.beat?.(level) ?? null;
+      this.beatX = this.origin + level * BEAT_LEVEL_LENGTH;
+      this.beatT = 0;
+    }
+    if (x < this.beatX) return { level, t: this.beatT, grid: this.beatGrid };
+    // Cursor only moves forward, so keep a running total in 1-tile steps.
+    while (this.beatX + 1 <= x) {
+      this.beatT += 1 / this.speedAt(this.beatX + 0.5);
+      this.beatX += 1;
+    }
+    return { level, t: this.beatT + (x - this.beatX) / this.speedAt(this.beatX), grid: this.beatGrid };
+  }
+
+  /**
+   * Stretch (or shorten a little) a runway so the next pattern starts on a
+   * beat of this level's song. Never shorter than 80 % of the planned gap.
+   */
+  private onBeat(len: number): number {
+    if (!this.opts.beat || this.opts.kind !== 'endless' || (this.opts.tutorial && this.tutorialStep <= TUTORIAL.length)) return len;
+    const minX = this.x + Math.max(3, len * 0.8);
+    const at = this.secondsIntoLevel(minX);
+    if (!at.grid || !(at.grid.bpm > 30)) return len;
+    let unit = 60 / at.grid.bpm;
+    if (unit > 0.62) unit /= 2; // slow songs: half beats
+    else if (unit < 0.3) unit *= 2; // very fast: every other beat
+    const k = Math.ceil((at.t - at.grid.offset) / unit - 1e-6);
+    const target = at.grid.offset + k * unit;
+    const extra = Math.max(0, target - at.t) * this.speedAt(minX);
+    this.beatsHit++;
+    return minX - this.x + extra;
   }
 
   private transition(force?: ShapeMode): void {

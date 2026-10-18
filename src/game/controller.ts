@@ -20,7 +20,7 @@ import { roomChatPanel } from '../ui/room-chat';
 import { FREE_EMOTES, emoteIndex } from '../meta/emotes';
 import { decodeLevel, levelName, type LevelContent } from './level';
 import type { Scene } from './scene';
-import { DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED } from './constants';
+import { DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED, endlessSpeedAt } from './constants';
 import { activeEvent, SPOOKY } from '../meta/events';
 import { clampStartLevel, levelStart, levelWorld } from '../meta/modes';
 import { endlessBestKey } from '../state/save';
@@ -72,6 +72,7 @@ export class GameController {
   private frameTimes: number[] = [];
   private lowPerfStrikes = 0;
   private songBiome = -1;
+  private syncTick = 0;
   private offs: (() => void)[] = [];
   private biomeOffset = 0;
   private lastBiome = -1;
@@ -212,6 +213,8 @@ export class GameController {
         const level = (this.startLevel = v === 'classic' ? clampStartLevel(req.level, d.best[endlessBestKey(d.settings)] ?? 0) : 1);
         // The Daily Run is the same course and rules for everyone.
         const daily = v === 'daily';
+        // Every other run is built on the beat of the songs it will play.
+        music.resetPlan(!daily);
         this.session = new GameSession({
           kind: 'endless',
           seed: daily ? dailySeed() : (Math.random() * 2 ** 31) >>> 0,
@@ -223,6 +226,7 @@ export class GameController {
           stunOnly: v === 'gemrush',
           gemChance: v === 'gemrush' ? 0.9 : undefined,
           startDistance: levelStart(level),
+          beat: daily ? undefined : (l: number) => music.planLevel(l),
           racers: [me],
         });
         break;
@@ -293,8 +297,8 @@ export class GameController {
     const level = this.level();
     if (this.kind === 'endless') {
       const world = levelWorld(this.startLevel);
-      music.run(world);
-      this.songBiome = world;
+      music.run(world, this.startLevel - 1);
+      this.songBiome = this.startLevel - 1;
       // Starting from a later level: no "World 1" banner or milestones for metres already behind us.
       this.lastBiome = this.startLevel - 1;
       this.lastMilestone = levelStart(this.startLevel);
@@ -621,10 +625,19 @@ export class GameController {
     const s = this.session!;
     const me = s.racers.find((r) => r.kind === 'human') ?? s.racers[0];
     if (this.kind === 'endless') {
-      const biome = Math.floor(me.distance / BIOME_LENGTH) % WORLD_SONGS;
-      if (biome !== this.songBiome && this.phase === 'running') {
-        this.songBiome = biome;
-        music.world(biome);
+      const level = Math.floor(me.distance / BIOME_LENGTH);
+      if (level !== this.songBiome && this.phase === 'running') {
+        this.songBiome = level;
+        music.world(level % WORLD_SONGS, level);
+      }
+      // Beat-synced runs: keep the song at the time the runner's position calls for.
+      const sync = music.syncSong;
+      if (sync && this.phase === 'running' && ++this.syncTick % 15 === 0) {
+        const d = s.opts.diff;
+        const kid = !!s.opts.kid;
+        let t = 0;
+        for (let x = sync.level * BIOME_LENGTH; x + 1 <= me.distance; x++) t += 1 / endlessSpeedAt(x + START_X + 0.5, kid, d);
+        audio.syncTo(sync.id, t);
       }
       audio.intensity = Math.min(1, 0.35 + me.distance / 3000);
     } else if (this.kind === 'custom') {

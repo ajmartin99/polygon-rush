@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { World } from '../src/game/world';
-import { LevelGen } from '../src/game/generator';
+import { LevelGen, BEAT_LEVEL_LENGTH, type GenOptions } from '../src/game/generator';
 import { BotBrain } from '../src/game/bot';
 import { createBody, newEvents, stepBody } from '../src/game/physics';
 import { endlessSpeedAt, RACE_SPEED, type Difficulty } from '../src/game/constants';
@@ -13,10 +13,10 @@ interface RunResult {
 }
 
 /** Let a perfect bot play `distance` tiles and record every failure. */
-export function playLevel(seed: number, kind: 'endless' | 'race', distance: number, opts: { kid?: boolean; difficulty?: number; margin?: number; diff?: Difficulty; start?: number } = {}): RunResult {
+export function playLevel(seed: number, kind: 'endless' | 'race', distance: number, opts: { kid?: boolean; difficulty?: number; margin?: number; diff?: Difficulty; start?: number; beat?: GenOptions['beat'] } = {}): RunResult {
   const world = new World();
   const start = opts.start ?? 0;
-  const gen = new LevelGen(world, { seed, kind, kid: opts.kid, diff: opts.diff, startX: start ? 2 + start : undefined, offset: start || undefined, length: kind === 'race' ? distance : undefined, difficulty: opts.difficulty });
+  const gen = new LevelGen(world, { seed, kind, kid: opts.kid, diff: opts.diff, startX: start ? 2 + start : undefined, offset: start || undefined, length: kind === 'race' ? distance : undefined, difficulty: opts.difficulty, beat: opts.beat });
   const bot = new BotBrain({ skill: 1, seed, margin: opts.margin ?? 0.05 });
   const body = createBody(2);
   body.x += start;
@@ -135,4 +135,54 @@ describe('every generated level is beatable', () => {
       expect(r.hits, JSON.stringify(r.hits)).toEqual([]);
     });
   }
+});
+
+describe('beat-synced endless levels', () => {
+  // A different song tempo every level, like the music shuffle.
+  const songs = [{ bpm: 128, offset: 0.1 }, { bpm: 174, offset: 0.04 }, { bpm: 86, offset: 0.26 }, { bpm: 140, offset: 0.0 }, { bpm: 105, offset: 0.3 }, { bpm: 165, offset: 0.08 }];
+  const beat = (level: number) => songs[level % songs.length];
+
+  for (const [seed, diff] of [[81, 'medium'], [82, 'hard'], [83, 'easy'], [84, 'medium']] as const) {
+    it(`stays beatable (${diff}) seed ${seed}`, () => {
+      const r = playLevel(seed, 'endless', 4000, { diff, beat });
+      expect(r.hits, JSON.stringify(r.hits)).toEqual([]);
+    });
+  }
+
+  it('starts patterns on the beat of each level\'s song', () => {
+    const world = new World();
+    const gen = new LevelGen(world, { seed: 85, kind: 'endless', beat });
+    // Record where each runway ends (= next pattern start).
+    const starts: number[] = [];
+    const orig = gen.ensure.bind(gen);
+    let last = gen.x;
+    while (gen.x < 1400) {
+      orig(gen.x + 1);
+      if (gen.x !== last) starts.push(gen.x);
+      last = gen.x;
+    }
+    expect(gen.beatsHit).toBeGreaterThan(40);
+    // Check timing for level 1 (128 bpm): seconds from the level start to each pattern start.
+    let onBeat = 0;
+    let total = 0;
+    for (const x of starts.filter((x) => x > 30 && x < BEAT_LEVEL_LENGTH - 10)) {
+      let t = 0;
+      for (let p = 0; p + 1 <= x; p++) t += 1 / endlessSpeedAt(p + 0.5, false, 'medium');
+      t += (x - Math.floor(x)) / endlessSpeedAt(Math.floor(x), false, 'medium');
+      const unit = 60 / 128;
+      const phase = (((t - 0.1) / unit) % 1 + 1) % 1;
+      total++;
+      if (phase < 0.02 || phase > 0.98) onBeat++;
+    }
+    expect(total).toBeGreaterThan(10);
+    expect(onBeat / total).toBeGreaterThan(0.6);
+  });
+
+  it('leaves Daily Run / race courses identical without a beat', () => {
+    const a = new World();
+    const b = new World();
+    new LevelGen(a, { seed: 7, kind: 'endless' }).ensure(1500);
+    new LevelGen(b, { seed: 7, kind: 'endless', beat: () => null }).ensure(1500);
+    expect(a.objs.map((o) => o.x0.toFixed(3)).join()).toBe(b.objs.map((o) => o.x0.toFixed(3)).join());
+  });
 });

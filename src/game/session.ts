@@ -1,7 +1,7 @@
 import { Emitter } from '../core/emitter';
 import { Rng } from '../core/rng';
 import { DT, ENDLESS_TUNING, MODE_INDEX, PLAYER_HALF, RACE_SPEED, endlessSpeedAt, type Difficulty } from './constants';
-import { LevelGen } from './generator';
+import { LevelGen, type GenOptions } from './generator';
 import { buildWorld, levelSpeed, modeAt, type LevelContent } from './level';
 import { newEvents, stepBody } from './physics';
 import { Racer, type RacerSpec } from './racer';
@@ -31,6 +31,8 @@ export interface SessionOptions {
   stunOnly?: boolean;
   /** Endless: start this many metres in (a later level); distance counts from 0. */
   startDistance?: number;
+  /** Endless: build each level on its song's beat (see LevelGen). */
+  beat?: GenOptions['beat'];
   tutorial?: boolean;
   /** Race length (race/duel/online). */
   length?: number;
@@ -106,6 +108,7 @@ export class GameSession extends Emitter<GameEvents> {
         difficulty: raceLike ? opts.difficulty ?? 0.35 : undefined,
         startX: START_X + offset,
         offset,
+        beat: raceLike ? undefined : opts.beat,
       });
       startX = START_X + offset;
       this.fixedSpeed = raceLike ? RACE_SPEED : null;

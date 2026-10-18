@@ -2,6 +2,7 @@ import { store } from '../state/store';
 import { audio } from './audio';
 import { menuTheme, RACE_SONG, SONGS, songsFor, WORLD_SONGS } from './songs';
 import { TRACK_BASE, USER_BASE, trackOf, tracksFor } from './tracks';
+import type { BeatGrid } from '../game/generator';
 import { myMusic } from '../services/mymusic';
 import { activeEvent } from '../meta/events';
 import { Emitter } from './emitter';
@@ -27,6 +28,8 @@ class MusicDirector extends Emitter<{ song: number }> {
   constructor() {
     super();
     audio.onSongEnd = () => {
+      // Beat-synced levels keep their song to the end of the level (it loops in time).
+      if (this.planning && this.context === 'run') return;
       if (this.context && this.context !== 'level') this.next();
     };
     // A track that won't load (missing file, unsupported format): move on.
@@ -50,14 +53,73 @@ class MusicDirector extends Emitter<{ song: number }> {
 
   /** Main menu: a random menu song, or the (seasonal) theme. */
   menu(): void {
+    this.planning = false;
     // Recorded menu music when we have it (the seasonal theme still leads in season).
     // With recorded menu music, open on a random one (the seasonal theme still leads in season).
     const rec = this.recorded('menu');
     this.start('menu', rec.length && !activeEvent() && !this.mineOnly() ? -1 : menuTheme());
   }
 
-  /** Endless run starting in a world. */
-  run(world: number): void {
+  // ------------------------------------------------------------------ beat-synced runs
+  /** Endless with beat sync: the song planned for each level (0-based from the run's start). */
+  private plan = new Map<number, number>();
+  private planBag: number[] = [];
+  private planning = false;
+  private runLevel = 0;
+
+  /**
+   * A new endless run whose levels are built on their songs' beat (not the
+   * Daily Run, which must be the same for everyone). Call before the run's
+   * course is generated.
+   */
+  resetPlan(on: boolean): void {
+    this.plan.clear();
+    this.planBag = [];
+    this.planning = on;
+  }
+
+  /** Song for a level, chosen once (shuffled, no repeats until all have played). */
+  private planned(level: number): number {
+    let id = this.plan.get(level);
+    if (id !== undefined) return id;
+    const pool = this.pool('run');
+    this.planBag = this.planBag.filter((i) => pool.includes(i));
+    if (!this.planBag.length) {
+      const prev = this.plan.get(level - 1);
+      this.planBag = pool.filter((i) => i !== prev);
+      if (!this.planBag.length) this.planBag = pool.slice();
+      for (let i = this.planBag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [this.planBag[i], this.planBag[j]] = [this.planBag[j], this.planBag[i]];
+      }
+    }
+    id = this.planBag.shift()!;
+    this.plan.set(level, id);
+    return id;
+  }
+
+  /** The beat a level's course is built on (null when the song's tempo is unknown). */
+  planLevel(level: number): BeatGrid | null {
+    const id = this.planned(level);
+    const t = trackOf(id);
+    if (t) return { bpm: t.bpm, offset: t.offset };
+    if (id >= 0 && id < SONGS.length) return { bpm: SONGS[id].bpm, offset: 0 };
+    return null;
+  }
+
+  /** The song planned for the level being played (for keeping the music in time). */
+  get syncSong(): { id: number; level: number } | null {
+    return this.planning && this.context === 'run' ? { id: this.planned(this.runLevel), level: this.runLevel } : null;
+  }
+
+  /** Endless run starting in a world (`level`: 0-based level index, for beat-synced runs). */
+  run(world: number, level = 0): void {
+    if (this.planning) {
+      this.runLevel = level;
+      this.context = null;
+      this.start('run', this.planned(level), true);
+      return;
+    }
     // With recorded music every run starts on a random song; otherwise the world's theme.
     if (this.recorded('run').length >= 3 || this.mineOnly()) {
       this.context = null;
@@ -71,12 +133,19 @@ class MusicDirector extends Emitter<{ song: number }> {
    * bag (every run song plays once before any repeats), so each level sounds
    * different instead of cycling the six world themes.
    */
-  world(world: number): void {
-    if (this.context !== 'run') return this.run(world);
+  world(world: number, level = 0): void {
+    if (this.context !== 'run') return this.run(world, level);
+    if (this.planning) {
+      this.runLevel = level;
+      const id = this.planned(level);
+      if (id !== audio.targetSong) this.play(id);
+      return;
+    }
     this.next();
   }
 
   race(first = RACE_SONG): void {
+    this.planning = false;
     this.start('race', this.recorded('race').length >= 3 || this.mineOnly() ? -1 : first);
   }
 
@@ -104,6 +173,7 @@ class MusicDirector extends Emitter<{ song: number }> {
 
   stop(): void {
     this.context = null;
+    this.planning = false;
     audio.stopMusic();
   }
 
@@ -170,6 +240,11 @@ class MusicDirector extends Emitter<{ song: number }> {
   /** Line up the following song and start loading it, so the next switch is seamless. */
   private lineUp(): void {
     if (this.context === 'level' || this.context === null) return;
+    if (this.planning && this.context === 'run') {
+      const t = trackOf(this.planned(this.runLevel + 1));
+      if (t) audio.prefetch(`music/${t.file}`);
+      return;
+    }
     // A song lined up earlier but skipped past goes back in the bag.
     if (this.queued >= 0 && !this.bag.includes(this.queued)) this.bag.push(this.queued);
     this.queued = this.draw();

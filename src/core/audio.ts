@@ -340,6 +340,38 @@ class AudioEngine {
     }, 6000);
   }
 
+  private lastSync = 0;
+
+  /**
+   * Beat-synced levels: keep the recorded track at the song time the runner's
+   * position calls for. Only nudges when it has drifted (a slow-down, a
+   * boost, a loop or a late start), with a quick dip so the jump isn't heard.
+   */
+  syncTo(id: number, seconds: number): void {
+    const el = this.trackEl;
+    if (!el || !this.ctx || this.trackId !== id || this.audible?.el !== el || el.seeking || !isFinite(el.duration) || el.duration <= 0) return;
+    const want = seconds % el.duration;
+    const drift = Math.abs(el.currentTime - want);
+    if (drift < 0.3 || drift > el.duration - 0.3) return;
+    const now = performance.now();
+    if (now - this.lastSync < 3000) return;
+    this.lastSync = now;
+    const g = this.audible.g;
+    const level = g.gain.value;
+    const t = this.ctx.currentTime;
+    g.gain.cancelScheduledValues(t);
+    g.gain.setValueAtTime(level, t);
+    g.gain.linearRampToValueAtTime(0.0001, t + 0.06);
+    setTimeout(() => {
+      if (this.trackEl !== el || !this.ctx) return;
+      el.currentTime = want + 0.12;
+      const t2 = this.ctx.currentTime;
+      g.gain.cancelScheduledValues(t2);
+      g.gain.setValueAtTime(0.0001, t2);
+      g.gain.linearRampToValueAtTime(Math.max(level, 0.0001), t2 + 0.25);
+    }, 70);
+  }
+
   private fadeOutTrack(secs = CROSSFADE): void {
     if (this.trackEl && this.trackGain && this.trackEl !== this.audible?.el) this.release(this.trackEl, this.trackGain, 0.05);
     if (this.audible) this.release(this.audible.el, this.audible.g, secs);

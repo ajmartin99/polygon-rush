@@ -4,6 +4,7 @@
  */
 import { DIFFICULTIES, type Difficulty } from '../game/constants';
 import { FREE_EMOTES } from '../meta/emotes';
+import { SKINS, TRAILS, type Unlock } from '../meta/catalog';
 
 export const SAVE_VERSION = 1;
 
@@ -261,6 +262,9 @@ function mergeShape<T>(base: T, src: unknown): T {
   return out as T;
 }
 
+/** No real player gets near this; stops absurd values from overflowing the UI. */
+export const MAX_GEMS = 9_999_999;
+
 /** Turn whatever is on disk into a valid, current SaveData. */
 export function migrate(raw: unknown): SaveData {
   const fresh = createSave();
@@ -268,12 +272,21 @@ export function migrate(raw: unknown): SaveData {
   const save = mergeShape(fresh, raw);
   save.v = SAVE_VERSION;
   // Invariants.
+  const str = (a: unknown[]) => [...new Set(a.filter((x): x is string => typeof x === 'string'))];
+  save.skins.owned = str(save.skins.owned);
+  save.trails.owned = str(save.trails.owned);
+  save.phrases.owned = str(save.phrases.owned);
+  save.secrets.found = [...new Set(save.secrets.found.filter((n) => Number.isInteger(n) && n >= 1 && n <= 40))];
+  // Items only a purchase gives: kept only with the purchase (Google Play restores it on launch).
+  const paid = (u: Unlock) => (u.kind === 'legend' && !save.purchases.legend) || (u.kind === 'starter' && !save.purchases.starter);
+  save.skins.owned = save.skins.owned.filter((id) => !SKINS.some((x) => x.id === id && paid(x.unlock)));
+  save.trails.owned = save.trails.owned.filter((id) => !TRAILS.some((x) => x.id === id && paid(x.unlock)));
   if (!save.skins.owned.includes('classic')) save.skins.owned.unshift('classic');
   if (!save.skins.owned.includes(save.skins.equipped)) save.skins.equipped = 'classic';
   if (!save.trails.owned.includes('none')) save.trails.owned.unshift('none');
   if (!save.trails.owned.includes(save.trails.equipped)) save.trails.equipped = 'none';
   save.emotes.owned = [...new Set([...FREE_EMOTES, ...save.emotes.owned.filter((e) => typeof e === 'string')])];
-  save.gems = Math.max(0, Math.floor(save.gems));
+  save.gems = Number.isFinite(save.gems) ? Math.min(MAX_GEMS, Math.max(0, Math.floor(save.gems))) : 0;
   save.level = Math.max(1, Math.floor(save.level));
   if (save.account.consent !== 'self' && save.account.consent !== 'parent') save.account = { ...emptyAccount(), rules: save.account.rules };
   save.account.blocked = save.account.blocked.filter((b) => typeof b === 'string').slice(-200);

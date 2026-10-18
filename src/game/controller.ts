@@ -1117,10 +1117,13 @@ export class GameController {
         ['distance', Math.floor(me.distance)],
       ]);
     } else if (this.kind === 'duel') {
-      const p1 = s.racers[0];
-      reward = { gems: p1.gems + 15, trophies: 0, xp: 25 };
+      // Duels are just for fun: two players on one phone could farm them, so
+      // gems, XP and run missions stay out (only "play a Duel" counts).
       d.stats.duelsPlayed += 1;
-      this.reportRun(p1, [['duel_play', 1]]);
+      for (const m of reportMission(d, 'duel_play', 1)) {
+        ui.toast(`Mission complete: ${describe(m)}`, 'check');
+        ui.sfx('reward');
+      }
     }
     if (reward) {
       store.addGems(reward.gems);

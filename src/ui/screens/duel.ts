@@ -25,7 +25,7 @@ export class DuelScreen extends BaseScreen {
       h(
         'div.grow.col',
         { style: 'align-items:center;justify-content:safe center;gap:0.7rem;min-height:0' },
-        h('p.muted', { style: 'text-align:center;max-width:34rem' }, 'Race a friend on the same device! First to the finish line wins.'),
+        h('p.muted', { style: 'text-align:center;max-width:34rem' }, 'Race a friend on the same device! First to the finish line wins. Just for fun: gems grabbed in a Duel are for bragging rights only.'),
         h(
           'div.row',
           { style: 'gap:1.2rem;align-items:stretch' },

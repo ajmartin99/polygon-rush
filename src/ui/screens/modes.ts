@@ -123,7 +123,7 @@ export class ModesScreen extends BaseScreen {
       {
         id: 'duel',
         name: 'Duel',
-        blurb: 'Split screen on one device.',
+        blurb: 'Split screen on one device, just for fun.',
         icon: 'duel',
         color: 'pink',
         tag: '2 players',

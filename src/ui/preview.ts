@@ -29,8 +29,17 @@ const live = new Set<Live>();
 const optsOf = new WeakMap<HTMLCanvasElement, PreviewOptions>();
 let raf = 0;
 
+/** When the next preview frame is due. */
+let lastPaint = 0;
+
+/** Character previews animate at 30 fps (plenty for a bob and a blink). */
 function tick(now: number): void {
   raf = 0;
+  if (now < lastPaint - 2) {
+    if (live.size) raf = requestAnimationFrame(tick);
+    return;
+  }
+  lastPaint = Math.max(lastPaint + 1000 / 30, now);
   for (const l of [...live]) {
     if (!l.canvas.isConnected) {
       live.delete(l);

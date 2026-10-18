@@ -4,7 +4,9 @@
   "version": "1.0.0",
   "description": "Optional community server for Polygon Rush: room signalling, public build rooms, email-verified accounts and moderated Free Chat.",
   "type": "module",
-  "license": "CC0-1.0",
+  "license": "UNLICENSED",
+  "author": "Soft Game Bros <polygonrush@softgamebros.com>",
+  "homepage": "https://softgamebros.com/polygon-rush/",
   "engines": {
     "node": ">=22.18"
   },

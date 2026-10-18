@@ -5,6 +5,8 @@ All notable changes to Polygon Rush are documented here.
 ## [Unreleased]
 
 ### Changed
+- **Cooler, longer battery:** gameplay is capped at 60 fps (120 Hz phones were drawing twice as many frames), the menu backdrop, editor and character previews run at 30 fps, nothing is drawn behind full-screen pages (Shop, Settings, Create…), the Auto graphics resolution is a little lower, and the background blur behind panels is only used on High graphics.
+- Polygon Rush is now © Soft Game Bros, all rights reserved (it was CC0). README and package details list Soft Game Bros as developer and contact.
 - **Level editor is quiet:** no music while building. The level's song plays when you test it, and as a preview while you pick it in Level settings.
 - **A level's song is part of the level:** while playing any player-made level (your tests, Community, codes, build-room races) the song can't be skipped or changed.
 - **Only builders edit levels:** levels from codes and Community can be played and shared but not edited or remixed. Levels you built, alone or together, stay editable. Saving a copy of a build room you didn't build in is play-only.
@@ -127,7 +129,7 @@ Includes 1.0.5 (a rebuild of 1.0.4).
 - Game engine: deterministic 120 Hz physics shared by players, CPU rivals and tests; four shape modes (Jumper, Glider, Roller, Hopper) with shape portals.
 - Seeded procedural level generator with a pattern library per shape and speed-scaled spacing; every level type is verified beatable by an automated bot.
 - Endless (hearts, shields, magnets, one revive), Race vs 3 CPU rivals with mystery boxes and leagues, 2-player split-screen Duel, and online Friends races.
-- CPU rival AI that plans with the real physics and makes human-like mistakes by skill level.
+- CPU rivals that plan with the real physics and make human-like mistakes by skill level.
 - Rewards: gems, XP & level-ups, missions, trophies; tutorial hints and slow-mo for first-time mechanics.
 - Original synthesised soundtrack: composed themes (one per world, plus menu and race) with verse/chorus sections, fills, side-chain pump, echo/reverb and intensity layers that build with speed; ~30 sound effects; haptics; pause/resume and app-background handling.
 - Complete menu flow: neutral age screen, generated kid-safe racer names, main menu, shop, missions, daily gift, settings, parental controls, privacy policy.

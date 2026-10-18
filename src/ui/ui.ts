@@ -34,6 +34,11 @@ class UIManager {
   modalRoot!: HTMLElement;
   toastRoot!: HTMLElement;
   current: Screen | null = null;
+
+  /** The current screen is opaque (Shop, Settings…): nothing behind it shows. */
+  get coversGame(): boolean {
+    return Boolean(this.current?.el.classList.contains('solid'));
+  }
   private modals: { handle: ModalHandle; opts: ModalOptions }[] = [];
   /** Wired to the audio engine by the game layer. */
   sfx: SfxHook = () => {};

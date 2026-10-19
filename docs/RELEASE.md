@@ -20,7 +20,9 @@ Then in GitHub → **Settings → Secrets and variables → Actions → Secrets*
 | `ANDROID_KEY_ALIAS` | `polygonrush` (or the alias you chose) |
 | `ANDROID_KEY_PASSWORD` | your key password (same as the keystore one if you used the script) |
 
-> Without these secrets the workflow still works, but signs with a throwaway debug key. That APK is fine for testing on your phone, but Google Play won't accept it.
+> Use **Secrets**, not Variables: the release job only reads secrets. Without them, a full release stops with an error (a debug-signed build can't update in place or go to Google Play); only a pre-release may be debug-signed for testing.
+
+The app's package name is **`com.softgamebros.polygonrush`**. Google Play locks it on the first upload, so never change it after that.
 
 ## 2. Optional: real ads and production settings
 

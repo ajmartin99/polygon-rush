@@ -1,4 +1,4 @@
-package io.github.ajmartin99.polygonrush;
+package com.softgamebros.polygonrush;
 
 import android.os.Bundle;
 import android.view.Display;

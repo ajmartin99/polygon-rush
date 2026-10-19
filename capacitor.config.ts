@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'io.github.ajmartin99.polygonrush',
+  appId: 'com.softgamebros.polygonrush',
   appName: 'Polygon Rush',
   webDir: 'dist',
   backgroundColor: '#1a1040',

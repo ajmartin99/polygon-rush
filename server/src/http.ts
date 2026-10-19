@@ -133,6 +133,7 @@ export function createApp(d: AppDeps): express.Express {
     }),
   );
   app.post('/api/friends/sync', route((req) => players.sync(req.body ?? {})));
+  app.post('/api/friends/card', route((req) => players.friendCard(req.body ?? {})));
   app.post('/api/friends/add', route((req) => players.add(req.body ?? {}, ipKey(req))));
   app.post('/api/friends/respond', route((req) => players.respond(req.body ?? {})));
   app.post(
@@ -163,6 +164,7 @@ export function createApp(d: AppDeps): express.Express {
   // Community levels: share, browse, play, like and report. Authorised by the device key.
   app.post('/api/levels/publish', route((req) => levels.publish(req.body ?? {}, ipKey(req))));
   app.post('/api/levels/browse', route((req) => levels.browse(req.body ?? {})));
+  app.post('/api/levels/:id/author', route((req) => levels.authorCard(req.params.id, req.body ?? {})));
   app.post('/api/levels/:id/get', route((req) => levels.get(req.params.id, req.body ?? {})));
   app.post('/api/levels/:id/play', route((req) => levels.play(req.params.id, req.body ?? {})));
   app.post('/api/levels/:id/like', route((req) => levels.like(req.params.id, req.body ?? {})));

@@ -47,6 +47,7 @@ function registerRoutes(): void {
   nav.register('modes', () => new ModesScreen());
   nav.register('levels', () => new LevelsScreen());
   setLocalCard(localCard);
+  friends.cardSource = localCard;
   setRoomGuards({ rid: roomId, banned: isBanned });
   nav.register('menu', () => new MenuScreen());
   nav.register('shop', (p) => new ShopScreen(p));

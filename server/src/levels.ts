@@ -289,6 +289,14 @@ export class LevelService {
     return { levels, more, stats: this.stats(me.id) };
   }
 
+  /** The builder's profile card for a shared level (tap their name). */
+  authorCard(id: string, body: Record<string, unknown>, now = Date.now()) {
+    const me = this.players.me(body, now);
+    const row = this.visible(id);
+    if (this.players.blockedEither(me.id, row.owner)) throw new ApiError(404, 'not_found', 'That level isn’t shared any more.');
+    return this.players.cardView(row.owner, now);
+  }
+
   /** One level by id (a Creator Spotlight on a player's card). Hidden levels and blocked builders aren't found. */
   get(id: string, body: Record<string, unknown>, now = Date.now()): { level: SharedLevelView } {
     const me = this.players.me(body, now);

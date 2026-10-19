@@ -1,6 +1,6 @@
 import { contentOf, decodeLevel, encodeLevel, type LevelContent, type LevelData } from '../game/level';
 import { store } from '../state/store';
-import { friends } from './friends';
+import { friends, type RemoteCard } from './friends';
 
 /**
  * Community levels on the game server: share a level you built and beat,
@@ -92,6 +92,11 @@ export const sharedLevels = {
   /** Refresh your creator numbers and top level (for the profile add-ons). */
   async refreshMine(): Promise<void> {
     await sharedLevels.browse('top', 'mine');
+  },
+
+  /** The builder's profile card for a shared level. */
+  authorCard(id: string): Promise<RemoteCard> {
+    return friends.authed<RemoteCard>(`/api/levels/${encodeURIComponent(id)}/author`, {});
   },
 
   /** One shared level by id (a Creator Spotlight on someone's card). */

@@ -26,7 +26,7 @@ needs a person, and what to do when something serious happens.
   their own racer name and level names instead (see **Typed names** below).
 * Friends work for every age, but under-13s can only add someone by typing their
   exact Name#number (see **Friends** below), and parents can switch friends off.
-* Profile cards (shown when you tap a player in a room) hold only game facts: level, league, badges, a title chosen from earned badges, a banner colour and a few stats, plus paid cosmetic add-ons (a Community level id with its thumbs up and plays, creator totals, a Pro Builder tag). There is no bio, photo or free text, and incoming cards are cleaned (unknown ids dropped, numbers clamped).
+* Profile cards (shown when you tap a player in a room) hold only game facts: level, league, badges, a title chosen from earned badges, a banner colour and a few stats, plus paid cosmetic add-ons (a Community level id with its thumbs up and plays, creator totals, a Pro Builder tag). The game sends its latest card with friends sync (only when it changes, max 2 KB); friends can open it from the Friends list, and Community players from a level's builder. Blocks hide it both ways, under-13s' #number is stripped by the server, and the game cleans every card it receives. There is no bio, photo or free text, and incoming cards are cleaned (unknown ids dropped, numbers clamped).
 * Free Chat is only delivered to players who are verified themselves, so a
   verified adult can never send typed text to an unverified child in the same room.
 * Online rooms are peer-to-peer; only generated names, skins, positions, level

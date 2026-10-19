@@ -38,7 +38,20 @@ export interface PlayerRow {
   activity: string;
   created_at: number;
   last_seen: number;
+  /** Latest game profile card (JSON, game facts only) and skin, sent with sync. */
+  card: string;
+  skin: string;
 }
+
+/** A player's profile card as other players fetch it. The game cleans the card again on arrival. */
+export interface CardView {
+  name: string;
+  skin: string;
+  card: Record<string, unknown> | null;
+}
+
+const MAX_CARD_JSON = 2048;
+const SKIN_RE = /^[a-z0-9_-]{1,32}$/;
 
 export interface PublicPlayer {
   id: string;
@@ -119,6 +132,10 @@ export class PlayerService {
     this.secret = secret;
     this.names = names;
     db.sql.exec(SCHEMA);
+    // Profile cards came after the first release.
+    const cols = new Set((db.sql.prepare('PRAGMA table_info(players)').all() as { name: string }[]).map((c) => c.name));
+    if (!cols.has('card')) db.sql.exec("ALTER TABLE players ADD COLUMN card TEXT NOT NULL DEFAULT ''");
+    if (!cols.has('skin')) db.sql.exec("ALTER TABLE players ADD COLUMN skin TEXT NOT NULL DEFAULT ''");
   }
 
   private q<T>(sql: string, ...args: (string | number | null)[]): T | undefined {
@@ -241,6 +258,7 @@ export class PlayerService {
     const me = this.me(body, now);
     const activity = (ACTIVITIES as readonly string[]).includes(body.activity as string) ? (body.activity as string) : 'menu';
     this.x('UPDATE players SET last_seen = ?, activity = ? WHERE id = ?', now, activity, me.id);
+    this.saveCard(me, body);
     if (me.friends_off)
       return {
         me: { ...this.pub(me), friendsOff: true },
@@ -389,6 +407,43 @@ export class PlayerService {
   }
 
   /** Ids of players this player blocked. */
+  /** Keep the card and skin the game sent (game facts only; size-capped). */
+  private saveCard(me: PlayerRow, body: Record<string, unknown>): void {
+    const c = body.card;
+    if (c && typeof c === 'object' && !Array.isArray(c)) {
+      const json = JSON.stringify(c);
+      if (json.length <= MAX_CARD_JSON && json !== me.card) this.x('UPDATE players SET card = ? WHERE id = ?', json, me.id);
+    }
+    if (typeof body.skin === 'string' && SKIN_RE.test(body.skin) && body.skin !== me.skin) this.x('UPDATE players SET skin = ? WHERE id = ?', body.skin, me.id);
+  }
+
+  /** Either player blocked the other. */
+  blockedEither(a: string, b: string): boolean {
+    return Boolean(this.q('SELECT 1 AS ok FROM blocks WHERE (by_id = ? AND blocked_id = ?) OR (by_id = ? AND blocked_id = ?)', a, b, b, a));
+  }
+
+  /** A player's card for someone else to see. Under-13s' #number never leaves. */
+  cardView(id: string, now = Date.now()): CardView {
+    const p = this.q<PlayerRow>('SELECT * FROM players WHERE id = ?', id);
+    if (!p) throw new ApiError(404, 'not_found', 'That player isn’t around any more.');
+    let card: Record<string, unknown> | null = null;
+    try {
+      card = p.card ? (JSON.parse(p.card) as Record<string, unknown>) : null;
+    } catch {
+      card = null;
+    }
+    if (card && p.kid) delete card.tag;
+    return { name: this.names.allowed(p.name, now) ? p.name : 'Rusher', skin: p.skin || 'classic', card };
+  }
+
+  /** A friend's profile card (POST /api/friends/card). */
+  friendCard(body: Record<string, unknown>, now = Date.now()): CardView {
+    const me = this.me(body, now);
+    const id = typeof body.id === 'string' ? body.id : '';
+    if (!id || !this.friendIds(me.id).includes(id)) throw new ApiError(404, 'not_found', 'That player isn’t on your friends list.');
+    return this.cardView(id, now);
+  }
+
   blockedIds(id: string): string[] {
     return this.qa<{ id: string }>('SELECT blocked_id AS id FROM blocks WHERE by_id = ?', id).map((r) => r.id);
   }

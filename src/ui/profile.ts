@@ -1,6 +1,7 @@
 import { levels } from '../state/levels';
 import { SECRET_LEVELS } from '../game/generator';
-import { friends } from '../services/friends';
+import { friends, type RemoteCard } from '../services/friends';
+import { SKINS } from '../meta/catalog';
 import { formatHandle } from '../shared/handle';
 import { store } from '../state/store';
 import { leagueFor } from '../meta/economy';
@@ -8,7 +9,7 @@ import { CONFIG } from '../config';
 import { gemPriceOf, isOwned, productById } from '../meta/products';
 import { iap } from '../services/iap';
 import { buyProduct, buyWithGems } from './screens/shop';
-import { BADGE_GROUPS, BADGES, BANNER_LEVELS, type BadgeGroup, BANNERS, badgeById, DEFAULT_TITLE, earnedBadges, MAX_SHOWCASE, myCard, addOns, titleFor, type BadgeCtx, type ProfileCard } from '../meta/profile';
+import { BADGE_GROUPS, BADGES, BANNER_LEVELS, type BadgeGroup, BANNERS, badgeById, DEFAULT_TITLE, earnedBadges, MAX_SHOWCASE, myCard, addOns, safeCard, titleFor, type BadgeCtx, type ProfileCard } from '../meta/profile';
 import type { NetPlayer } from '../services/net';
 import { BaseScreen, button, confirm, titleBar } from './components';
 import { playShared, proTag } from './community-levels';
@@ -149,11 +150,26 @@ export function profileCard(name: string, skin: string, card: ProfileCard, o: Ca
 
 /** Tap a player in a room to see their card. */
 export function openPlayerCard(p: NetPlayer): void {
-  const tag = p.card?.tag ?? 0;
-  const handle = tag ? formatHandle(p.name, tag) : '';
-  // 13+ can send a request straight from a room (under-13s add by typed Name#tag only).
+  showCard({ name: p.name, skin: p.skin, card: p.card, inRoom: true });
+}
+
+interface CardTarget {
+  name: string;
+  skin: string;
+  card?: ProfileCard;
+  /** Inside a room, playing a Spotlight level asks first (it leaves the room). */
+  inRoom?: boolean;
+  /** Where to come back to after playing their Spotlight level. */
+  back?: () => void;
+}
+
+/** Someone's card in a popup, with Add friend (13+) and their Spotlight level. */
+function showCard(t: CardTarget): void {
+  const tag = t.card?.tag ?? 0;
+  const handle = tag ? formatHandle(t.name, tag) : '';
+  // 13+ can send a request straight from a card (under-13s add by typed Name#tag only).
   const add =
-    handle && friends.canAddFromCards && handle !== friends.myHandle && !friends.state.friends.some((f) => f.name === p.name && f.tag === tag)
+    handle && friends.canAddFromCards && handle !== friends.myHandle && !friends.state.friends.some((f) => f.name === t.name && f.tag === tag)
       ? button({
           label: 'Add friend',
           icon: 'users',
@@ -170,22 +186,33 @@ export function openPlayerCard(p: NetPlayer): void {
           },
         })
       : null;
+  const back = t.back ?? (() => nav.go('create', { tab: 'community' }));
   const m = ui.modal(
     [
-      p.card
-        ? profileCard(p.name, p.skin, p.card, {
+      t.card
+        ? profileCard(t.name, t.skin, t.card, {
             onPlay: async (id) => {
-              if (!(await confirm('Play this level?', `You’ll leave the room to play ${p.name}’s top level.`, 'Play', 'Stay'))) return;
+              if (t.inRoom && !(await confirm('Play this level?', `You’ll leave the room to play ${t.name}’s top level.`, 'Play', 'Stay'))) return;
               m.close();
-              void playSpotlight(id, () => nav.go('create', { tab: 'community' }));
+              void playSpotlight(id, back);
             },
           })
-        : h('div.col', { style: 'align-items:center;gap:0.5rem' }, h('h2', null, p.name), h('p.muted', null, 'This player’s game doesn’t share a profile card yet.')),
+        : h('div.col', { style: 'align-items:center;gap:0.5rem' }, h('h2', null, t.name), h('p.muted', null, 'This player’s game doesn’t share a profile card yet.')),
       handle ? h('p.muted.small', { style: 'text-align:center' }, handle) : null,
       add ? h('div.row', { style: 'justify-content:center' }, add) : null,
     ],
     { showClose: true },
   );
+}
+
+/** A card fetched from the server: a friend's, or the builder of a Community level. */
+export async function openRemoteCard(load: () => Promise<RemoteCard>, back?: () => void): Promise<void> {
+  try {
+    const r = await load();
+    showCard({ name: r.name, skin: SKINS.some((x) => x.id === r.skin) ? r.skin : 'classic', card: safeCard(r.card), back });
+  } catch (e) {
+    ui.toast(e instanceof Error ? e.message : 'Couldn’t reach the game server.', 'info', 3000);
+  }
 }
 
 const ADD_ONS: string[] = [CONFIG.iap.products.creatorSpotlight, CONFIG.iap.products.builderPack];

@@ -11,6 +11,7 @@ All notable changes to Polygon Rush are documented here.
   - **Creator Spotlight** ($0.99 or 660 gems): your top-rated Community level on your profile card. Anyone who taps you in a room can play it.
   - **Builder Pack** ($2.99 or 2,200 gems): a Creator Stats section on your card (levels shared, plays, thumbs up, clears) and a gold Pro Builder tag on your card and next to your name on your Community levels.
 - Find them in Profile > Card add-ons and in the Shop.
+- **See other players' profiles outside rooms:** tap **Profile** next to a friend in the Friends list, or **(name)'s profile** on a Community level, to see their card, badges, add-ons and Spotlight level.
 
 ### Changed
 - Heart Regens aren't tied to Halloween: unused ones keep for the next limited-time run.

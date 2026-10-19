@@ -558,7 +558,8 @@ describe('community levels', () => {
     await reg(k('d'), 'Dizzy Duck');
     await reg(k('e'), 'Speedy Panda 7', { kid: true });
     assert.equal((await api('POST', '/api/levels/publish', { key: k('e'), localId: 'kidlevel0001', code: code(6, 'My Level') })).status, 400, 'typed titles are 13+');
-    assert.equal((await api('POST', '/api/levels/publish', { key: k('e'), localId: 'kidlevel0001', code: code(6) })).status, 200);
+    const kidPub = await api('POST', '/api/levels/publish', { key: k('e'), localId: 'kidlevel0001', code: code(6) });
+    assert.equal(kidPub.status, 200);
     assert.equal((await api('POST', '/api/levels/publish', { key: k('c'), localId: 'catlevel0001', code: code(6, 'call 5551234') })).status, 400);
     const pub = await api('POST', '/api/levels/publish', { key: k('c'), localId: 'catlevel0001', code: code(6, 'Spike Party') });
     assert.equal(pub.status, 200);
@@ -571,9 +572,26 @@ describe('community levels', () => {
       fr.json.levels.map((l: any) => [l.id, l.friend]),
       [[pub.json.id, true]],
     );
-    // Blocking someone hides their levels.
+    // Profile cards: sent with sync, seen by friends and from a level's builder name.
+    await api('POST', '/api/friends/sync', { key: k('c'), card: { lv: 7, tag: a.json.tag, show: [] }, skin: 'neon' });
+    const fc = await api('POST', '/api/friends/card', { key: k('d'), id: a.json.id });
+    assert.equal(fc.status, 200);
+    assert.equal(fc.json.name, 'Comet Cat');
+    assert.equal(fc.json.skin, 'neon');
+    assert.equal(fc.json.card.lv, 7);
+    assert.equal((await api('POST', '/api/friends/card', { key: k('e'), id: a.json.id })).status, 404, 'friends only');
+    assert.equal((await api('POST', `/api/levels/${pub.json.id}/author`, { key: k('e') })).json.card.lv, 7);
+    assert.equal((await api('POST', '/api/friends/sync', { key: k('c'), card: { junk: 'x'.repeat(3000) } })).status, 200);
+    assert.equal((await api('POST', '/api/friends/card', { key: k('d'), id: a.json.id })).json.card.lv, 7, 'oversized cards are ignored');
+    // An under-13's #number never leaves on their card.
+    await api('POST', '/api/friends/sync', { key: k('e'), card: { lv: 3, tag: 1234 } });
+    const kidCard = await api('POST', `/api/levels/${kidPub.json.id}/author`, { key: k('d') });
+    assert.equal(kidCard.json.card.lv, 3);
+    assert.equal(kidCard.json.card.tag, undefined);
+    // Blocking someone hides their levels and their card.
     await api('POST', '/api/friends/block', { key: k('d'), id: a.json.id });
     assert.ok(!(await browse(k('d'), { tab: 'new' })).json.levels.some((l: any) => l.id === pub.json.id));
+    assert.equal((await api('POST', `/api/levels/${pub.json.id}/author`, { key: k('d') })).status, 404);
   });
 
   test('thumbs up and down: Highest Rated and Trending', async () => {

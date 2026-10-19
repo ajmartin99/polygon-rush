@@ -9,6 +9,7 @@ import { button, confirm } from './components';
 import { clear, fmt, h, ic } from './dom';
 import { thumb } from './level-thumb';
 import { nav } from './nav';
+import { openRemoteCard } from './profile';
 import { ui } from './ui';
 
 /**
@@ -218,6 +219,7 @@ function openLevel(l: SharedLevel, reload: () => void): void {
       h('p.muted.small', null, l.mine ? 'Your level' : `by ${l.author}${l.friend ? ' (your friend)' : ''}`, l.pro ? proTag() : null, ` · ${c.length}m · ${SPEED_NAMES[c.speed]} · ${c.hearts}♥`),
       h('p.small', null, `${fmt(l.plays)} players · ${fmt(l.clears)} beat it · ${fmt(l.likes)} 👍 · ${fmt(l.dislikes)} 👎`),
       h('div.actions', null, button({ label: 'Play', icon: 'play', cls: 'mint lg', onClick: () => (m.close(), playShared(l)) }), l.mine ? null : thumbBtn(1), l.mine ? null : thumbBtn(-1)),
+      l.mine ? null : button({ label: `${l.author}’s profile`, icon: 'star', cls: 'yellow sm', onClick: () => void openRemoteCard(() => sharedLevels.authorCard(l.id)) }),
       h(
         'div.actions',
         null,

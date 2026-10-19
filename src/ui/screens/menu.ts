@@ -126,7 +126,7 @@ export class MenuScreen extends BaseScreen {
         dailyBtn,
         noAdsBtn,
         h('div.spacer'),
-        h('span.kbd-hint', null, `v${CONFIG.version}`),
+        h('span.kbd-hint', null, `v${CONFIG.versionLabel}`),
       ),
     );
 

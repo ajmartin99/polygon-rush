@@ -124,3 +124,18 @@ Every push to `main` that changes `site/` redeploys it. Edit `site/polygon-rush/
 **AdMob:** `site/app-ads.txt` lists the Soft-Game Brothers publisher id (`pub-8916807186236706`) and is served at `https://softgamebros.com/app-ads.txt`. Set the Play listing's website to `https://softgamebros.com` so AdMob can find it (it checks within about a day). If AdMob ever shows a different line, copy that one into the file.
 
 **Email:** Cloudflare → softgamebros.com → Email → Email Routing forwards `polygonrush@`, `privacy@` and `safety@` to the owner's inbox.
+
+## Live updates (new maps, obstacles and fixes without a store release)
+
+Most of Polygon Rush (levels, obstacles, modes, menus) is web code, and it can be updated in place:
+
+1. Merge your changes to `main`.
+2. Actions → **Live Update** → Run workflow (optionally type what changed; players see it in the "Update ready" message).
+3. Phones on the **same app build** (the `VERSION_CODE` in `android/app/build.gradle`) find it at their next launch, download only the changed files, and switch to it the next time the app goes to the background.
+
+Rules of thumb:
+- A live update must only change web code. New plugins, permissions, Android code or in-app products need a normal **Release** (and a Play upload).
+- After a new store release, phones on the new build only get live updates published after it.
+- If an update fails to start, the phone rolls back on its own to the last version that worked.
+- Files are published to the `ota` GitHub release (marked pre-release so it never shows as the latest app download). No third-party update service is used.
+

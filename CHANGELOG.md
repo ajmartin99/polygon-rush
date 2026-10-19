@@ -6,6 +6,9 @@ All notable changes to Polygon Rush are documented here.
 
 ## [1.0.11] - 2026-10-19
 
+### Added
+- **Live updates:** new maps, obstacles, modes and fixes now reach players without a store update. At launch the game checks for a newer version made for its app build, downloads only the files that changed (the music never re-downloads) and switches to it the next time you leave the app. A version that fails to start rolls back on its own. Published with the new Live Update workflow; no third-party update service. The version in Settings shows the update number.
+
 ### Changed
 - **New package name for Google Play: `com.softgamebros.polygonrush`** (was `io.github.ajmartin99.polygonrush`). Installed test copies count as a different app: back up your progress code, uninstall the old app, install this one and restore.
 - **Endless is charted to the music.** Every tap a level asks for (jump, hop, Roller flip, Glider gate) now lands right on a beat of that level's song, like a rhythm game, on every difficulty and in every Endless mode. Taps come about every 1.6–1.1 s on Easy, 1.2–0.75 s on Normal and 0.8–0.45 s on Extreme, getting faster as the run goes on; Extreme adds three-spike rows, wide pits, block-and-spike combos and saws that drop in on hot runs. The music is kept in tighter sync with your position. Rhythm Rush now lines up: every obstacle is a note.

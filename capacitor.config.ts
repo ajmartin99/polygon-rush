@@ -21,6 +21,17 @@ const config: CapacitorConfig = {
       splashFullScreen: true,
       splashImmersive: true,
     },
+    // Live updates, run by our own code (src/services/updates.ts): no Capgo cloud, no stats sent anywhere.
+    CapacitorUpdater: {
+      autoUpdate: false,
+      updateUrl: '',
+      statsUrl: '',
+      channelUrl: '',
+      // A new bundle must report it started within 10 s or the app rolls back to the last good one.
+      appReadyTimeout: 10000,
+      // A newer app from the store replaces any downloaded bundle.
+      resetWhenUpdate: true,
+    },
   },
 };
 

@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 declare const __APP_VERSION__: string;
+declare const __OTA_BUILD__: number;
 
 interface ImportMetaEnv {
   readonly VITE_ADMOB_BANNER_ID?: string;

@@ -46,7 +46,7 @@ function openCredits(): void {
       h(
         'div.body-scroll',
         { style: 'text-align:center' },
-        h('p', null, h('b', null, 'Polygon Rush'), ` v${CONFIG.version}`),
+        h('p', null, h('b', null, 'Polygon Rush'), ` v${CONFIG.versionLabel}`),
         h('p', null, 'Game design, code, music & art made with ♥ for players of every age.'),
         h('h3', null, 'Built with'),
         h('p', null, 'Capacitor · Vite · TypeScript · Web Audio · Canvas'),
@@ -206,7 +206,7 @@ export class SettingsScreen extends BaseScreen {
           ),
         ),
         h('div.row', { style: 'flex-wrap:wrap;margin-top:0.9rem;gap:0.5rem' }, actions),
-        h('p.muted.small', { style: 'margin-top:0.8rem' }, `Polygon Rush v${CONFIG.version} · ${store.data.profile.name}`),
+        h('p.muted.small', { style: 'margin-top:0.8rem' }, `Polygon Rush v${CONFIG.versionLabel} · ${store.data.profile.name}`),
       ),
     );
   }

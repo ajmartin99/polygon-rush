@@ -4,6 +4,12 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+### Added
+- **Pay for Heart Regens with gems.** When you're out of Haunted Run attempts you can now spend gems instead of money: a Heart Regen costs 660 gems and 4 Heart Regens cost 2,200, what the same price buys in gems plus 10%.
+
+### Changed
+- 4 Heart Regens are now $2.99 (was $1.99), matching the 2,000-gem Gem Chest.
+
 ## [1.0.11] - 2026-10-19
 
 ### Added

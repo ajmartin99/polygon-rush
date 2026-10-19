@@ -3,7 +3,7 @@ import { ageGroupFor, createSave, migrate } from '../src/state/save';
 import { applyXp, leagueFor, raceReward, xpForLevel } from '../src/meta/economy';
 import { claimMission, ensureMissions, reportMission, ACTIVE_MISSIONS } from '../src/meta/missions';
 import { claimDaily, dailyAvailable } from '../src/meta/daily';
-import { grantProduct } from '../src/meta/products';
+import { gemPriceOf, grantProduct } from '../src/meta/products';
 import { SKINS, TRAILS } from '../src/meta/catalog';
 import { randomName } from '../src/meta/names';
 import { isValidCode, randomCode, CODE_ALPHABET } from '../src/services/net';
@@ -135,6 +135,15 @@ describe('products', () => {
     grantProduct(s, 'legend_pack');
     for (const sk of SKINS.filter((x) => x.unlock.kind === 'legend')) expect(s.skins.owned).toContain(sk.id);
     for (const t of TRAILS.filter((x) => x.unlock.kind === 'legend')) expect(s.trails.owned).toContain(t.id);
+  });
+
+  it('Heart Regens cost the same-price gem pack plus 10% in gems', () => {
+    expect(gemPriceOf('haunted_regen_1')).toBe(660); // $0.99 = 600 gems
+    expect(gemPriceOf('haunted_regen_4')).toBe(2200); // $2.99 = 2,000 gems
+    expect(gemPriceOf('gems_small')).toBe(0);
+    const s = createSave();
+    grantProduct(s, 'haunted_regen_4');
+    expect(s.haunted.regens).toBe(4);
   });
 });
 

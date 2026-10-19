@@ -28,12 +28,31 @@ export const PRODUCTS: ProductDef[] = [
   { id: P.legendPack, kind: 'nonconsumable', name: 'Legend Pack', desc: '3 legendary skins + 2 legendary trails', fallbackPrice: '$3.99' },
   { id: P.gemsSmall, kind: 'consumable', name: 'Gem Pouch', desc: '600 gems', fallbackPrice: '$0.99', gems: 600 },
   { id: P.hauntedRegen1, kind: 'consumable', name: 'Heart Regen', desc: 'Haunted Run: 2 fresh attempts now', fallbackPrice: '$0.99' },
-  { id: P.hauntedRegen4, kind: 'consumable', name: '4 Heart Regens', desc: 'Haunted Run: 4 refills, use them any time', fallbackPrice: '$1.99' },
+  { id: P.hauntedRegen4, kind: 'consumable', name: '4 Heart Regens', desc: 'Haunted Run: 4 refills, use them any time', fallbackPrice: '$2.99' },
   { id: P.gemsMedium, kind: 'consumable', name: 'Gem Chest', desc: '2,000 gems', fallbackPrice: '$2.99', gems: 2000, ribbon: 'Popular' },
   { id: P.gemsLarge, kind: 'consumable', name: 'Gem Vault', desc: '6,000 gems', fallbackPrice: '$6.99', gems: 6000, ribbon: 'Best value' },
 ];
 
 export const productById = (id: string): ProductDef | undefined => PRODUCTS.find((p) => p.id === id);
+
+/** Heart Regens a product gives (0 for anything else). */
+export function regensIn(id: string): number {
+  return id === P.hauntedRegen1 ? 1 : id === P.hauntedRegen4 ? 4 : 0;
+}
+
+/** Paying with gems costs this much more than the same money buys in gems. */
+export const GEM_MARKUP = 1.1;
+
+/**
+ * Gem price of a paid item (Heart Regens): the gems its price buys in the
+ * gem pack at the same price, plus 10%. 0 when it can't be paid with gems.
+ */
+export function gemPriceOf(id: string): number {
+  const def = productById(id);
+  if (!def || !regensIn(id)) return 0;
+  const pack = PRODUCTS.find((p) => p.gems && p.kind === 'consumable' && p.fallbackPrice === def.fallbackPrice);
+  return pack?.gems ? Math.round(pack.gems * GEM_MARKUP) : 0;
+}
 
 export function isOwned(save: SaveData, id: string): boolean {
   if (id === P.removeAds) return save.purchases.noAds;
@@ -87,7 +106,7 @@ export function grantProduct(save: SaveData, id: string): GrantResult {
       break;
     case P.hauntedRegen1:
     case P.hauntedRegen4:
-      save.haunted.regens += id === P.hauntedRegen1 ? 1 : 4;
+      save.haunted.regens += regensIn(id);
       break;
     default: {
       const def = productById(id);

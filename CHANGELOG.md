@@ -4,6 +4,8 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+## [1.0.11] - 2026-10-19
+
 ### Changed
 - **Endless is charted to the music.** Every tap a level asks for (jump, hop, Roller flip, Glider gate) now lands right on a beat of that level's song, like a rhythm game, on every difficulty and in every Endless mode. Taps come about every 1.6–1.1 s on Easy, 1.2–0.75 s on Normal and 0.8–0.45 s on Extreme, getting faster as the run goes on; Extreme adds three-spike rows, wide pits, block-and-spike combos and saws that drop in on hot runs. The music is kept in tighter sync with your position. Rhythm Rush now lines up: every obstacle is a note.
 - **Far fewer gems.** Courses hold about a third of the gems (roughly 100 per km instead of 300), big gems are worth 3, the Haunted Run finish bonus is 300 and boss rewards are halved (150 / 250 / 400). Gem missions are scaled to match.

@@ -163,6 +163,7 @@ export function createApp(d: AppDeps): express.Express {
   // Community levels: share, browse, play, like and report. Authorised by the device key.
   app.post('/api/levels/publish', route((req) => levels.publish(req.body ?? {}, ipKey(req))));
   app.post('/api/levels/browse', route((req) => levels.browse(req.body ?? {})));
+  app.post('/api/levels/:id/get', route((req) => levels.get(req.params.id, req.body ?? {})));
   app.post('/api/levels/:id/play', route((req) => levels.play(req.params.id, req.body ?? {})));
   app.post('/api/levels/:id/like', route((req) => levels.like(req.params.id, req.body ?? {})));
   app.post('/api/levels/:id/report', route((req) => levels.report(req.params.id, req.body ?? {})));

@@ -30,7 +30,7 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'Online rooms (Play with Friends, Build Together)',
-    body: 'Online rooms connect players directly (peer-to-peer) using a short room code; a signalling server only helps them find each other. Players in a room share their racer name, skin, game profile card (level, badges, title, game stats and, for players 13+, their #number so others can send a friend request), race positions, level edits and Quick Chat choices (preset phrases, never typed text). Like any internet connection, players in a room can see each other’s IP address. Parents can turn online play and Quick Chat off in Settings > Parental Controls.',
+    body: 'Online rooms connect players directly (peer-to-peer) using a short room code; a signalling server only helps them find each other. Players in a room share their racer name, skin, game profile card (level, badges, title, game stats, any profile add-ons such as a featured Community level and, for players 13+, their #number so others can send a friend request), race positions, level edits and Quick Chat choices (preset phrases, never typed text). Like any internet connection, players in a room can see each other’s IP address. Parents can turn online play and Quick Chat off in Settings > Parental Controls.',
   },
   {
     title: 'Friends and your #number',

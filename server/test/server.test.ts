@@ -537,6 +537,15 @@ describe('community levels', () => {
     const mine = await browse(k('a'), { tab: 'top', scope: 'mine' });
     assert.deepEqual(mine.json.stats, { shared: 1, plays: 1, clears: 1, likes: 1 });
     assert.equal(mine.json.levels[0].mine, true);
+    assert.equal(mine.json.levels[0].pro, false);
+    // A Creator Spotlight fetches one level by id; the Builder Pack tag rides along on publish.
+    const one = await api('POST', `/api/levels/${id}/get`, { key: k('b') });
+    assert.equal(one.status, 200);
+    assert.equal(one.json.level.id, id);
+    assert.equal(one.json.level.vote, 1);
+    assert.equal((await api('POST', '/api/levels/nosuchlevel/get', { key: k('b') })).status, 404);
+    await api('POST', '/api/levels/publish', { key: k('a'), localId: 'abc123def456', code: code(9), pro: true });
+    assert.equal((await api('POST', `/api/levels/${id}/get`, { key: k('b') })).json.level.pro, true);
     assert.equal((await api('POST', `/api/levels/${id}/like`, { key: k('b'), like: false })).json.likes, 0);
     assert.equal((await api('POST', `/api/levels/${id}/unpublish`, { key: k('b') })).status, 200);
     assert.ok((await browse(k('b'), { tab: 'new' })).json.levels.some((l: any) => l.id === id), 'only the builder can unshare');

@@ -27,6 +27,8 @@ export interface SharedLevel {
   mine: boolean;
   friend: boolean;
   created: number;
+  /** The builder has the Builder Pack (gold Pro Builder tag). */
+  pro?: boolean;
 }
 
 export interface CreatorStats {
@@ -55,24 +57,54 @@ function noteStats(s: CreatorStats): void {
   }
 }
 
+/** Remember your highest-rated shared level (most thumbs up, then plays) for the Creator Spotlight. */
+function noteTop(mine: SharedLevel[]): void {
+  const best = [...mine].sort((a, b) => b.likes - a.likes || b.plays - a.plays)[0];
+  const top = best ? { id: best.id, likes: best.likes, plays: best.plays } : { id: '', likes: 0, plays: 0 };
+  const c = store.data.creator;
+  if (top.id !== c.top.id || top.likes !== c.top.likes || top.plays !== c.top.plays) {
+    store.data.creator = { ...c, top };
+    store.commit();
+  }
+}
+
+function decodeAll(raw: RawShared[]): SharedLevel[] {
+  const levels: SharedLevel[] = [];
+  for (const { code, ...rest } of raw) {
+    try {
+      levels.push({ ...rest, content: decodeLevel(code) });
+    } catch {
+      /* made by a newer version: skip */
+    }
+  }
+  return levels;
+}
+
 export const sharedLevels = {
   async browse(tab: SharedTab, scope: SharedScope, offset = 0): Promise<{ levels: SharedLevel[]; more: boolean }> {
     const res = await friends.authed<{ levels: RawShared[]; more: boolean; stats: CreatorStats }>('/api/levels/browse', { tab, scope, offset });
     noteStats(res.stats);
-    const levels: SharedLevel[] = [];
-    for (const { code, ...rest } of res.levels) {
-      try {
-        levels.push({ ...rest, content: decodeLevel(code) });
-      } catch {
-        /* made by a newer version: skip */
-      }
-    }
+    const levels = decodeAll(res.levels);
+    if (scope === 'mine' && offset === 0 && !res.more) noteTop(levels);
     return { levels, more: res.more };
+  },
+
+  /** Refresh your creator numbers and top level (for the profile add-ons). */
+  async refreshMine(): Promise<void> {
+    await sharedLevels.browse('top', 'mine');
+  },
+
+  /** One shared level by id (a Creator Spotlight on someone's card). */
+  async get(id: string): Promise<SharedLevel> {
+    const res = await friends.authed<{ level: RawShared }>(`/api/levels/${encodeURIComponent(id)}/get`, {});
+    const [level] = decodeAll([res.level]);
+    if (!level) throw new Error('That level needs a newer version of the game.');
+    return level;
   },
 
   /** Share (or update) one of your levels. */
   async publish(level: LevelData): Promise<{ id: string; updated: boolean }> {
-    const out = await friends.authed<{ id: string; updated: boolean }>('/api/levels/publish', { localId: level.id, code: encodeLevel(level) });
+    const out = await friends.authed<{ id: string; updated: boolean }>('/api/levels/publish', { localId: level.id, code: encodeLevel(level), ...(store.data.purchases.builder ? { pro: true } : {}) });
     const c = store.data.creator;
     if (!c.sharedIds.includes(level.id)) {
       store.data.creator = { ...c, sharedIds: [...c.sharedIds, level.id].slice(-60), shared: Math.max(c.shared, c.sharedIds.length + 1) };

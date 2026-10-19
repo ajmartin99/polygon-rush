@@ -24,10 +24,13 @@ Polygon Rush earns from **optional rewarded videos**, **light interstitials**, a
 | `remove_ads` | non-consumable | No banners or interstitials |
 | `legend_pack` | non-consumable | Rainbow, Galaxy and Magma skins + Rainbow Road and Comet trails |
 | `gems_small` / `gems_medium` / `gems_large` | consumable | 600 / 2,000 / 6,000 gems |
+| `creator_spotlight` | non-consumable | Creator Spotlight: your top-rated Community level on your profile card, playable by anyone who taps you ($0.99, or 660 gems) |
+| `builder_pack` | non-consumable | Builder Pack: Creator Stats section on your card + gold Pro Builder tag on your card and shared levels ($2.99, or 2,200 gems) |
 | `haunted_regen_1` | consumable | Heart Regen: refills the Haunted Run's 2 attempts now and restarts its 24-hour clock ($0.99, or 660 gems) |
-| `haunted_regen_4` | consumable | 4 Heart Regens, used any time (unused ones keep until next Halloween) ($2.99, or 2,200 gems) |
+| `haunted_regen_4` | consumable | 4 Heart Regens, used any time (unused ones keep for the next limited-time run) ($2.99, or 2,200 gems) |
 
 * Prices always come from Google Play, localised.
+* Gem prices: items marked "or N gems" cost what the same money buys in the same-price gem pack, plus 10%. Profile add-ons show a live preview of the player's own card before buying. Gem-bought add-ons live in the save (and its backup code), not in Google Play.
 * Grants are idempotent and de-duplicated by order id. Non-consumables are restored automatically at launch and via *Restore purchases*.
 * Pending (slow) payments are honoured when they complete.
 * A **grown-up check** (multiplication question) appears before any purchase for players who aren't verified adults. Parents can also turn purchases off in **Settings → Parental controls**.

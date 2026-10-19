@@ -4,10 +4,17 @@ import { friends } from '../services/friends';
 import { formatHandle } from '../shared/handle';
 import { store } from '../state/store';
 import { leagueFor } from '../meta/economy';
-import { BADGE_GROUPS, BADGES, BANNER_LEVELS, type BadgeGroup, BANNERS, badgeById, DEFAULT_TITLE, earnedBadges, MAX_SHOWCASE, myCard, titleFor, type BadgeCtx, type ProfileCard } from '../meta/profile';
+import { CONFIG } from '../config';
+import { gemPriceOf, isOwned, productById } from '../meta/products';
+import { iap } from '../services/iap';
+import { buyProduct, buyWithGems } from './screens/shop';
+import { BADGE_GROUPS, BADGES, BANNER_LEVELS, type BadgeGroup, BANNERS, badgeById, DEFAULT_TITLE, earnedBadges, MAX_SHOWCASE, myCard, addOns, titleFor, type BadgeCtx, type ProfileCard } from '../meta/profile';
 import type { NetPlayer } from '../services/net';
-import { BaseScreen, button, titleBar } from './components';
-import { fmt, h, ic } from './dom';
+import { BaseScreen, button, confirm, titleBar } from './components';
+import { playShared, proTag } from './community-levels';
+import { canUseSharedLevels, serverAvailable } from '../meta/community';
+import { sharedLevels } from '../services/shared-levels';
+import { clear, fmt, h, ic } from './dom';
 import { nav } from './nav';
 import { previewCanvas } from './preview';
 import { ui } from './ui';
@@ -59,18 +66,71 @@ function badgeIcon(id: string, size = ''): HTMLElement | null {
   return h(`span.badge-ico${size}`, { style: `--bc:${b.color}`, title: b.name }, ic(b.icon));
 }
 
-/** The card other players see: name, skin, title, banner, showcase and a few numbers. */
-export function profileCard(name: string, skin: string, card: ProfileCard): HTMLElement {
+/** Fetch a Creator Spotlight level and play it (`exit` returns where you were). */
+async function playSpotlight(id: string, exit: () => void): Promise<void> {
+  if (!canUseSharedLevels(store.data)) return void ui.toast(serverAvailable() ? 'Community levels are turned off in Parental Controls.' : 'Community levels aren’t available yet.', 'lock', 3200);
+  try {
+    playShared(await sharedLevels.get(id), exit);
+  } catch (e) {
+    ui.toast(e instanceof Error ? e.message : 'That level couldn’t be loaded.', 'info', 3200);
+  }
+}
+
+export interface CardOpts {
+  /** Play the Creator Spotlight level (no button without it). */
+  onPlay?: (id: string) => void;
+  /** Show an empty Spotlight (a preview before you've shared a level). */
+  emptySpot?: boolean;
+}
+
+function spotlightSection(card: ProfileCard, o: CardOpts): HTMLElement | null {
+  const s = card.spot;
+  if (!s && !o.emptySpot) return null;
+  return h(
+    'div.pc-spot',
+    null,
+    h('span.pc-section', null, ic('star'), 'Creator Spotlight'),
+    s
+      ? h(
+          'div.pc-spot-row',
+          null,
+          h('div.col', null, h('b', null, 'Top-rated level'), h('span.small', null, ic('thumbUp'), ` ${fmt(s.likes)}  `, ic('play'), ` ${fmt(s.plays)} plays`)),
+          o.onPlay ? button({ label: 'Play', icon: 'play', cls: 'yellow sm', onClick: () => o.onPlay?.(s.id) }) : null,
+        )
+      : h('span.small', null, 'Share a level to Community and your best one shows here for everyone to play.'),
+  );
+}
+
+function creatorStatsSection(card: ProfileCard): HTMLElement | null {
+  const c = card.cs;
+  if (!c) return null;
+  return h(
+    'div.pc-spot',
+    null,
+    h('span.pc-section', null, ic('build'), 'Creator Stats'),
+    h(
+      'div.pc-stats.four',
+      null,
+      h('div', null, ic('public'), h('b', null, fmt(c.shared)), h('span', null, 'Levels shared')),
+      h('div', null, ic('play'), h('b', null, fmt(c.plays)), h('span', null, 'Plays')),
+      h('div', null, ic('thumbUp'), h('b', null, fmt(c.likes)), h('span', null, 'Thumbs up')),
+      h('div', null, ic('verified'), h('b', null, fmt(c.clears)), h('span', null, 'Clears')),
+    ),
+  );
+}
+
+/** The card other players see: name, skin, title, banner, showcase, a few numbers and any add-ons. */
+export function profileCard(name: string, skin: string, card: ProfileCard, o: CardOpts = {}): HTMLElement {
   const [a, b] = BANNERS[card.banner] ?? BANNERS[0];
   const league = leagueFor(card.trophies);
   return h(
-    'div.profile-card',
+    `div.profile-card${card.pro ? '.pro' : ''}`,
     { style: `--b1:${a};--b2:${b}` },
     h(
       'div.pc-top',
       null,
       previewCanvas({ skin, animate: true, scale: 0.45 }, 'pc-skin'),
-      h('div.pc-id', null, h('b.pc-name', null, name), h('span.pc-title', null, titleFor(card.title)), h('span.pc-level', null, `Level ${card.lv} · `, h('span', { style: `color:${league.color}` }, league.name))),
+      h('div.pc-id', null, h('b.pc-name', null, name, card.pro ? proTag() : null), h('span.pc-title', null, titleFor(card.title)), h('span.pc-level', null, `Level ${card.lv} · `, h('span', { style: `color:${league.color}` }, league.name))),
     ),
     h(
       'div.pc-stats',
@@ -82,6 +142,8 @@ export function profileCard(name: string, skin: string, card: ProfileCard): HTML
       h('div', null, ic('egg'), h('b', null, `${card.eggs}/${SECRET_LEVELS}`), h('span', null, 'Golden Shapes')),
     ),
     card.show.length ? h('div.pc-show', null, card.show.map((id) => h('div.pc-badge', null, badgeIcon(id), h('span', null, badgeById(id)?.name ?? '')))) : null,
+    spotlightSection(card, o),
+    creatorStatsSection(card),
   );
 }
 
@@ -108,10 +170,16 @@ export function openPlayerCard(p: NetPlayer): void {
           },
         })
       : null;
-  ui.modal(
+  const m = ui.modal(
     [
       p.card
-        ? profileCard(p.name, p.skin, p.card)
+        ? profileCard(p.name, p.skin, p.card, {
+            onPlay: async (id) => {
+              if (!(await confirm('Play this level?', `You’ll leave the room to play ${p.name}’s top level.`, 'Play', 'Stay'))) return;
+              m.close();
+              void playSpotlight(id, () => nav.go('create', { tab: 'community' }));
+            },
+          })
         : h('div.col', { style: 'align-items:center;gap:0.5rem' }, h('h2', null, p.name), h('p.muted', null, 'This player’s game doesn’t share a profile card yet.')),
       handle ? h('p.muted.small', { style: 'text-align:center' }, handle) : null,
       add ? h('div.row', { style: 'justify-content:center' }, add) : null,
@@ -120,10 +188,83 @@ export function openPlayerCard(p: NetPlayer): void {
   );
 }
 
+const ADD_ONS: string[] = [CONFIG.iap.products.creatorSpotlight, CONFIG.iap.products.builderPack];
+
+export function isAddOn(id: string): boolean {
+  return ADD_ONS.includes(id);
+}
+
+/** Your card as it looks with an add-on, before you buy it. */
+function previewCard(id: string): HTMLElement {
+  const d = store.data;
+  const spotlight = id === CONFIG.iap.products.creatorSpotlight;
+  const card = { ...localCard(), ...addOns(d, spotlight ? { spotlight: true } : { builder: true }) };
+  return profileCard(d.profile.name || 'Rusher', d.skins.equipped, card, { emptySpot: spotlight && !card.spot });
+}
+
+/** An add-on: a live preview of your own card with it, then buy with money or gems. */
+export function openAddOn(id: string, done: () => void = () => undefined): void {
+  const def = productById(id);
+  if (!def) return;
+  const body = h('div.col', { style: 'gap:0.6rem;align-items:center;text-align:center' });
+  const render = () => {
+    clear(body);
+    const owned = isOwned(store.data, id);
+    const gems = gemPriceOf(id);
+    body.append(
+      h('h2', null, def.name),
+      h('p.muted.small', null, def.desc),
+      owned
+        ? h('div.owned', null, 'Owned ✓')
+        : h(
+            'div.actions',
+            null,
+            button({
+              label: 'Buy',
+              sub: iap.priceOf(id) || def.fallbackPrice,
+              icon: 'star',
+              cls: 'cyan lg',
+              disabled: !iap.available,
+              onClick: async () => {
+                if (await buyProduct(id)) render();
+                done();
+              },
+            }),
+            button({
+              label: 'Use gems',
+              sub: `${fmt(gems)} gems`,
+              icon: 'gem',
+              cls: `${store.canAfford(gems) ? 'yellow' : 'ghost'} lg`,
+              onClick: () => {
+                if (!buyWithGems(id)) return;
+                ui.toast(`${def.name} unlocked! It’s on your profile card.`, 'sparkle', 3000);
+                render();
+                done();
+              },
+            }),
+          ),
+      h('p.small', null, owned ? 'On your card now:' : 'Preview of your card:'),
+      previewCard(id),
+    );
+    if (id === CONFIG.iap.products.builderPack) body.append(h('p.muted.small', null, 'Your Pro Builder tag also shows next to your name on levels you share to Community.'));
+  };
+  render();
+  ui.modal(body, { showClose: true });
+  // Fresh numbers for the preview (quietly; it works offline with the last ones seen).
+  if (canUseSharedLevels(store.data)) void sharedLevels.refreshMine().then(() => body.isConnected && render(), () => undefined);
+}
+
 export class ProfileScreen extends BaseScreen {
   constructor() {
     super('.solid');
     this.render();
+    // Keep the Spotlight and Creator Stats on your card up to date.
+    const d = store.data;
+    if ((d.purchases.spotlight || d.purchases.builder) && canUseSharedLevels(d))
+      void sharedLevels.refreshMine().then(
+        () => this.el.isConnected && (this.el.replaceChildren(), this.render()),
+        () => undefined,
+      );
   }
 
   private render(): void {
@@ -206,7 +347,12 @@ export class ProfileScreen extends BaseScreen {
       h(
         'div.scroll.grow.profile-page',
         null,
-        h('div.profile-left', null, profileCard(d.profile.name || 'Rusher', d.skins.equipped, card), h('p.muted.small', null, 'This is what friends and other players see when they tap you in a room. It only shows game stuff — never anything personal.')),
+        h(
+          'div.profile-left',
+          null,
+          profileCard(d.profile.name || 'Rusher', d.skins.equipped, card, { onPlay: (id) => void playSpotlight(id, () => nav.go('profile')) }),
+          h('p.muted.small', null, 'This is what friends and other players see when they tap you in a room. It only shows game stuff — never anything personal.'),
+        ),
         h(
           'div.profile-right',
           null,
@@ -214,6 +360,20 @@ export class ProfileScreen extends BaseScreen {
           titles,
           h('h3', null, 'Banner'),
           banners,
+          h('h3', null, 'Card add-ons'),
+          h(
+            'div.chips-row',
+            null,
+            ADD_ONS.map((id) =>
+              button({
+                label: productById(id)?.name ?? id,
+                sub: isOwned(d, id) ? 'Owned ✓' : 'Preview',
+                icon: id === CONFIG.iap.products.creatorSpotlight ? 'public' : 'build',
+                cls: isOwned(d, id) ? 'mint' : 'yellow',
+                onClick: () => openAddOn(id, () => (this.el.replaceChildren(), this.render())),
+              }),
+            ),
+          ),
           h('h3', null, `Badges · ${earned.size}/${BADGES.length}`, h('span.muted.small', null, `  Pin up to ${MAX_SHOWCASE}`)),
           grid,
         ),

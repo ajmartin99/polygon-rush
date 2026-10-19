@@ -91,6 +91,7 @@ The version code is derived from the version: `1.0.0` → `10000`, `1.2.3` → `
    * `starter_pack`: Starter Pack: No Ads + 2,500 gems + Golden skin — $4.99
    * `legend_pack`: Legend Pack: legendary skins & trails — $3.99
    * `gems_small` (600 gems) $0.99 · `gems_medium` (2,000) $2.99 · `gems_large` (6,000) $6.99
+   * `creator_spotlight`: Creator Spotlight $0.99 · `builder_pack`: Builder Pack $2.99 (both non-consumable; players can also pay 660 / 2,200 gems)
    * `haunted_regen_1`: Heart Regen (Haunted Run refill) $0.99 · `haunted_regen_4`: 4 Heart Regens $2.99 (both consumable; players can also pay 660 / 2,200 gems)
 4. **Target audience & content:** see [MONETIZATION.md](MONETIZATION.md#google-play-families-policy). The game is designed for mixed audiences (kids and adults) with a neutral age screen.
 5. **Data safety:** answers are in [store/listing.md](../store/listing.md#data-safety-form).

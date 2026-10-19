@@ -57,7 +57,9 @@ async function pipe(bytes: Uint8Array, stream: CompressionStream | Decompression
 export async function makeBackup(): Promise<string> {
   const { purchases: _p, ...save } = store.data;
   void _p;
-  const json = new TextEncoder().encode(JSON.stringify({ v: 1, save, levels: levels.list() }));
+  // Add-ons can be bought with gems, which Google Play can't restore: they travel with the code.
+  const addOns = { spotlight: store.data.purchases.spotlight, builder: store.data.purchases.builder };
+  const json = new TextEncoder().encode(JSON.stringify({ v: 1, save, levels: levels.list(), addOns }));
   const body = typeof CompressionStream !== 'undefined' ? `z${toB64(await pipe(json, new CompressionStream('gzip')))}` : `j${toB64(json)}`;
   return `${PREFIX}${body}.${await signature(PREFIX + body)}`;
 }
@@ -74,7 +76,7 @@ export async function restoreBackup(code: string): Promise<{ levels: number }> {
   if (dot <= PREFIX.length || !sameText(s.slice(dot + 1), await signature(PREFIX + body))) {
     throw new BackupError('That backup code is incomplete or was changed. Copy the whole code from your old phone and try again.');
   }
-  let data: { v?: number; save?: unknown; levels?: unknown };
+  let data: { v?: number; save?: unknown; levels?: unknown; addOns?: { spotlight?: unknown; builder?: unknown } };
   try {
     let bytes = fromB64(body.slice(1));
     if (body[0] === 'z') bytes = await pipe(bytes, new DecompressionStream('gzip'));
@@ -84,7 +86,8 @@ export async function restoreBackup(code: string): Promise<{ levels: number }> {
   }
   if (data.v !== 1 || typeof data.save !== 'object' || !data.save) throw new BackupError('That backup needs a newer version of Polygon Rush.');
   // Purchases stay this device's (Google Play restores them); migrate drops pack-only items without them.
-  const next = migrate({ ...(data.save as object), purchases: store.data.purchases });
+  const p = store.data.purchases;
+  const next = migrate({ ...(data.save as object), purchases: { ...p, spotlight: p.spotlight || data.addOns?.spotlight === true, builder: p.builder || data.addOns?.builder === true } });
   store.data = next;
   store.commit();
   await store.flush();

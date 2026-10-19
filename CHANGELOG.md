@@ -7,7 +7,13 @@ All notable changes to Polygon Rush are documented here.
 ### Added
 - **Pay for Heart Regens with gems.** When you're out of Haunted Run attempts you can now spend gems instead of money: a Heart Regen costs 660 gems and 4 Heart Regens cost 2,200, what the same price buys in gems plus 10%.
 
+- **Profile add-ons** (see a live preview of your own card first, then pay with money or gems):
+  - **Creator Spotlight** ($0.99 or 660 gems): your top-rated Community level on your profile card. Anyone who taps you in a room can play it.
+  - **Builder Pack** ($2.99 or 2,200 gems): a Creator Stats section on your card (levels shared, plays, thumbs up, clears) and a gold Pro Builder tag on your card and next to your name on your Community levels.
+- Find them in Profile > Card add-ons and in the Shop.
+
 ### Changed
+- Heart Regens aren't tied to Halloween: unused ones keep for the next limited-time run.
 - 4 Heart Regens are now $2.99 (was $1.99), matching the 2,000-gem Gem Chest.
 
 ## [1.0.11] - 2026-10-19

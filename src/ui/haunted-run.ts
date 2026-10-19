@@ -2,13 +2,13 @@ import { CONFIG } from '../config';
 import { activeEvent } from '../meta/events';
 import { attemptsLeft, HAUNTED_RULES, hauntedLevel, refillIn, useAttempt, useRegen, type HauntedDiff } from '../meta/haunted';
 import { dailySeed } from '../meta/modes';
-import { gemPriceOf, regensIn } from '../meta/products';
+import { gemPriceOf } from '../meta/products';
 import { iap } from '../services/iap';
 import { store } from '../state/store';
 import { button } from './components';
 import { clear, fmt, h, ic } from './dom';
 import { nav } from './nav';
-import { buyProduct } from './screens/shop';
+import { buyProduct, buyWithGems } from './screens/shop';
 import { ui } from './ui';
 
 /**
@@ -107,22 +107,16 @@ export function openHauntedRun(): void {
           icon: 'gem',
           cls: `${store.canAfford(price) ? 'yellow' : 'ghost'} lg`,
           onClick: () => {
-            if (!store.spendGems(price)) {
-              ui.sfx('error');
-              ui.toast('Not enough gems — rush for more or visit the gem shop!', 'gem');
-              return;
-            }
-            store.data.haunted.regens += regensIn(id);
+            if (!buyWithGems(id)) return;
             // A single Heart Regen is used straight away.
             if (id === P.hauntedRegen1) useRegen(store.data.haunted);
             store.commit();
-            ui.sfx('reward');
             render();
           },
         });
       };
       body.append(
-        h('p.muted.small', null, 'Heart Regen refills your attempts now and starts a fresh 24 hours. Unused regens keep until next Spooky Season.'),
+        h('p.muted.small', null, 'Heart Regen refills your attempts now and starts a fresh 24 hours. Unused regens keep for the next limited-time run.'),
         h(
           'div.actions',
           null,

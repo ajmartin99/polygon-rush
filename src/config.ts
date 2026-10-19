@@ -67,6 +67,8 @@ export const CONFIG = {
       legendPack: 'legend_pack',
       hauntedRegen1: 'haunted_regen_1',
       hauntedRegen4: 'haunted_regen_4',
+      creatorSpotlight: 'creator_spotlight',
+      builderPack: 'builder_pack',
     },
   },
   /**

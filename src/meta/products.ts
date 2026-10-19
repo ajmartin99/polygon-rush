@@ -14,6 +14,8 @@ export interface ProductDef {
   gems?: number;
   ribbon?: string;
   featured?: boolean;
+  /** Can also be bought with gems (see gemPriceOf). */
+  gemPay?: boolean;
 }
 
 const P = CONFIG.iap.products;
@@ -27,8 +29,10 @@ export const PRODUCTS: ProductDef[] = [
   { id: P.removeAds, kind: 'nonconsumable', name: 'No Ads', desc: 'Remove banner & break ads forever', fallbackPrice: '$2.99' },
   { id: P.legendPack, kind: 'nonconsumable', name: 'Legend Pack', desc: '3 legendary skins + 2 legendary trails', fallbackPrice: '$3.99' },
   { id: P.gemsSmall, kind: 'consumable', name: 'Gem Pouch', desc: '600 gems', fallbackPrice: '$0.99', gems: 600 },
-  { id: P.hauntedRegen1, kind: 'consumable', name: 'Heart Regen', desc: 'Haunted Run: 2 fresh attempts now', fallbackPrice: '$0.99' },
-  { id: P.hauntedRegen4, kind: 'consumable', name: '4 Heart Regens', desc: 'Haunted Run: 4 refills, use them any time', fallbackPrice: '$2.99' },
+  { id: P.creatorSpotlight, kind: 'nonconsumable', name: 'Creator Spotlight', desc: 'Your top-rated level on your profile card: anyone who taps you can play it', fallbackPrice: '$0.99', gemPay: true },
+  { id: P.builderPack, kind: 'nonconsumable', name: 'Builder Pack', desc: 'Creator Stats on your card + a gold Pro Builder tag on your card and Community levels', fallbackPrice: '$2.99', gemPay: true },
+  { id: P.hauntedRegen1, kind: 'consumable', name: 'Heart Regen', desc: 'Limited-time runs: 2 fresh attempts now', fallbackPrice: '$0.99', gemPay: true },
+  { id: P.hauntedRegen4, kind: 'consumable', name: '4 Heart Regens', desc: 'Limited-time runs: 4 refills, use them any time', fallbackPrice: '$2.99', gemPay: true },
   { id: P.gemsMedium, kind: 'consumable', name: 'Gem Chest', desc: '2,000 gems', fallbackPrice: '$2.99', gems: 2000, ribbon: 'Popular' },
   { id: P.gemsLarge, kind: 'consumable', name: 'Gem Vault', desc: '6,000 gems', fallbackPrice: '$6.99', gems: 6000, ribbon: 'Best value' },
 ];
@@ -44,12 +48,13 @@ export function regensIn(id: string): number {
 export const GEM_MARKUP = 1.1;
 
 /**
- * Gem price of a paid item (Heart Regens): the gems its price buys in the
- * gem pack at the same price, plus 10%. 0 when it can't be paid with gems.
+ * Gem price of a paid item (Heart Regens, profile add-ons): the gems its
+ * price buys in the gem pack at the same price, plus 10%. 0 when it can't be
+ * paid with gems.
  */
 export function gemPriceOf(id: string): number {
   const def = productById(id);
-  if (!def || !regensIn(id)) return 0;
+  if (!def?.gemPay) return 0;
   const pack = PRODUCTS.find((p) => p.gems && p.kind === 'consumable' && p.fallbackPrice === def.fallbackPrice);
   return pack?.gems ? Math.round(pack.gems * GEM_MARKUP) : 0;
 }
@@ -58,6 +63,8 @@ export function isOwned(save: SaveData, id: string): boolean {
   if (id === P.removeAds) return save.purchases.noAds;
   if (id === P.starterPack) return save.purchases.starter;
   if (id === P.legendPack) return save.purchases.legend;
+  if (id === P.creatorSpotlight) return save.purchases.spotlight;
+  if (id === P.builderPack) return save.purchases.builder;
   return false;
 }
 
@@ -103,6 +110,12 @@ export function grantProduct(save: SaveData, id: string): GrantResult {
       save.purchases.legend = true;
       LEGEND_PACK_SKINS.forEach(addSkin);
       LEGEND_PACK_TRAILS.forEach(addTrail);
+      break;
+    case P.creatorSpotlight:
+      save.purchases.spotlight = true;
+      break;
+    case P.builderPack:
+      save.purchases.builder = true;
       break;
     case P.hauntedRegen1:
     case P.hauntedRegen4:

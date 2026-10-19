@@ -2684,6 +2684,69 @@ button.player-slot {
   font-weight: 600;
 }
 
+.profile-card.pro {
+  border: 0.15rem solid #ffd23f;
+  box-shadow: var(--shadow), 0 0 0.9rem rgba(255, 210, 63, 0.45);
+}
+
+.pc-spot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.5rem 0.6rem;
+  border-radius: 0.8rem;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.pc-section {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #fff6c9;
+}
+
+.pc-section svg,
+.pc-spot-row .small svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  vertical-align: -0.1rem;
+}
+
+.pc-spot-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pc-stats.four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.pro-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  margin-left: 0.35rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 0.5rem;
+  background: linear-gradient(135deg, #ffe680, #e09a00);
+  color: #3a2400;
+  font-size: 0.62rem;
+  font-weight: 800;
+  vertical-align: 0.1rem;
+  text-shadow: none;
+}
+
+.pro-tag svg {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
 .badge-ico {
   display: inline-grid;
   place-items: center;

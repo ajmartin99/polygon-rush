@@ -136,7 +136,7 @@ function card(l: SharedLevel, reload: () => void): HTMLElement {
     { onclick: () => openLevel(l, reload), style: `--a:${BIOMES[c.theme % BIOMES.length].accent}` },
     thumb(c),
     h('b', null, levelName(c), l.friend ? h('span.tag.friend', null, 'Friend') : null, l.played ? h('span.ed-verified', { title: 'You played this' }, ic('check')) : null),
-    h('span.muted.small', null, l.mine ? 'by you' : `by ${l.author}`),
+    h('span.muted.small', null, l.mine ? 'by you' : `by ${l.author}`, l.pro ? proTag() : null),
     h(
       'span.small.level-meta',
       null,
@@ -147,6 +147,11 @@ function card(l: SharedLevel, reload: () => void): HTMLElement {
   );
 }
 
+/** The gold Builder Pack tag. */
+export function proTag(): HTMLElement {
+  return h('span.pro-tag', { title: 'Pro Builder' }, ic('build'), 'PRO');
+}
+
 /** "92%" thumbs up once a level has votes, else its likes. */
 function ratingText(l: SharedLevel): string {
   const votes = l.likes + l.dislikes;
@@ -154,13 +159,13 @@ function ratingText(l: SharedLevel): string {
 }
 
 /** Play a community level; plays and clears go back to the server, then a thumbs up / down. */
-function playShared(l: SharedLevel): void {
+export function playShared(l: SharedLevel, exit: () => void = () => nav.go('create', { tab: 'community' })): void {
   const level = sharedLevelData(l);
   let played: Promise<unknown> = Promise.resolve();
   nav.play({
     mode: 'custom',
     level,
-    exit: () => nav.go('create', { tab: 'community' }),
+    exit,
     rate: l.mine
       ? undefined
       : {
@@ -210,7 +215,7 @@ function openLevel(l: SharedLevel, reload: () => void): void {
     [
       h('h2', null, levelName(c)),
       thumb(c),
-      h('p.muted.small', null, l.mine ? 'Your level' : `by ${l.author}${l.friend ? ' (your friend)' : ''}`, ` · ${c.length}m · ${SPEED_NAMES[c.speed]} · ${c.hearts}♥`),
+      h('p.muted.small', null, l.mine ? 'Your level' : `by ${l.author}${l.friend ? ' (your friend)' : ''}`, l.pro ? proTag() : null, ` · ${c.length}m · ${SPEED_NAMES[c.speed]} · ${c.hearts}♥`),
       h('p.small', null, `${fmt(l.plays)} players · ${fmt(l.clears)} beat it · ${fmt(l.likes)} 👍 · ${fmt(l.dislikes)} 👎`),
       h('div.actions', null, button({ label: 'Play', icon: 'play', cls: 'mint lg', onClick: () => (m.close(), playShared(l)) }), l.mine ? null : thumbBtn(1), l.mine ? null : thumbBtn(-1)),
       h(

@@ -32,7 +32,6 @@ import { InputManager } from './input';
 import type { Racer, RacerSpec } from './racer';
 import { RhythmScore } from './rhythm';
 import { BOSSES, bossById, bossHealth, bossReward, type BossDef } from '../meta/bosses';
-import type { ChaserEvent, ChaserKind } from './chaser';
 import { GameSession, type BoxItem, type SessionKind } from './session';
 import { SHAPE_INFO, type ShapeMode } from './shapes';
 
@@ -228,7 +227,7 @@ export class GameController {
     switch (req.mode) {
       case 'custom': {
         this.kind = 'custom';
-        this.session = new GameSession({ kind: 'custom', seed: 1, level: req.level, startX: req.startX, racers: [me], chaser: req.haunted });
+        this.session = new GameSession({ kind: 'custom', seed: 1, level: req.level, startX: req.startX, racers: [me] });
         const def = req.boss ? bossById(req.boss) : undefined;
         if (def) {
           const { hp } = bossHealth(req.level);
@@ -500,7 +499,6 @@ export class GameController {
         this.maybeModeHint(racer, mode);
       }),
       s.on('hint', ({ racer, key, text, sub }) => this.onHint(racer, key, text, sub)),
-      s.on('chaser', ({ racer, event, kind }) => this.onChaser(racer, event, kind)),
       s.on('death', ({ racer }) => {
         this.renderer.fx.death(racer);
         if (local(racer)) void this.onDeath(racer);
@@ -531,38 +529,6 @@ export class GameController {
     if (this.phase === 'running') {
       this.phase = 'finishing';
       this.finishTimer = window.setTimeout(() => this.endLevel(r, true), 1800);
-    }
-  }
-
-  /** Haunted Run: the zombie / ghost on your heels. */
-  private onChaser(racer: Racer, event: ChaserEvent, kind: ChaserKind): void {
-    const c = this.session?.chaser;
-    if (!c || racer.kind !== 'human') return;
-    const ghost = kind === 'ghost';
-    const cy = c.y + (ghost ? 1.1 : c.flip > 0.5 ? -1.6 : 1.6);
-    switch (event) {
-      case 'warn':
-        audio.play(ghost ? 'boo' : 'groan');
-        haptics.medium();
-        this.hud?.showHint(ghost ? 'The ghost is right behind you!' : 'The zombie is right behind you!', 'Clear obstacles cleanly and grab gems to shake it off', 1500, '18%');
-        break;
-      case 'lunge':
-        audio.play(ghost ? 'boo' : 'groan');
-        this.renderer.fx.text(c.x, cy, ghost ? 'BOO!' : 'GRRR!', ghost ? '#d9f4ff' : '#9dff6a', 0.9, 1.2);
-        this.renderer.fx.addShake(0.25);
-        break;
-      case 'morph':
-        audio.play(ghost ? 'boo' : 'groan');
-        this.renderer.fx.text(c.x, cy, ghost ? 'BOO!' : 'BRAINS!', ghost ? '#d9f4ff' : '#9dff6a', 0.75, 1);
-        break;
-      case 'caught':
-        audio.play(ghost ? 'boo' : 'groan');
-        haptics.heavy();
-        this.renderer.fx.text(racer.x - 0.5, racer.body.y + 1.8, 'GOTCHA!', ghost ? '#d9f4ff' : '#9dff6a', 1.2, 1.4);
-        this.renderer.fx.addShake(0.5);
-        break;
-      default:
-        break;
     }
   }
 
@@ -690,7 +656,8 @@ export class GameController {
   private onBeatPress(): void {
     const err = audio.beatError();
     const me = this.session?.racers[0];
-    if (err === null || !me || !this.rhythm) return;
+    // The Glider is held, not tapped: only taps are judged.
+    if (err === null || !me || !this.rhythm || me.body.mode === 'triangle') return;
     const { judgement, points } = this.rhythm.press(err);
     const text = judgement === 'perfect' ? 'PERFECT!' : judgement === 'great' ? 'GREAT' : 'MISS';
     const color = judgement === 'perfect' ? '#ffd23f' : judgement === 'great' ? '#9fe8ff' : '#b9b3d6';
@@ -729,7 +696,6 @@ export class GameController {
       markers,
       haunted: this.paletteFor(this.session?.racers[0]?.x ?? 0) === SPOOKY,
       secretsFound: store.data.secrets.found,
-      chaser: s.chaser,
       boss: this.kind === 'custom' && this.phase !== 'results' ? this.boss : null,
       lightsOut: this.kind === 'endless' && this.variant === 'lightsout' ? lightsFlash(audio.beatPhase()) : undefined,
     });
@@ -813,7 +779,7 @@ export class GameController {
       }
       // Keep the song at the time the runner's position calls for (the course is built on its beat).
       const sync = music.syncSong;
-      if (sync && span && sync.level === span.index && this.phase === 'running' && ++this.syncTick % 15 === 0) audio.syncTo(sync.id, s.levels!.secondsInto(me.distance));
+      if (sync && span && sync.level === span.index && this.phase === 'running' && ++this.syncTick % 15 === 0) audio.syncTo(sync.id, s.levels!.secondsInto(me.distance), 0.08, 1500);
       audio.intensity = Math.min(1, 0.35 + me.distance / 3000);
     } else if (this.kind === 'custom') {
       audio.intensity = Math.min(1, 0.55 + me.distance / 600);
@@ -1025,7 +991,6 @@ export class GameController {
         missions.push(`Haunted Run cleared on ${diff === 'hard' ? 'Hard' : 'Easy'}! +${pay} gems`);
       } else if (pay > 0) missions.push(`Haunted Run: +${pay} gems${diff === 'easy' ? ' (Easy pays half)' : ''}`);
       d.stats.gemsCollected += r.gems;
-      if (s.chaser?.caught && !missions.length) missions.push('Clear obstacles cleanly and grab gems to keep it back');
     }
     const boss = this.boss;
     if (req.boss && boss) {
@@ -1061,7 +1026,7 @@ export class GameController {
         verifiedNow,
         missionsDone: missions,
         win: req.boss && this.boss ? { big: 'VICTORY!', sub: `You beat ${this.boss.name}!` } : undefined,
-        notesTitle: req.boss ? (completed ? 'Boss defeated!' : r.dead ? 'Knocked out!' : 'It got away!') : req.haunted ? (s.chaser?.caught ? (s.chaser.kind === 'ghost' ? 'The ghost caught you! 👻' : 'The zombie caught you! 🧟') : 'Haunted Run') : undefined,
+        notesTitle: req.boss ? (completed ? 'Boss defeated!' : r.dead ? 'Knocked out!' : 'It got away!') : req.haunted ? 'Haunted Run' : undefined,
         rate: req.rate,
       },
       {

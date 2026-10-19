@@ -153,34 +153,30 @@ describe('beat-synced endless levels', () => {
     });
   }
 
-  it('starts patterns on the beat of each level\'s song', () => {
-    const world = new World();
-    const levels = timeline();
-    const gen = new LevelGen(world, { seed: 85, kind: 'endless', levels });
-    // Record where each runway ends (= next pattern start).
-    const starts: number[] = [];
-    const orig = gen.ensure.bind(gen);
-    let last = gen.x;
-    while (gen.x < 1400) {
-      orig(gen.x + 1);
-      if (gen.x !== last) starts.push(gen.x);
-      last = gen.x;
+  for (const seed of [86, 87, 88]) {
+    it(`Extreme charts stay beatable deep into a run (seed ${seed})`, () => {
+      const r = playLevel(seed, 'endless', 7000, { diff: 'hard', levels: timeline('hard') });
+      expect(r.hits, JSON.stringify(r.hits.slice(0, 5))).toEqual([]);
+    });
+  }
+
+  it('every tap the course asks for lands on a beat of its level\'s song', () => {
+    for (const diff of ['easy', 'medium', 'hard'] as Difficulty[]) {
+      const levels = timeline(diff);
+      const gen = new LevelGen(new World(), { seed: 85, kind: 'endless', diff, levels });
+      gen.ensure(3000);
+      expect(gen.taps.length, diff).toBeGreaterThan(diff === 'easy' ? 120 : diff === 'medium' ? 180 : 260);
+      let onBeat = 0;
+      for (const x of gen.taps) {
+        const span = levels.at(x);
+        const t = levels.secondsInto(x);
+        let unit = 60 / span.song.grid!.bpm;
+        while (unit < 0.3) unit *= 2;
+        const phase = ((((t - span.song.grid!.offset) / unit) % 1) + 1) % 1;
+        if (phase < 0.03 || phase > 0.97) onBeat++;
+      }
+      expect(onBeat / gen.taps.length, diff).toBeGreaterThan(0.97);
     }
-    expect(gen.beatsHit).toBeGreaterThan(40);
-    // Check timing for level 1 (128 bpm): seconds from the level start to each pattern start.
-    let onBeat = 0;
-    let total = 0;
-    for (const x of starts.filter((x) => x > 30 && x < levels.span(0).end - 10)) {
-      let t = 0;
-      for (let p = 0; p + 1 <= x; p++) t += 1 / endlessSpeedAt(p + 0.5, false, 'medium');
-      t += (x - Math.floor(x)) / endlessSpeedAt(Math.floor(x), false, 'medium');
-      const unit = 60 / 128;
-      const phase = (((t - 0.1) / unit) % 1 + 1) % 1;
-      total++;
-      if (phase < 0.02 || phase > 0.98) onBeat++;
-    }
-    expect(total).toBeGreaterThan(10);
-    expect(onBeat / total).toBeGreaterThan(0.6);
   });
 
   it('leaves the course identical when no song has a known beat', () => {

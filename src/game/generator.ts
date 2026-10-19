@@ -41,6 +41,14 @@ export interface GenOptions {
   secrets?: boolean;
 }
 
+/** Charted levels: seconds between taps by difficulty, [run start, fully ramped]. */
+const CHART_GAP: Record<Difficulty, [number, number]> = { easy: [1.6, 1.1], medium: [1.2, 0.75], hard: [0.8, 0.45] };
+/** The shortest gap a shape allows between taps (a jump must land first). */
+const CHART_MIN_GAP: Record<ShapeMode, number> = { square: 0.52, diamond: 0.6, triangle: 0.55, hexagon: 0.5 };
+
+/** Of the small gems a pattern asks for, only every this-many-th is placed. */
+const GEM_EVERY = 3;
+
 /** Levels that have a Golden Shape (matches the Levels screen). */
 export const SECRET_LEVELS = 40;
 
@@ -93,6 +101,7 @@ export class LevelGen {
   private beatLevel: LevelSpan | null = null;
   private beatX = 0;
   private beatT = 0;
+  private gemCount = 0;
   /** Pattern starts placed on a beat (for tests and tuning). */
   beatsHit = 0;
   /** Secret eggs: own RNG so they don't reshuffle the rest of the course. */
@@ -196,6 +205,10 @@ export class LevelGen {
         return;
       }
     }
+    if (this.charted && this.chartStep()) {
+      this.flush();
+      return;
+    }
     const p = this.pickPattern();
     this.lastPattern = p.id;
     p.run(this);
@@ -276,6 +289,145 @@ export class LevelGen {
       this.gemLine(x0 + 1, x0 + len - 1, midY, 1.2);
     }
     this.x += len;
+  }
+
+  // ------------------------------------------------------------------ beat charts
+  /**
+   * Endless levels whose song has a known beat are charted like a rhythm
+   * game: every tap the course asks for (a jump, hop, flip or Glider gate)
+   * lands right on a beat of that level's song. Difficulty sets how often
+   * taps come, and they come faster as the run goes on.
+   */
+  private get charted(): boolean {
+    return this.opts.kind === 'endless' && !!this.opts.levels && !(this.opts.tutorial && this.tutorialStep <= TUTORIAL.length);
+  }
+
+  /** The level being charted, and the beat of its last tap. */
+  private chartLevel = -1;
+  private chartBeat = -Infinity;
+  private chartLow = true;
+  /** The shape the last tap was charted for (a new shape gets time to settle). */
+  private chartMode: ShapeMode | null = null;
+  /** Where each charted tap is (for tests). */
+  readonly taps: number[] = [];
+
+  /** Seconds between taps: [run start, fully ramped]. */
+  private chartGap(): number {
+    const [a, b] = CHART_GAP[this.opts.kid ? 'easy' : this.opts.diff ?? 'medium'];
+    return Math.max(0.4, a + (b - a) * Math.min(1, this.d) - 0.12 * this.heat);
+  }
+
+  /** Place the next charted tap. False when this level's beat is unknown (patterns are used instead). */
+  private chartStep(): boolean {
+    const at = this.secondsIntoLevel(this.x);
+    const grid = at.grid;
+    if (!grid || !(grid.bpm > 30)) return false;
+    // Very fast songs count every other beat.
+    let unit = 60 / grid.bpm;
+    while (unit < 0.3) unit *= 2;
+    const fresh = at.level !== this.chartLevel;
+    if (fresh) {
+      this.chartLevel = at.level;
+      this.chartBeat = -Infinity;
+    }
+    const mode = this.mode;
+    const newShape = mode !== this.chartMode;
+    this.chartMode = mode;
+    const v = this.v;
+    const k = Math.max(Math.ceil(CHART_MIN_GAP[mode] / unit - 1e-6), Math.round(this.chartGap() / unit));
+    // The first beat far enough ahead of the cursor, k beats after the last tap (two beats in at a new song).
+    // Just through a portal: about a second to settle into the new shape first.
+    let b = Math.ceil((at.t + (newShape ? 0.9 : 0.05) - grid.offset) / unit - 1e-6);
+    b = Math.max(b, this.chartBeat + k, fresh ? 2 : -Infinity);
+    const t = grid.offset + b * unit;
+    const xT = this.x + (t - at.t) * v;
+    const span = this.opts.levels!.at(Math.max(0, this.x - this.origin));
+    const levelEnd = this.origin + span.end;
+    if (xT + v * (k * unit + 0.6) > levelEnd) {
+      // The song is ending: a clear run into the next level (and its song).
+      this.gemLine(this.x + 2, levelEnd - 2, mode === 'square' ? 1.1 : MID, 1.4);
+      this.x = Math.max(this.x + 1, levelEnd + 0.5);
+      return true;
+    }
+    this.chartBeat = b;
+    this.taps.push(xT);
+    const xAt = (s: number) => xT + s * v;
+    const hard = this.opts.diff === 'hard' && !this.opts.kid;
+    const easy = this.opts.diff === 'easy' || !!this.opts.kid;
+    const r = this.rng.range(0, 1);
+    const reward = (x: number, y: number) => {
+      if (x >= this.nextPickup) {
+        const types: PickupType[] = this.opts.noHearts ? ['shield', 'magnet'] : this.opts.kid ? ['shield', 'heart', 'magnet'] : ['shield', 'magnet', 'shield', 'heart', 'magnet'];
+        this.pickup(x, y, types[this.pickupCycle++ % types.length]);
+        this.nextPickup = x + this.rng.range(230, 380);
+      } else this.gem(x, y, b % 16 === 0);
+    };
+    let end = xT + 1;
+    switch (mode) {
+      case 'square': {
+        // Jump on the beat: the hazard sits where the jump peaks.
+        const c = xAt(0.25);
+        if (r < 0.35) {
+          const n = easy ? 1 : hard && r < 0.2 ? 3 : 2;
+          this.spikeRow(c - n / 2, n);
+          end = c + n / 2;
+        } else if (r < 0.55) {
+          // Hot runs: the saw drops in from above as you come.
+          if (this.heat > 0.15 && (hard || this.rng.chance(this.heat))) this.movingSaw(c, 6.5, 0.7, 0.62, c - 14, c - 4);
+          else this.saw(c, 0.7, 0.62);
+          end = c + 0.7;
+        } else if (r < 0.8) {
+          const w = easy ? 2 : 3;
+          this.pit(c - w / 2, w);
+          end = c + w / 2;
+        } else {
+          this.block(c - 1, 0, 2, 1);
+          if (hard) this.spike(c + 1.5);
+          end = c + (hard ? 2 : 1);
+        }
+        reward(c, 2.6);
+        break;
+      }
+      case 'diamond': {
+        // Hop on the beat over a spike at the top of the hop.
+        const c = xAt(0.3);
+        const n = !easy && r < 0.5 ? 2 : 1;
+        this.spikeRow(c - n / 2, n);
+        if (hard && r > 0.75) this.spike(c, -1);
+        end = c + n / 2;
+        reward(c, 2.2);
+        break;
+      }
+      case 'triangle': {
+        // A gate on the beat; its gap swaps between high and low.
+        const gap = easy ? 4 : hard ? 3 : 3.5;
+        // The first gate after a portal opens in the middle (you come in low).
+        const lo = newShape ? Math.round(MID - gap / 2) - 1 : hard ? (this.chartLow ? 2 : 4) : this.chartLow ? 1 : CEIL - 1 - gap;
+        const x = xT - 0.5;
+        this.block(x, 0, 1, lo);
+        this.block(x, lo + gap, 1, CEIL - lo - gap);
+        if (this.rng.chance(hard ? 0.75 : 0.85)) this.chartLow = !this.chartLow;
+        end = xT + 0.5;
+        reward(xT + 1.2, lo + gap / 2);
+        break;
+      }
+      case 'hexagon': {
+        // Flip on the beat: the surface you leave fills with spikes until the next tap.
+        const from = xAt(0.55);
+        const to = xAt(k * unit - 0.1);
+        const n = Math.max(1, Math.floor(Math.min(to - from, hard ? 6 : easy ? 3 : 4)));
+        const x0 = (from + to) / 2 - n / 2;
+        if (this.side < 0) this.spikeRow(x0, n, 1);
+        else this.spikeRow(x0, n, -1, CEIL);
+        this.side = this.side < 0 ? 1 : -1;
+        end = Math.max(xT + 1, to);
+        reward(xAt(0.3), MID);
+        break;
+      }
+    }
+    this.x = Math.max(this.x + 0.5, end);
+    this.patternsPlaced++;
+    return true;
   }
 
   // ------------------------------------------------------------------ beat sync
@@ -461,6 +613,8 @@ export class LevelGen {
   }
 
   gem(x: number, y: number, big = false): void {
+    // Lines and arcs keep their shape with fewer gems in them (gems were far too plentiful).
+    if (!big && this.gemCount++ % GEM_EVERY !== 0) return;
     this.pending.push({ id: this.world.newId(), kind: 'gem', x, y, big, x0: x - 0.4, x1: x + 0.4, y0: y - 0.4, y1: y + 0.4 });
   }
 

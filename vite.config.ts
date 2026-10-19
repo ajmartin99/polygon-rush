@@ -8,6 +8,8 @@ export default defineConfig({
   base: './',
   define: {
     __APP_VERSION__: JSON.stringify(process.env.VERSION_NAME || pkg.version),
+    // Live update number (set by the Live Update workflow; 0 = shipped inside the app).
+    __OTA_BUILD__: JSON.stringify(Number(process.env.OTA_BUILD) || 0),
   },
   build: {
     outDir: 'dist',

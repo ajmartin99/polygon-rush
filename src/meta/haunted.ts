@@ -1,6 +1,6 @@
 import { TRACK_BASE, TRACKS } from '../core/tracks';
 import { Rng } from '../core/rng';
-import { LEVEL_SPEEDS, type LevelContent, type LevelData, type Piece } from '../game/level';
+import { LEVEL_SPEEDS, SAW_GHOST, SAW_ZOMBIE, type LevelContent, type LevelData, type Piece } from '../game/level';
 
 /**
  * Haunted Run (Spooky Season): a fixed course charted to Swing Along. Every
@@ -29,7 +29,7 @@ export const HAUNTED_RULES = {
   windowMs: 24 * 60 * 60 * 1000,
   gemRate: { hard: 1, easy: 0.5 } as Record<HauntedDiff, number>,
   /** Paid on reaching the end of the song (scaled by the rate). */
-  finishBonus: 1200,
+  finishBonus: 300,
   /** Hearts in a run: Hard is one bump and out. */
   hearts: { hard: 1, easy: 3 } as Record<HauntedDiff, number>,
   /** Speed index into LEVEL_SPEEDS. */
@@ -95,14 +95,17 @@ export function hauntedCourse(diff: HauntedDiff, seed: number): LevelContent {
     const c = col(ta + apex);
     const r = rng.range(0, 1);
     if (m === 'diamond') {
-      put('spike', c);
-      if (hardOn && r < 0.5) put('spike', c + 1);
+      // Zombies shamble in the Hopper's way too.
+      if (r < 0.4) put('saw', c, 0, SAW_ZOMBIE);
+      else put('spike', c);
+      if (hardOn && r >= 0.4 && r < 0.7) put('spike', c + 1);
       gem(ta + apex, 2);
       return;
     }
-    if (r < 0.3) {
-      put('spike', c);
-      if (hardOn) put('spike', c + 1);
+    if (r < 0.35) {
+      // A zombie in the way: jump it on the beat.
+      put('saw', c, 0, SAW_ZOMBIE);
+      if (hardOn && r < 0.15) put('spike', c + 2);
     } else if (r < 0.5) {
       put('saw', c, 0, 0);
     } else if (r < 0.7) {
@@ -133,7 +136,9 @@ export function hauntedCourse(diff: HauntedDiff, seed: number): LevelContent {
       const lo = hardOn ? (low ? 2 : 4) : low ? 1 : 7 - gap;
       const hi = lo + gap - 1;
       for (let y = 0; y < lo; y++) put('block', x, y);
-      for (let y = hi + 1; y < 8; y++) put('block', x, y);
+      // Low gaps: a ghost haunts the space above instead of a wall (fly under it).
+      if (low && hi <= 4) put('saw', x, hi + 2, SAW_GHOST);
+      else for (let y = hi + 1; y < 8; y++) put('block', x, y);
       gem(beatAt(k), lo + 1);
       if (hardOn ? rng.range(0, 1) < 0.75 : true) low = !low;
     }

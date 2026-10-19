@@ -1,4 +1,3 @@
-import type { Chaser } from '../game/chaser';
 import { CEIL, VIEW_BOTTOM, VIEW_H, VIEW_TOP } from '../game/constants';
 import type { GameSession } from '../game/session';
 import type { Racer } from '../game/racer';
@@ -51,8 +50,6 @@ export interface RenderOptions {
   haunted?: boolean;
   /** Golden Shapes already found (drawn faded). */
   secretsFound?: readonly number[];
-  /** Haunted Run: the zombie / ghost chasing the first racer. */
-  chaser?: Chaser | null;
   /** Lights Out: the course is dark; 0..1 is how bright the beat flash is right now. */
   lightsOut?: number;
   /** Boss Battles: the boss (big gems are drawn as its charge orbs). */
@@ -225,21 +222,10 @@ export class Renderer {
       const near = Math.abs(other.x - me.x) < 1.4 && Math.abs(other.body.y - me.body.y) < 1.6;
       this.drawRacer(other, sx, sy, s, time, 0.6, pal, !near);
     }
-    const chaser = opts.chaser && me === session.racers[0] ? opts.chaser : null;
-    if (chaser) this.drawChaser(chaser, sx, sy, s, time);
     if (!me.dead) this.drawRacer(me, sx, sy, s, time, 1, pal);
     this.fx.draw(ctx, sx, sy, s, false, x0, x1);
     if (opts.boss) this.drawBoss(opts.boss, r, me, sx, sy, s, time);
     if (opts.lightsOut !== undefined) this.drawDarkness(r, sx(me.x), sy(me.body.y), s, opts.lightsOut);
-    if (chaser && chaser.danger > 0.35) {
-      // Danger glow from the left edge, pulsing like a heartbeat.
-      const a = (chaser.danger - 0.35) * 1.0 * (0.7 + 0.3 * Math.abs(Math.sin(time * 5)));
-      const g = ctx.createLinearGradient(r.x, 0, r.x + r.w * 0.3, 0);
-      g.addColorStop(0, `rgba(255,40,80,${a})`);
-      g.addColorStop(1, 'rgba(255,40,80,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(r.x, r.y, r.w * 0.3, r.h);
-    }
 
     if (this.fx.flash > 0) {
       const g = ctx.createRadialGradient(r.x + r.w / 2, r.y + r.h / 2, r.h * 0.3, r.x + r.w / 2, r.y + r.h / 2, r.w * 0.7);
@@ -273,7 +259,8 @@ export class Renderer {
           this.drawSpike(pal, sx(o.x), sy(o.y), o.size * s, o.dir);
           break;
         case 'saw':
-          if (this.haunted) this.drawPumpkin(sx(o.x), sy(sawY(o, this.runnerX)), o.r * s, time + o.x);
+          if (o.mob) this.drawMob(o.mob, sx(o.x), sy(sawY(o, this.runnerX)), s, time + o.x);
+          else if (this.haunted) this.drawPumpkin(sx(o.x), sy(sawY(o, this.runnerX)), o.r * s, time + o.x);
           else this.drawSaw(pal, sx(o.x), sy(sawY(o, this.runnerX)), o.r * s, time);
           break;
         case 'pad':
@@ -955,44 +942,30 @@ export class Renderer {
     ctx.stroke();
   }
 
-  /** Haunted Run chaser: a zombie on the ground (or the ceiling), a ghost in the air. */
-  private drawChaser(c: Chaser, sx: (x: number) => number, sy: (y: number) => number, s: number, time: number): void {
+  /** Haunted Run monsters standing (or floating) in the way, facing the runner. */
+  private drawMob(kind: 'zombie' | 'ghost', px: number, py: number, s: number, time: number): void {
     const ctx = this.ctx;
-    const px = sx(c.x);
     ctx.save();
-    if (c.kind === 'ghost') {
-      this.drawGhost(px, sy(c.y), s, time, c);
+    if (kind === 'ghost') {
+      // Face left, toward the runner coming at it.
+      ctx.translate(px, py);
+      ctx.scale(-1.15, 1.15);
+      this.drawGhost(0, 0, s, time);
     } else {
-      // Feet on the floor, or hanging from the ceiling when the Roller flips.
-      const onCeil = c.flip > 0.5;
-      ctx.translate(px, onCeil ? sy(CEIL) : sy(0));
-      ctx.scale(1, Math.max(0.05, Math.abs(1 - 2 * c.flip)) * (onCeil ? -1 : 1));
-      this.drawZombie(s, time, c);
+      // Feet on the floor (the hit circle sits 0.6 up), reaching left.
+      ctx.translate(px, py + s * 0.6);
+      ctx.scale(-1.05, 1.05);
+      this.drawZombie(s, time);
     }
     ctx.restore();
-    if (c.morph > 0) {
-      // A puff of smoke when it changes form.
-      const k = 1 - c.morph / 0.5;
-      const py = sy(c.kind === 'ghost' ? c.y : c.flip > 0.5 ? CEIL - 0.8 : 0.8);
-      ctx.save();
-      ctx.globalAlpha = (1 - k) * 0.8;
-      ctx.fillStyle = '#d8d0ff';
-      for (let i = 0; i < 7; i++) {
-        const a = (i / 7) * Math.PI * 2 + time;
-        ctx.beginPath();
-        ctx.arc(px + Math.cos(a) * s * (0.3 + k * 0.9), py + Math.sin(a) * s * (0.3 + k * 0.7), s * (0.32 - k * 0.15), 0, Math.PI * 2);
-        ctx.fill();
-      }
-      ctx.restore();
-    }
   }
 
   /** A blocky zombie, feet at the origin, reaching toward +x. */
-  private drawZombie(u: number, time: number, c: Chaser): void {
+  private drawZombie(u: number, time: number, lunge = 0, shove = 0): void {
     const ctx = this.ctx;
     const step = Math.sin(time * 7.5);
-    const lean = 0.18 + c.lunge * 0.7 - c.shove * 0.9;
-    const reach = 0.55 + c.lunge * 0.6;
+    const lean = 0.18 + lunge * 0.7 - shove * 0.9;
+    const reach = 0.55 + lunge * 0.6;
     const skin = '#7ed957';
     const dark = '#2e5e1f';
     ctx.lineJoin = 'round';
@@ -1068,7 +1041,7 @@ export class Renderer {
     ctx.arc(h * 0.38, -h * 0.01, u * 0.03, 0, Math.PI * 2);
     ctx.fill();
     // Stitched mouth (gaping when it lunges).
-    if (c.lunge > 0) {
+    if (lunge > 0) {
       ctx.fillStyle = '#3a0d1a';
       ctx.beginPath();
       ctx.ellipse(h * 0.22, h * 0.28, u * 0.09, u * 0.07, 0, 0, Math.PI * 2);
@@ -1091,11 +1064,11 @@ export class Renderer {
   }
 
   /** A swooping sheet ghost centred at (px, py), reaching toward +x. */
-  private drawGhost(px: number, py: number, u: number, time: number, c: Chaser): void {
+  private drawGhost(px: number, py: number, u: number, time: number, lunge = 0, shove = 0): void {
     const ctx = this.ctx;
     const r = u * 0.48;
     ctx.translate(px, py);
-    ctx.rotate(0.12 + c.lunge * 0.5 - c.shove * 0.6);
+    ctx.rotate(0.12 + lunge * 0.5 - shove * 0.6);
     const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, u * 1.2);
     glow.addColorStop(0, 'rgba(200,230,255,0.35)');
     glow.addColorStop(1, 'rgba(200,230,255,0)');
@@ -1120,7 +1093,7 @@ export class Renderer {
     // Little arms reaching forward.
     ctx.fillStyle = '#f4f7ff';
     ctx.beginPath();
-    ctx.ellipse(r * 0.95 + c.lunge * r * 0.5, r * 0.25, r * (0.35 + c.lunge * 0.3), r * 0.13, -0.3, 0, Math.PI * 2);
+    ctx.ellipse(r * 0.95 + lunge * r * 0.5, r * 0.25, r * (0.35 + lunge * 0.3), r * 0.13, -0.3, 0, Math.PI * 2);
     ctx.fill();
     // Hollow eyes and an "O" mouth that opens wider when it lunges.
     ctx.fillStyle = '#1b1140';
@@ -1129,7 +1102,7 @@ export class Renderer {
     ctx.ellipse(r * 0.5, -r * 0.28, r * 0.11, r * 0.18, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.beginPath();
-    ctx.ellipse(r * 0.32, r * 0.15, r * (0.1 + c.lunge * 0.12), r * (0.14 + c.lunge * 0.16 + Math.abs(Math.sin(time * 4)) * 0.04), 0, 0, Math.PI * 2);
+    ctx.ellipse(r * 0.32, r * 0.15, r * (0.1 + lunge * 0.12), r * (0.14 + lunge * 0.16 + Math.abs(Math.sin(time * 4)) * 0.04), 0, 0, Math.PI * 2);
     ctx.fill();
   }
 

@@ -32,8 +32,8 @@ interface Template {
 export const MISSION_TEMPLATES: Template[] = [
   { id: 'run_far', event: 'run_distance', kind: 'max', targets: [250, 500, 800, 1200, 2000], text: (n) => `Rush ${n}m in one Endless run`, icon: 'flag' },
   { id: 'distance', event: 'distance', kind: 'sum', targets: [1500, 3000, 6000, 10000], text: (n) => `Rush ${n.toLocaleString('en-US')}m in total`, icon: 'motion' },
-  { id: 'gems_run', event: 'gems_run', kind: 'max', targets: [25, 50, 80, 120], text: (n) => `Grab ${n} gems in one run`, icon: 'gem' },
-  { id: 'gems', event: 'gems', kind: 'sum', targets: [150, 300, 600], text: (n) => `Collect ${n} gems`, icon: 'gem' },
+  { id: 'gems_run', event: 'gems_run', kind: 'max', targets: [10, 20, 35, 50], text: (n) => `Grab ${n} gems in one run`, icon: 'gem' },
+  { id: 'gems', event: 'gems', kind: 'sum', targets: [50, 100, 200], text: (n) => `Collect ${n} gems`, icon: 'gem' },
   { id: 'jumps', event: 'jumps', kind: 'sum', targets: [75, 150, 300], text: (n) => `Jump ${n} times`, icon: 'star' },
   { id: 'portals', event: 'portals', kind: 'sum', targets: [4, 10, 20], text: (n) => `Fly through ${n} shape portals`, icon: 'shapes' },
   { id: 'race_play', event: 'race_play', kind: 'sum', targets: [2, 4, 6], text: (n) => `Play ${n} Races`, icon: 'flag' },

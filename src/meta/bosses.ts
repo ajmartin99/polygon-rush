@@ -48,8 +48,8 @@ export const BOSSES: BossDef[] = [
     hearts: 3,
     every: [4, 4, 4, 2],
     attacks: ['stomp', 'stomp', 'pit'],
-    reward: 300,
-    repeat: 40,
+    reward: 150,
+    repeat: 20,
   },
   {
     id: 'sawqueen',
@@ -63,8 +63,8 @@ export const BOSSES: BossDef[] = [
     hearts: 3,
     every: [4, 2, 4, 2, 2],
     attacks: ['saw', 'saw', 'stomp', 'pit'],
-    reward: 500,
-    repeat: 60,
+    reward: 250,
+    repeat: 30,
   },
   {
     id: 'hexhydra',
@@ -78,8 +78,8 @@ export const BOSSES: BossDef[] = [
     hearts: 3,
     every: [2, 2, 4, 2],
     attacks: ['saw', 'stomp', 'pit', 'wall'],
-    reward: 800,
-    repeat: 90,
+    reward: 400,
+    repeat: 45,
   },
 ];
 

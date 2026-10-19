@@ -36,6 +36,10 @@ const serverPeer = (() => {
 
 export const CONFIG = {
   version: typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.0.0',
+  /** Shown in the app: the version, plus the live update number once one is installed. */
+  versionLabel: `${typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : '1.0.0'}${typeof __OTA_BUILD__ === 'number' && __OTA_BUILD__ > 0 ? ` (update ${__OTA_BUILD__})` : ''}`,
+  /** Live updates: the manifest the app checks at launch (see services/updates.ts). Empty = off. */
+  otaUrl: str(env.VITE_OTA_URL, 'https://github.com/ajmartin99/polygon-rush/releases/download/ota/manifest.json'),
   appName: 'Polygon Rush',
   ads: {
     bannerId,

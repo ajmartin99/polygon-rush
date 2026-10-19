@@ -7,6 +7,7 @@ import { levels } from './state/levels';
 import { ensureMissions } from './meta/missions';
 import { ads } from './services/ads';
 import { iap } from './services/iap';
+import { updates } from './services/updates';
 import { account } from './services/account';
 import { ui } from './ui/ui';
 import { CONFIG } from './config';
@@ -123,6 +124,9 @@ async function boot(): Promise<void> {
   await studioCard();
   document.getElementById('boot')?.classList.add('hide');
   setTimeout(() => document.getElementById('boot')?.remove(), 600);
+
+  // The game is up: keep this build, and fetch a newer one if there is one.
+  void updates.start((notes) => ui.toast(`Update ready! ${notes || 'New maps and fixes'} arrive next time you open the game.`, 'star', 4200));
 
   // Monetisation services start after first paint; never block the menu.
   setTimeout(() => {

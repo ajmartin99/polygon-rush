@@ -1,0 +1,104 @@
+# Live updates: ships new game code (maps, obstacles, modes, fixes) to phones
+# without a store release. Builds the web app, checks it, and publishes it to
+# the "ota" GitHub release; phones on the matching app build pick it up at
+# their next launch and apply it the next time the app goes to the background.
+# Only changed files are downloaded (the music never re-downloads).
+#
+# Only the repository owner runs it: Actions > "Live Update" > Run workflow.
+# A live update is for the native build currently in the repo (the versionCode
+# in android/app/build.gradle). After a new store release, publish a new live
+# update for it when you have one; phones on older builds keep their last one.
+name: Live Update
+
+on:
+  workflow_dispatch:
+    inputs:
+      notes:
+        description: 'What changed (shown to players in the "Update ready" message)'
+        required: false
+        default: 'New maps and fixes'
+
+concurrency:
+  group: live-update
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    name: Build & publish live update
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      VITE_ADMOB_BANNER_ID: ${{ vars.ADMOB_BANNER_ID }}
+      VITE_ADMOB_INTERSTITIAL_ID: ${{ vars.ADMOB_INTERSTITIAL_ID }}
+      VITE_ADMOB_REWARDED_ID: ${{ vars.ADMOB_REWARDED_ID }}
+      VITE_SERVER_URL: ${{ vars.SERVER_URL }}
+      VITE_PEER_HOST: ${{ vars.PEER_HOST }}
+      VITE_PEER_PORT: ${{ vars.PEER_PORT }}
+      VITE_PEER_PATH: ${{ vars.PEER_PATH }}
+      VITE_PEER_KEY: ${{ vars.PEER_KEY }}
+      VITE_TURN_URL: ${{ vars.TURN_URL }}
+      VITE_TURN_USERNAME: ${{ vars.TURN_USERNAME }}
+      VITE_TURN_CREDENTIAL: ${{ secrets.TURN_CREDENTIAL }}
+      VITE_PRIVACY_URL: ${{ vars.PRIVACY_URL }}
+      VITE_SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
+      OTA_BUILD: ${{ github.run_number }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Native build this update is for
+        id: native
+        run: |
+          CODE=$(grep -oP "env\('VERSION_CODE', '\K[0-9]+" android/app/build.gradle)
+          NAME=$(grep -oP "env\('VERSION_NAME', '\K[0-9.]+" android/app/build.gradle)
+          if [ -z "$CODE" ] || [ -z "$NAME" ]; then echo "::error::Couldn't read the default VERSION_CODE / VERSION_NAME from android/app/build.gradle"; exit 1; fi
+          echo "code=$CODE" >> "$GITHUB_OUTPUT"
+          echo "VERSION_NAME=$NAME" >> "$GITHUB_ENV"
+          echo "Live update $OTA_BUILD for app $NAME (versionCode $CODE)"
+
+      - name: Build web bundle
+        run: npx vite build
+
+      - name: Manifest
+        env:
+          NOTES: ${{ inputs.notes }}
+        run: node tools/ota-manifest.mjs --dir dist --out ota --ota "$OTA_BUILD" --native "${{ steps.native.outputs.code }}" --base "https://github.com/${{ github.repository }}/releases/download/ota" --notes "$NOTES"
+
+      - name: Publish to the "ota" release
+        run: |
+          if ! gh release view ota > /dev/null 2>&1; then
+            gh release create ota --prerelease --latest=false --title "Live updates (game code, not an app download)" \
+              --notes "Files for in-app live updates. Download the app from the latest numbered release instead."
+          fi
+          existing=$(gh release view ota --json assets -q '.assets[].name')
+          uploaded=0
+          for f in ota/files/*; do
+            n=$(basename "$f")
+            if ! grep -qx "$n" <<< "$existing"; then gh release upload ota "$f"; uploaded=$((uploaded + 1)); fi
+          done
+          # The manifest goes last, so phones never see it before its files.
+          gh release upload ota ota/manifest.json --clobber
+          echo "Published live update $OTA_BUILD ($uploaded new files)."
+          {
+            echo "### Live update $OTA_BUILD published"
+            echo "For app v$VERSION_NAME (versionCode ${{ steps.native.outputs.code }}): $uploaded new files."
+            echo "Phones pick it up at their next launch and apply it the next time the app goes to the background."
+          } >> "$GITHUB_STEP_SUMMARY"

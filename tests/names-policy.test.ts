@@ -23,6 +23,15 @@ describe('typed names', () => {
     expect(checkDisplayText('Spike Canyon!', 'title').ok).toBe(true);
   });
 
+  it('rejects misspelled swears hidden in names', () => {
+    for (const bad of ['FUCOFF', 'Fuk Yu', 'Phukk', 'Biatch Queen', 'xNiga', 'Sh1tHead', 'Wtf Bro']) {
+      expect(checkDisplayText(bad, 'name').ok, bad).toBe(false);
+    }
+    for (const ok of ['Ashton', 'Rocket Ninja', 'Cucumber', 'Classic Gamer', 'Shogun']) {
+      expect(checkDisplayText(ok, 'name').ok, ok).toBe(true);
+    }
+  });
+
   it('rejects names that could share contact details or impersonate', () => {
     for (const bad of ['ab', 'x'.repeat(17), '42 Fox', 'call 5551234', 'Fox 1 2 3 4', 'me@mail', 'Admin', 'Polygon Rush Staff', 'Moderator Bob']) {
       expect(checkDisplayText(bad, 'name').ok, bad).toBe(false);

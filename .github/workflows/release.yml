@@ -135,7 +135,12 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          PRERELEASE: ${{ inputs.prerelease }}
         run: |
+          # Which secrets this job can see (never their values).
+          for n in KEYSTORE_B64:ANDROID_KEYSTORE_BASE64 KEYSTORE_PASSWORD:ANDROID_KEYSTORE_PASSWORD KEY_ALIAS:ANDROID_KEY_ALIAS KEY_PASSWORD:ANDROID_KEY_PASSWORD; do
+            v="${n%%:*}"; if [ -n "${!v}" ]; then echo "  ${n#*:}: found"; else echo "  ${n#*:}: MISSING"; fi
+          done
           if [ -n "$KEYSTORE_B64" ] && [ -n "$KEYSTORE_PASSWORD" ] && [ -n "$KEY_ALIAS" ]; then
             echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
             {
@@ -146,6 +151,11 @@ jobs:
             } >> "$GITHUB_ENV"
             echo "signed=true" >> "$GITHUB_OUTPUT"
             echo "Signing with the release keystore."
+          elif [ "$PRERELEASE" != "true" ]; then
+            # A debug-signed release can never be updated in place (every run makes a new debug key)
+            # and Google Play rejects it, so only pre-releases may go out without the keystore.
+            echo "::error::Release keystore secrets missing (see the list above). Add them under Settings > Secrets and variables > Actions > Secrets (repository secrets), or run as a pre-release for a test build. See docs/RELEASE.md."
+            exit 1
           else
             echo "signed=false" >> "$GITHUB_OUTPUT"
             echo "::warning::No release keystore secrets found - the APK will be signed with a debug key (fine for testing, NOT for Google Play). See docs/RELEASE.md."

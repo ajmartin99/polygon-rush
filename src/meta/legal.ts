@@ -21,6 +21,10 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
     body: 'The free version shows ads from Google AdMob. All ads are limited to the "G" (general audiences) content rating. For players under 13, ad requests are tagged as child-directed and are non-personalised. Players 13+ in regions that require it are asked for consent through Google’s consent form, which can be changed any time in Settings > Privacy Choices. AdMob may process device identifiers and IP address as described in Google’s policies: https://policies.google.com/technologies/ads',
   },
   {
+    title: 'Game updates',
+    body: "When the app starts, it checks GitHub (where our game files are hosted) for a newer version of the game and downloads only the files that changed. These requests carry no account or personal information; like any download, GitHub sees the device's IP address.",
+  },
+  {
     title: 'In-app purchases (Google Play)',
     body: 'Purchases are processed entirely by Google Play. We never see your payment details. A grown-up check is shown before any purchase for players who are not adults, and parents can turn purchases off in Settings > Parental Controls.',
   },

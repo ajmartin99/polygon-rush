@@ -210,6 +210,13 @@ export const NAME_MESSAGES: Record<NameReason, string> = {
   reserved: 'That name is reserved.',
 };
 
+/**
+ * Misspelled swears hidden inside names ("FucOff", "Phukk", "Biatch"): too
+ * short or too varied to catch as whole words, so names may not contain
+ * them anywhere. Kept to stems that don't turn up in ordinary names.
+ */
+const NAME_STEMS = ['fuc', 'fuk', 'fck', 'fuq', 'fvck', 'phuk', 'phuc', 'shit', 'biatch', 'btch', 'bich', 'cunt', 'kunt', 'niga', 'whore', 'slut', 'pussy', 'penis', 'vagina', 'dildo', 'porn', 'nazi', 'hitler', 'stfu', 'wtf', 'asshole', 'twat', 'bastard', 'retard', 'boob', 'horny'];
+
 const RESERVED = ['admin', 'moderator', 'mod', 'official', 'staff', 'support', 'polygonrush', 'system', 'developer', 'dev'];
 
 /**
@@ -242,5 +249,6 @@ export function checkDisplayText(input: string, kind: 'name' | 'title'): { ok: b
   // Words glued together: look for serious words anywhere inside.
   const inner = unstretch(squash(text));
   if (SEVERE_WORDS.some((w) => w.length >= 4 && inner.includes(w)) || MILD_WORDS.some((w) => w.length >= 4 && inner.includes(w))) return { ok: false, text: '', reason: 'blocked_word' };
+  if ([...SEVERE_PREFIXES, ...NAME_STEMS].some((w) => inner.includes(w))) return { ok: false, text: '', reason: 'blocked_word' };
   return { ok: true, text };
 }

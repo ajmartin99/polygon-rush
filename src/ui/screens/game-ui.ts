@@ -341,7 +341,8 @@ export class RaceResultsScreen extends BaseScreen {
       ),
     );
     if (actions.chat) {
-      actions.chat.classList.add('lobby-chat');
+      // Bottom-left on the results screen: the right side has the results panel and its buttons.
+      actions.chat.classList.add('lobby-chat', 'results-chat');
       this.el.append(actions.chat);
     }
     this.home = actions.onHome;

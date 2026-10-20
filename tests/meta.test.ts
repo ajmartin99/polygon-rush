@@ -3,7 +3,8 @@ import { ageGroupFor, createSave, migrate } from '../src/state/save';
 import { applyXp, leagueFor, raceReward, xpForLevel } from '../src/meta/economy';
 import { claimMission, ensureMissions, reportMission, ACTIVE_MISSIONS } from '../src/meta/missions';
 import { claimDaily, dailyAvailable } from '../src/meta/daily';
-import { grantProduct } from '../src/meta/products';
+import { gemPriceOf, grantProduct, isOwned } from '../src/meta/products';
+import { addOns, myCard, safeCard } from '../src/meta/profile';
 import { SKINS, TRAILS } from '../src/meta/catalog';
 import { randomName } from '../src/meta/names';
 import { isValidCode, randomCode, CODE_ALPHABET } from '../src/services/net';
@@ -135,6 +136,46 @@ describe('products', () => {
     grantProduct(s, 'legend_pack');
     for (const sk of SKINS.filter((x) => x.unlock.kind === 'legend')) expect(s.skins.owned).toContain(sk.id);
     for (const t of TRAILS.filter((x) => x.unlock.kind === 'legend')) expect(s.trails.owned).toContain(t.id);
+  });
+
+  it('Heart Regens cost the same-price gem pack plus 10% in gems', () => {
+    expect(gemPriceOf('haunted_regen_1')).toBe(660); // $0.99 = 600 gems
+    expect(gemPriceOf('haunted_regen_4')).toBe(2200); // $2.99 = 2,000 gems
+    expect(gemPriceOf('gems_small')).toBe(0);
+    expect(gemPriceOf('creator_spotlight')).toBe(660);
+    expect(gemPriceOf('builder_pack')).toBe(2200);
+    const s = createSave();
+    grantProduct(s, 'haunted_regen_4');
+    expect(s.haunted.regens).toBe(4);
+  });
+});
+
+describe('profile add-ons', () => {
+  it('only show on the card once bought, and survive a stranger’s card cleaning', () => {
+    const s = createSave();
+    s.creator.top = { id: 'Ab3_x-9k', likes: 12, plays: 40 };
+    s.creator.plays = 40;
+    expect(addOns(s)).toEqual({});
+    expect(addOns(s, { spotlight: true }).spot?.id).toBe('Ab3_x-9k');
+    grantProduct(s, 'creator_spotlight');
+    grantProduct(s, 'builder_pack');
+    expect(isOwned(s, 'builder_pack')).toBe(true);
+    const card = myCard({ save: s, levelsBuilt: 0, levelsVerified: 0 });
+    expect(card.spot).toEqual({ id: 'Ab3_x-9k', likes: 12, plays: 40 });
+    expect(card.cs?.plays).toBe(40);
+    expect(card.pro).toBe(true);
+    expect(safeCard(JSON.parse(JSON.stringify(card)))).toMatchObject({ spot: card.spot, cs: card.cs, pro: true });
+    // Junk from another player is dropped.
+    const bad = safeCard({ ...card, spot: { id: '<script>', likes: 1, plays: 1 }, pro: 'yes', cs: { plays: -5 } });
+    expect(bad?.spot).toBeUndefined();
+    expect(bad?.pro).toBeUndefined();
+    expect(bad?.cs?.plays).toBe(0);
+  });
+
+  it('old saves get the new fields', () => {
+    const m = migrate({ purchases: { noAds: true }, creator: { plays: 3 } });
+    expect(m.purchases.spotlight).toBe(false);
+    expect(m.creator.top).toEqual({ id: '', likes: 0, plays: 0 });
   });
 });
 

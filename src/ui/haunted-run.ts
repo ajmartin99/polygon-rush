@@ -2,12 +2,13 @@ import { CONFIG } from '../config';
 import { activeEvent } from '../meta/events';
 import { attemptsLeft, HAUNTED_RULES, hauntedLevel, refillIn, useAttempt, useRegen, type HauntedDiff } from '../meta/haunted';
 import { dailySeed } from '../meta/modes';
+import { gemPriceOf } from '../meta/products';
 import { iap } from '../services/iap';
 import { store } from '../state/store';
 import { button } from './components';
 import { clear, fmt, h, ic } from './dom';
 import { nav } from './nav';
-import { buyProduct } from './screens/shop';
+import { buyProduct, buyWithGems } from './screens/shop';
 import { ui } from './ui';
 
 /**
@@ -98,14 +99,32 @@ export function openHauntedRun(): void {
         store.commit();
         render();
       };
+      const gemButton = (id: string, label: string) => {
+        const price = gemPriceOf(id);
+        return button({
+          label,
+          sub: `${fmt(price)} gems`,
+          icon: 'gem',
+          cls: `${store.canAfford(price) ? 'yellow' : 'ghost'} lg`,
+          onClick: () => {
+            if (!buyWithGems(id)) return;
+            // A single Heart Regen is used straight away.
+            if (id === P.hauntedRegen1) useRegen(store.data.haunted);
+            store.commit();
+            render();
+          },
+        });
+      };
       body.append(
-        h('p.muted.small', null, 'Heart Regen refills your attempts now and starts a fresh 24 hours. Unused regens keep until next Spooky Season.'),
+        h('p.muted.small', null, 'Heart Regen refills your attempts now and starts a fresh 24 hours. Unused regens keep for the next limited-time run.'),
         h(
           'div.actions',
           null,
           button({ label: 'Heart Regen', sub: iap.priceOf(P.hauntedRegen1), icon: 'heart', cls: 'pink lg', onClick: buy(P.hauntedRegen1) }),
           button({ label: '4 Heart Regens', sub: iap.priceOf(P.hauntedRegen4), icon: 'heart', cls: 'violet lg', onClick: buy(P.hauntedRegen4) }),
         ),
+        h('p.muted.small', null, 'Or pay with gems:'),
+        h('div.actions', null, gemButton(P.hauntedRegen1, 'Heart Regen'), gemButton(P.hauntedRegen4, '4 Heart Regens')),
       );
     }
   };

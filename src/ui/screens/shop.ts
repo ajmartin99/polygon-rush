@@ -11,7 +11,8 @@ import {
   type SkinDef,
   type TrailDef,
 } from '../../meta/catalog';
-import { PRODUCTS, isOwned, type ProductDef } from '../../meta/products';
+import { PRODUCTS, gemPriceOf, grantProduct, isOwned, type ProductDef } from '../../meta/products';
+import { isAddOn, openAddOn } from '../profile';
 import type { ShapeMode } from '../../game/shapes';
 import { BaseScreen, button, gemChip, parentalGate, rewardModal, titleBar, alertModal } from '../components';
 import { h, ic, fmt, clear } from '../dom';
@@ -32,6 +33,24 @@ function ownedSkin(s: SkinDef): boolean {
 
 function ownedTrail(t: TrailDef): boolean {
   return store.ownsTrail(t.id);
+}
+
+/**
+ * Buy a gem-payable item (Heart Regens, profile add-ons) with gems instead of
+ * money. Returns false when it's owned already or there aren't enough gems.
+ */
+export function buyWithGems(id: string): boolean {
+  const price = gemPriceOf(id);
+  if (!price || isOwned(store.data, id)) return false;
+  if (!store.spendGems(price)) {
+    ui.sfx('error');
+    ui.toast('Not enough gems — rush for more or visit the gem shop!', 'gem');
+    return false;
+  }
+  grantProduct(store.data, id);
+  store.commit();
+  ui.sfx('reward');
+  return true;
 }
 
 /** Full purchase flow: parental gate → Google Play → reward popup. */
@@ -510,7 +529,11 @@ export class ShopScreen extends BaseScreen {
           ? ic('crown')
           : p.id === CONFIG.iap.products.starterPack
             ? ic('star')
-            : ic('gem');
+            : p.id === CONFIG.iap.products.creatorSpotlight
+              ? ic('public')
+              : p.id === CONFIG.iap.products.builderPack
+                ? ic('build')
+                : ic('gem');
     return h(
       `div.offer${p.featured ? '.featured' : ''}`,
       null,
@@ -520,15 +543,22 @@ export class ShopScreen extends BaseScreen {
       h('div.desc', null, p.kind === 'consumable' ? p.name : p.desc),
       owned
         ? h('div.owned', null, 'Owned ✓')
-        : button({
-            label: iap.priceOf(p.id) || '—',
-            cls: p.featured ? 'yellow' : 'cyan',
-            disabled: !iap.available,
-            onClick: async () => {
-              await buyProduct(p.id);
-              this.render();
-            },
-          }),
+        : isAddOn(p.id)
+          ? button({
+              label: 'Preview',
+              sub: `${iap.priceOf(p.id) || p.fallbackPrice} or ${fmt(gemPriceOf(p.id))} gems`,
+              cls: 'cyan',
+              onClick: () => openAddOn(p.id, () => this.render()),
+            })
+          : button({
+              label: iap.priceOf(p.id) || '—',
+              cls: p.featured ? 'yellow' : 'cyan',
+              disabled: !iap.available,
+              onClick: async () => {
+                await buyProduct(p.id);
+                this.render();
+              },
+            }),
     );
   }
 }

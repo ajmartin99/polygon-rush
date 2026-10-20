@@ -92,10 +92,12 @@ export interface CreatorProgress {
   sharedIds: string[];
   /** Community level ids you beat (so each counts once). */
   clearedIds: string[];
+  /** Your highest-rated shared level (server id, '' = none), for the Creator Spotlight. */
+  top: { id: string; likes: number; plays: number };
 }
 
 export function emptyCreator(): CreatorProgress {
-  return { shared: 0, plays: 0, clears: 0, likes: 0, sharedIds: [], clearedIds: [] };
+  return { shared: 0, plays: 0, clears: 0, likes: 0, sharedIds: [], clearedIds: [], top: { id: '', likes: 0, plays: 0 } };
 }
 
 export interface SaveData {
@@ -145,7 +147,16 @@ export interface SaveData {
   creator: CreatorProgress;
   missions: { active: MissionState[]; completed: number; counter: number };
   daily: { lastClaim: string | null; day: number; cycles: number };
-  purchases: { noAds: boolean; starter: boolean; legend: boolean; gemPacks: number; tx: string[] };
+  purchases: {
+    noAds: boolean;
+    starter: boolean;
+    legend: boolean;
+    /** Profile add-ons: Creator Spotlight, and the Builder Pack (Creator Stats + Pro Builder tag). */
+    spotlight: boolean;
+    builder: boolean;
+    gemPacks: number;
+    tx: string[];
+  };
   ads: {
     runsSinceInterstitial: number;
     lastInterstitialAt: number;
@@ -243,7 +254,7 @@ export function createSave(now = Date.now()): SaveData {
     creator: emptyCreator(),
     missions: { active: [], completed: 0, counter: 0 },
     daily: { lastClaim: null, day: 0, cycles: 0 },
-    purchases: { noAds: false, starter: false, legend: false, gemPacks: 0, tx: [] },
+    purchases: { noAds: false, starter: false, legend: false, spotlight: false, builder: false, gemPacks: 0, tx: [] },
     ads: { runsSinceInterstitial: 0, lastInterstitialAt: 0, freeGemsDay: '', freeGemsCount: 0 },
     tutorial: {},
     settings: { ...DEFAULT_SETTINGS },

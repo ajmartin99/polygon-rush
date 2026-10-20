@@ -537,6 +537,15 @@ describe('community levels', () => {
     const mine = await browse(k('a'), { tab: 'top', scope: 'mine' });
     assert.deepEqual(mine.json.stats, { shared: 1, plays: 1, clears: 1, likes: 1 });
     assert.equal(mine.json.levels[0].mine, true);
+    assert.equal(mine.json.levels[0].pro, false);
+    // A Creator Spotlight fetches one level by id; the Builder Pack tag rides along on publish.
+    const one = await api('POST', `/api/levels/${id}/get`, { key: k('b') });
+    assert.equal(one.status, 200);
+    assert.equal(one.json.level.id, id);
+    assert.equal(one.json.level.vote, 1);
+    assert.equal((await api('POST', '/api/levels/nosuchlevel/get', { key: k('b') })).status, 404);
+    await api('POST', '/api/levels/publish', { key: k('a'), localId: 'abc123def456', code: code(9), pro: true });
+    assert.equal((await api('POST', `/api/levels/${id}/get`, { key: k('b') })).json.level.pro, true);
     assert.equal((await api('POST', `/api/levels/${id}/like`, { key: k('b'), like: false })).json.likes, 0);
     assert.equal((await api('POST', `/api/levels/${id}/unpublish`, { key: k('b') })).status, 200);
     assert.ok((await browse(k('b'), { tab: 'new' })).json.levels.some((l: any) => l.id === id), 'only the builder can unshare');
@@ -549,7 +558,8 @@ describe('community levels', () => {
     await reg(k('d'), 'Dizzy Duck');
     await reg(k('e'), 'Speedy Panda 7', { kid: true });
     assert.equal((await api('POST', '/api/levels/publish', { key: k('e'), localId: 'kidlevel0001', code: code(6, 'My Level') })).status, 400, 'typed titles are 13+');
-    assert.equal((await api('POST', '/api/levels/publish', { key: k('e'), localId: 'kidlevel0001', code: code(6) })).status, 200);
+    const kidPub = await api('POST', '/api/levels/publish', { key: k('e'), localId: 'kidlevel0001', code: code(6) });
+    assert.equal(kidPub.status, 200);
     assert.equal((await api('POST', '/api/levels/publish', { key: k('c'), localId: 'catlevel0001', code: code(6, 'call 5551234') })).status, 400);
     const pub = await api('POST', '/api/levels/publish', { key: k('c'), localId: 'catlevel0001', code: code(6, 'Spike Party') });
     assert.equal(pub.status, 200);
@@ -562,9 +572,26 @@ describe('community levels', () => {
       fr.json.levels.map((l: any) => [l.id, l.friend]),
       [[pub.json.id, true]],
     );
-    // Blocking someone hides their levels.
+    // Profile cards: sent with sync, seen by friends and from a level's builder name.
+    await api('POST', '/api/friends/sync', { key: k('c'), card: { lv: 7, tag: a.json.tag, show: [] }, skin: 'neon' });
+    const fc = await api('POST', '/api/friends/card', { key: k('d'), id: a.json.id });
+    assert.equal(fc.status, 200);
+    assert.equal(fc.json.name, 'Comet Cat');
+    assert.equal(fc.json.skin, 'neon');
+    assert.equal(fc.json.card.lv, 7);
+    assert.equal((await api('POST', '/api/friends/card', { key: k('e'), id: a.json.id })).status, 404, 'friends only');
+    assert.equal((await api('POST', `/api/levels/${pub.json.id}/author`, { key: k('e') })).json.card.lv, 7);
+    assert.equal((await api('POST', '/api/friends/sync', { key: k('c'), card: { junk: 'x'.repeat(3000) } })).status, 200);
+    assert.equal((await api('POST', '/api/friends/card', { key: k('d'), id: a.json.id })).json.card.lv, 7, 'oversized cards are ignored');
+    // An under-13's #number never leaves on their card.
+    await api('POST', '/api/friends/sync', { key: k('e'), card: { lv: 3, tag: 1234 } });
+    const kidCard = await api('POST', `/api/levels/${kidPub.json.id}/author`, { key: k('d') });
+    assert.equal(kidCard.json.card.lv, 3);
+    assert.equal(kidCard.json.card.tag, undefined);
+    // Blocking someone hides their levels and their card.
     await api('POST', '/api/friends/block', { key: k('d'), id: a.json.id });
     assert.ok(!(await browse(k('d'), { tab: 'new' })).json.levels.some((l: any) => l.id === pub.json.id));
+    assert.equal((await api('POST', `/api/levels/${pub.json.id}/author`, { key: k('d') })).status, 404);
   });
 
   test('thumbs up and down: Highest Rated and Trending', async () => {

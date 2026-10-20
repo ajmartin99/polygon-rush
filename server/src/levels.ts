@@ -42,6 +42,8 @@ interface LevelRow {
   dislikes: number;
   reports: number;
   hidden: number;
+  /** The builder had the Builder Pack when they last shared it (gold Pro Builder tag). */
+  pro: number;
   author: string;
 }
 
@@ -60,6 +62,7 @@ export interface SharedLevelView {
   mine: boolean;
   friend: boolean;
   created: number;
+  pro: boolean;
 }
 
 export interface CreatorStats {
@@ -137,6 +140,7 @@ export class LevelService {
     const likeCols = cols('level_likes');
     if (!likeCols.has('vote')) db.sql.exec('ALTER TABLE level_likes ADD COLUMN vote INTEGER NOT NULL DEFAULT 1');
     if (!likeCols.has('at')) db.sql.exec('ALTER TABLE level_likes ADD COLUMN at INTEGER NOT NULL DEFAULT 0');
+    if (!cols('shared_levels').has('pro')) db.sql.exec('ALTER TABLE shared_levels ADD COLUMN pro INTEGER NOT NULL DEFAULT 0');
   }
 
   private q<T>(sql: string, ...args: (string | number | null)[]): T | undefined {
@@ -183,17 +187,19 @@ export class LevelService {
     const localId = typeof body.localId === 'string' && /^[a-z0-9]{6,24}$/.test(body.localId) ? body.localId : null;
     if (!localId) throw new ApiError(400, 'bad_level', 'Please update the app.');
     const code = this.checkCode(body.code, me);
+    // A cosmetic tag the game sends when the builder owns the Builder Pack.
+    const pro = body.pro === true ? 1 : 0;
     if (!this.publishes.hit(me.id, now) || !this.publishesIp.hit(ipKey, now)) throw new ApiError(429, 'slow_down', 'You’ve shared a lot of levels! Try again later.');
     const old = this.q<{ id: string; hidden: number }>('SELECT id, hidden FROM shared_levels WHERE owner = ? AND local_id = ?', me.id, localId);
     if (old) {
       if (old.hidden) throw new ApiError(403, 'hidden', 'This level was taken down by our safety team.');
-      this.x('UPDATE shared_levels SET code = ?, updated_at = ? WHERE id = ?', code, now, old.id);
+      this.x('UPDATE shared_levels SET code = ?, updated_at = ?, pro = ? WHERE id = ?', code, now, pro, old.id);
       return { id: old.id, updated: true };
     }
     const count = this.q<{ n: number }>('SELECT COUNT(*) AS n FROM shared_levels WHERE owner = ?', me.id)?.n ?? 0;
     if (count >= MAX_SHARED_PER_PLAYER) throw new ApiError(409, 'too_many', `You can share up to ${MAX_SHARED_PER_PLAYER} levels. Unshare one first.`);
     const id = randomId(8);
-    this.x('INSERT INTO shared_levels (id, owner, local_id, code, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)', id, me.id, localId, code, now, now);
+    this.x('INSERT INTO shared_levels (id, owner, local_id, code, created_at, updated_at, pro) VALUES (?, ?, ?, ?, ?, ?, ?)', id, me.id, localId, code, now, now, pro);
     return { id, updated: false };
   }
 
@@ -277,9 +283,46 @@ export class LevelService {
         mine: r.owner === me.id,
         friend: friends.has(r.owner),
         created: r.created_at,
+        pro: Boolean(r.pro),
       }),
     );
     return { levels, more, stats: this.stats(me.id) };
+  }
+
+  /** The builder's profile card for a shared level (tap their name). */
+  authorCard(id: string, body: Record<string, unknown>, now = Date.now()) {
+    const me = this.players.me(body, now);
+    const row = this.visible(id);
+    if (this.players.blockedEither(me.id, row.owner)) throw new ApiError(404, 'not_found', 'That level isn’t shared any more.');
+    return this.players.cardView(row.owner, now);
+  }
+
+  /** One level by id (a Creator Spotlight on a player's card). Hidden levels and blocked builders aren't found. */
+  get(id: string, body: Record<string, unknown>, now = Date.now()): { level: SharedLevelView } {
+    const me = this.players.me(body, now);
+    const r = this.q<LevelRow>('SELECT l.*, p.name AS author FROM shared_levels l JOIN players p ON p.id = l.owner WHERE l.id = ? AND l.hidden = 0', id);
+    if (!r || this.players.blockedIds(me.id).includes(r.owner)) throw new ApiError(404, 'not_found', 'That level isn’t shared any more.');
+    const vote = this.q<{ vote: number }>('SELECT vote FROM level_likes WHERE level_id = ? AND player_id = ?', id, me.id)?.vote ?? 0;
+    const played = Boolean(this.q('SELECT 1 AS ok FROM level_plays WHERE level_id = ? AND player_id = ?', id, me.id));
+    const friends = new Set(me.friends_off ? [] : this.players.friendIds(me.id));
+    return {
+      level: {
+        id: r.id,
+        code: r.code,
+        author: this.names.allowed(r.author, now) ? r.author : 'Rusher',
+        plays: r.plays,
+        clears: r.clears,
+        likes: r.likes,
+        dislikes: r.dislikes,
+        liked: vote === 1,
+        vote,
+        played,
+        mine: r.owner === me.id,
+        friend: friends.has(r.owner),
+        created: r.created_at,
+        pro: Boolean(r.pro),
+      },
+    };
   }
 
   private stats(owner: string): CreatorStats {

@@ -6,6 +6,7 @@ import { activityText } from '../friend-invites';
 import { BaseScreen, button, confirm, titleBar } from '../components';
 import { clear, h } from '../dom';
 import { nav } from '../nav';
+import { openRemoteCard } from '../profile';
 import { joinRoomByCode } from './create';
 import { ui } from '../ui';
 
@@ -192,6 +193,13 @@ export class PalsScreen extends BaseScreen {
         list.length
           ? list.map((f: Friend) =>
               this.row(f, activityText(f), f.online, [
+                button({
+                  label: 'Profile',
+                  icon: 'star',
+                  cls: 'yellow sm',
+                  aria: `${handleOf(f)} profile`,
+                  onClick: () => void openRemoteCard(() => friends.card(f.id), () => nav.go('pals')),
+                }),
                 button({
                   icon: 'trash',
                   cls: 'icon ghost sm',

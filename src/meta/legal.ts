@@ -6,7 +6,7 @@ const deletionUrl = CONFIG.server.url ? `${CONFIG.server.url}/account/delete` : 
 export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   {
     title: 'The short version',
-    body: 'Polygon Rush has no sign-in. Players under 13 always get a generated racer name; players 13 and older may type their own racer and level names, which are filtered. Your progress and the levels you build are saved on your device. With the game server, your racer name gets a #number and you can add friends. There are no accounts and no typed chat: players talk only with Quick Chat’s preset phrases and emotes. Players under 13 never get public rooms. We do not sell personal information.',
+    body: 'Polygon Rush has no sign-in. Players under 13 always get a generated racer name; players 13 and older may type their own racer and level names, which are filtered. Your progress and the levels you build are saved on your device. With the game server, your racer name gets a #number and you can add friends. There are no accounts and no typed chat: players talk only with Quick Chat’s preset phrases and emotes. Players under 13 never get public rooms. We do not ask for or collect email addresses, real names, phone numbers, contacts, photos or precise location, and scores and progress stay on your device (only the game facts on your profile card are shared, see below). We do not sell personal information.',
   },
   {
     title: 'Information stored on your device',
@@ -18,7 +18,7 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'Advertising (Google AdMob)',
-    body: 'The free version shows ads from Google AdMob. All ads are limited to the "G" (general audiences) content rating. For players under 13, ad requests are tagged as child-directed and are non-personalised. Players 13+ in regions that require it are asked for consent through Google’s consent form, which can be changed any time in Settings > Privacy Choices. AdMob may process device identifiers and IP address as described in Google’s policies: https://policies.google.com/technologies/ads',
+    body: 'The free version shows ads from Google AdMob. All ads are limited to the "G" (general audiences) content rating. For players under 13, ad requests are tagged as child-directed and are non-personalised. Players 13+ in regions that require it are asked for consent through Google’s consent form, which can be changed any time in Settings > Privacy Choices. As a third-party vendor, Google may collect and process the advertising ID and other device identifiers, the IP address (and an approximate location from it) and ad interaction data such as impressions and taps, to show and measure ads and prevent fraud, as described in Google’s policies: https://policies.google.com/technologies/ads',
   },
   {
     title: 'Game updates',
@@ -30,11 +30,11 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'Online rooms (Play with Friends, Build Together)',
-    body: 'Online rooms connect players directly (peer-to-peer) using a short room code; a signalling server only helps them find each other. Players in a room share their racer name, skin, game profile card (level, badges, title, game stats and, for players 13+, their #number so others can send a friend request), race positions, level edits and Quick Chat choices (preset phrases, never typed text). Like any internet connection, players in a room can see each other’s IP address. Parents can turn online play and Quick Chat off in Settings > Parental Controls.',
+    body: 'Online rooms connect players directly (peer-to-peer) using a short room code; a signalling server only helps them find each other. Players in a room share their racer name, skin, game profile card (level, badges, title, game stats, any profile add-ons such as a featured Community level and, for players 13+, their #number so others can send a friend request), race positions, level edits and Quick Chat choices (preset phrases, never typed text). Like any internet connection, players in a room can see each other’s IP address. Parents can turn online play and Quick Chat off in Settings > Parental Controls.',
   },
   {
     title: 'Friends and your #number',
-    body: 'When the game server is available, your racer name, a random #number and a random key created on your device (stored by us only as a one-way hash) are sent to our server. This lets friends add you by Name#number, which is never searchable or listed. We store your racer name and #number, whether you are under 13 (so typed names stay off for you), your friends list, friend requests, blocks, when you were last online and what you are doing in the game (menu, playing, building or in an online room), and invites, which hold only a room code. Friends can see whether you are online and get invites from you; nobody else can. There are no messages. Under-13s can only add a friend by typing their exact Name#number, shared in person. Parents can turn friends off in Settings > Parental Controls. Invites are deleted after 10 minutes; players not seen for 2 years are deleted with their friends lists.',
+    body: 'When the game server is available, your racer name, a random #number and a random key created on your device (stored by us only as a one-way hash) are sent to our server. This lets friends add you by Name#number, which is never searchable or listed. We store your racer name and #number, whether you are under 13 (so typed names stay off for you), your friends list, friend requests, blocks, when you were last online and what you are doing in the game (menu, playing, building or in an online room), invites, which hold only a room code, and your latest game profile card and skin (game facts only, the same card players see in a room). Friends can see whether you are online, open your profile card and get invites from you. Players who open one of your shared Community levels can open your profile card too (without your #number if you are under 13). Nobody else can. There are no messages. Under-13s can only add a friend by typing their exact Name#number, shared in person. Parents can turn friends off in Settings > Parental Controls. Invites are deleted after 10 minutes; players not seen for 2 years are deleted with their friends lists.',
   },
   {
     title: 'Level codes',
@@ -42,7 +42,7 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'Community levels',
-    body: 'When you share a level to Community, our server stores its level code (the level, its name and the racer names of its builders) linked to your player, plus how many players played, beat and liked it. Anyone using Community can play it and sees your racer name without your #number. We also store which community levels you played, beat, liked or reported, so counts stay fair and Suggested shows levels you haven’t played. There is no text besides level names, which for players 13+ pass the same filter as racer names. Players can report a level; several reports hide it until our safety team looks. You can unshare a level any time in Create > Community > My Shared. Parents can turn Community levels off in Settings > Parental Controls.',
+    body: 'When you share a level to Community, our server stores its level code (the level, its name and the racer names of its builders) linked to your player, plus how many players played, beat and liked it. Anyone using Community can play it, sees your racer name without your #number and can open your game profile card. We also store which community levels you played, beat, liked or reported, so counts stay fair and Suggested shows levels you haven’t played. There is no text besides level names, which for players 13+ pass the same filter as racer names. Players can report a level; several reports hide it until our safety team looks. You can unshare a level any time in Create > Community > My Shared. Parents can turn Community levels off in Settings > Parental Controls.',
   },
   {
     title: 'Public rooms and Quick Match (13+)',
@@ -50,11 +50,11 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'Analytics',
-    body: 'Polygon Rush does not include any analytics or tracking SDKs.',
+    body: 'Polygon Rush does not include any analytics, tracking or crash-reporting SDKs (no Firebase, Google Analytics or similar). The only third-party SDKs are Google AdMob (ads) and Google Play Billing (purchases).',
   },
   {
     title: 'Children',
-    body: 'Polygon Rush is designed to be suitable for all ages and follows the Google Play Families policy. We do not knowingly collect personal information from children under 13: they keep generated racer names, add friends only by a typed Name#number and cannot use public rooms. There is no typed chat for anyone.',
+    body: 'Polygon Rush is designed to be suitable for all ages and follows the Google Play Families policy. We do not knowingly collect personal information from children under 13: they keep generated racer names, add friends only by a typed Name#number and cannot use public rooms. There is no typed chat for anyone. We follow the US Children’s Online Privacy Protection Act (COPPA) and the GDPR’s protections for children: the age screen on first launch keeps players under 13 on child-directed, non-personalised ads, and in the EEA, UK and other regions that require it, players 13+ are asked for consent through Google’s consent form before any personalised ads. Parents or guardians can ask us to review or delete their child’s data at privacy@softgamebros.com.',
   },
   {
     title: 'Deleting your data',

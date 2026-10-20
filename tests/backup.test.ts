@@ -44,6 +44,17 @@ describe('backup codes', () => {
     expect(store.data.skins.owned).toContain('bubblegum');
   });
 
+  it('carries profile add-ons (they can be bought with gems, which Google Play can’t restore)', async () => {
+    store.data.purchases.spotlight = true;
+    store.data.purchases.noAds = true;
+    const code = await makeBackup();
+    store.data = createSave();
+    await restoreBackup(code);
+    expect(store.data.purchases.spotlight).toBe(true);
+    expect(store.data.purchases.builder).toBe(false);
+    expect(store.data.purchases.noAds).toBe(false);
+  });
+
   it('refuses an edited code (decode, change gems, encode)', async () => {
     store.data.gems = 100;
     const code = await makeBackup();

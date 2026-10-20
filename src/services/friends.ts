@@ -30,6 +30,13 @@ export interface Invite {
   at: number;
 }
 
+/** A player's profile card as fetched from the server (cleaned by the caller). */
+export interface RemoteCard {
+  name: string;
+  skin: string;
+  card: unknown;
+}
+
 export interface FriendsState {
   me: (Player & { friendsOff: boolean }) | null;
   friends: Friend[];
@@ -80,6 +87,10 @@ class FriendsService extends Emitter<{
   private started = false;
   private registered = false;
   private seen = new Set<string>();
+  /** This player's profile card, sent with sync so friends can see it (set at startup). */
+  cardSource: () => unknown = () => undefined;
+  /** Last card the server has (only changes are sent). */
+  private sentCard = '';
   private fast = false;
 
   /** Server configured, online play allowed and friends not switched off by a parent. */
@@ -125,6 +136,7 @@ class FriendsService extends Emitter<{
     try {
       const me = await serverApi<Player & { friendsOff: boolean }>('/api/players/register', { body: body() });
       this.registered = true;
+      this.sentCard = '';
       if (p.tag !== me.tag) {
         p.tag = me.tag;
         store.commit();
@@ -191,7 +203,11 @@ class FriendsService extends Emitter<{
     }
     if (!this.available) return this.set({ ...empty(), me: this.state.me });
     try {
-      const res = await serverApi<Omit<FriendsState, 'error'>>('/api/friends/sync', { body: { key: deviceKey(), activity: this.activity() } });
+      const card = this.cardSource();
+      const snap = JSON.stringify([card, store.data.skins.equipped]);
+      const extra = card && snap !== this.sentCard ? { card, skin: store.data.skins.equipped } : {};
+      const res = await serverApi<Omit<FriendsState, 'error'>>('/api/friends/sync', { body: { key: deviceKey(), activity: this.activity(), ...extra } });
+      if ('card' in extra) this.sentCard = snap;
       this.set({ ...res, error: '' });
       if (res.friends.length > store.data.stats.friendsMax) {
         store.data.stats.friendsMax = res.friends.length;
@@ -235,6 +251,11 @@ class FriendsService extends Emitter<{
     const out = await this.authed<T>(path, body);
     void this.sync();
     return out;
+  }
+
+  /** A friend's profile card. */
+  card(id: string): Promise<RemoteCard> {
+    return this.authed<RemoteCard>('/api/friends/card', { id });
   }
 
   /** Send a request to "Name#1234" (accepts theirs if they already asked). */

@@ -153,7 +153,15 @@ export interface ProfileCard {
   eggs: number;
   /** Friend tag (13+ only, so others in a room can send a request). */
   tag?: number;
+  /** Creator Spotlight add-on: your top-rated Community level (server id + numbers). */
+  spot?: { id: string; likes: number; plays: number };
+  /** Builder Pack: Creator Stats section and the gold Pro Builder tag. */
+  cs?: { shared: number; plays: number; likes: number; clears: number };
+  pro?: true;
 }
+
+/** Community level ids (server randomId: base64url). */
+export const LEVEL_ID_RE = /^[A-Za-z0-9_-]{6,24}$/;
 
 export function myCard(c: BadgeCtx): ProfileCard {
   const p = c.save.profile;
@@ -170,7 +178,20 @@ export function myCard(c: BadgeCtx): ProfileCard {
     eggs: c.save.secrets.found.length,
     // Under-13s share their Name#tag in person only.
     ...(p.tag > 0 && p.birthYear !== null && new Date().getFullYear() - p.birthYear - 1 >= 13 ? { tag: p.tag } : {}),
+    ...addOns(c.save),
   };
+}
+
+/** The add-on sections a save has paid for (or, with `preview`, would show once bought). */
+export function addOns(save: SaveData, preview: { spotlight?: boolean; builder?: boolean } = {}): Pick<ProfileCard, 'spot' | 'cs' | 'pro'> {
+  const out: Pick<ProfileCard, 'spot' | 'cs' | 'pro'> = {};
+  const cr = save.creator;
+  if ((save.purchases.spotlight || preview.spotlight) && LEVEL_ID_RE.test(cr.top.id)) out.spot = { id: cr.top.id, likes: cr.top.likes, plays: cr.top.plays };
+  if (save.purchases.builder || preview.builder) {
+    out.cs = { shared: cr.shared, plays: cr.plays, likes: cr.likes, clears: cr.clears };
+    out.pro = true;
+  }
+  return out;
 }
 
 const int = (v: unknown, lo: number, hi: number): number => (typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.floor(v))) : lo);
@@ -192,7 +213,19 @@ export function safeCard(raw: unknown): ProfileCard | undefined {
     badges: int(r.badges, show.length, BADGES.length),
     eggs: int(r.eggs, 0, 99),
     ...(typeof r.tag === 'number' && Number.isInteger(r.tag) && r.tag >= 1 && r.tag <= 9999 ? { tag: r.tag } : {}),
+    ...safeAddOns(r),
   };
+}
+
+function safeAddOns(r: Record<string, unknown>): Pick<ProfileCard, 'spot' | 'cs' | 'pro'> {
+  const out: Pick<ProfileCard, 'spot' | 'cs' | 'pro'> = {};
+  const o = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null);
+  const spot = o(r.spot);
+  if (spot && typeof spot.id === 'string' && LEVEL_ID_RE.test(spot.id)) out.spot = { id: spot.id, likes: int(spot.likes, 0, 9_999_999), plays: int(spot.plays, 0, 9_999_999) };
+  const cs = o(r.cs);
+  if (cs) out.cs = { shared: int(cs.shared, 0, 999), plays: int(cs.plays, 0, 99_999_999), likes: int(cs.likes, 0, 99_999_999), clears: int(cs.clears, 0, 99_999_999) };
+  if (r.pro === true) out.pro = true;
+  return out;
 }
 
 export function skinName(id: string): string {

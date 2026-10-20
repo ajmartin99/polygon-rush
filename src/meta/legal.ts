@@ -6,7 +6,7 @@ const deletionUrl = CONFIG.server.url ? `${CONFIG.server.url}/account/delete` : 
 export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   {
     title: 'The short version',
-    body: 'Polygon Rush has no sign-in. Players under 13 always get a generated racer name; players 13 and older may type their own racer and level names, which are filtered. Your progress and the levels you build are saved on your device. With the game server, your racer name gets a #number and you can add friends. There are no accounts and no typed chat: players talk only with Quick Chat’s preset phrases and emotes. Players under 13 never get public rooms. We do not sell personal information.',
+    body: 'Polygon Rush has no sign-in. Players under 13 always get a generated racer name; players 13 and older may type their own racer and level names, which are filtered. Your progress and the levels you build are saved on your device. With the game server, your racer name gets a #number and you can add friends. There are no accounts and no typed chat: players talk only with Quick Chat’s preset phrases and emotes. Players under 13 never get public rooms. We do not ask for or collect email addresses, real names, phone numbers, contacts, photos or precise location, and scores and progress stay on your device (only the game facts on your profile card are shared, see below). We do not sell personal information.',
   },
   {
     title: 'Information stored on your device',
@@ -18,7 +18,7 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'Advertising (Google AdMob)',
-    body: 'The free version shows ads from Google AdMob. All ads are limited to the "G" (general audiences) content rating. For players under 13, ad requests are tagged as child-directed and are non-personalised. Players 13+ in regions that require it are asked for consent through Google’s consent form, which can be changed any time in Settings > Privacy Choices. AdMob may process device identifiers and IP address as described in Google’s policies: https://policies.google.com/technologies/ads',
+    body: 'The free version shows ads from Google AdMob. All ads are limited to the "G" (general audiences) content rating. For players under 13, ad requests are tagged as child-directed and are non-personalised. Players 13+ in regions that require it are asked for consent through Google’s consent form, which can be changed any time in Settings > Privacy Choices. As a third-party vendor, Google may collect and process the advertising ID and other device identifiers, the IP address (and an approximate location from it) and ad interaction data such as impressions and taps, to show and measure ads and prevent fraud, as described in Google’s policies: https://policies.google.com/technologies/ads',
   },
   {
     title: 'Game updates',
@@ -50,11 +50,11 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
   },
   {
     title: 'Analytics',
-    body: 'Polygon Rush does not include any analytics or tracking SDKs.',
+    body: 'Polygon Rush does not include any analytics, tracking or crash-reporting SDKs (no Firebase, Google Analytics or similar). The only third-party SDKs are Google AdMob (ads) and Google Play Billing (purchases).',
   },
   {
     title: 'Children',
-    body: 'Polygon Rush is designed to be suitable for all ages and follows the Google Play Families policy. We do not knowingly collect personal information from children under 13: they keep generated racer names, add friends only by a typed Name#number and cannot use public rooms. There is no typed chat for anyone.',
+    body: 'Polygon Rush is designed to be suitable for all ages and follows the Google Play Families policy. We do not knowingly collect personal information from children under 13: they keep generated racer names, add friends only by a typed Name#number and cannot use public rooms. There is no typed chat for anyone. We follow the US Children’s Online Privacy Protection Act (COPPA) and the GDPR’s protections for children: the age screen on first launch keeps players under 13 on child-directed, non-personalised ads, and in the EEA, UK and other regions that require it, players 13+ are asked for consent through Google’s consent form before any personalised ads. Parents or guardians can ask us to review or delete their child’s data at privacy@softgamebros.com.',
   },
   {
     title: 'Deleting your data',

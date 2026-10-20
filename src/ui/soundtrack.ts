@@ -1,6 +1,6 @@
 import { music } from '../core/music';
 import { SONGS, songRole } from '../core/songs';
-import { TRACK_BASE, TRACKS, USER_BASE, musicInfo } from '../core/tracks';
+import { isRegularTrack, TRACK_BASE, TRACKS, USER_BASE, musicInfo } from '../core/tracks';
 import { myMusic, MAX_FILES } from '../services/mymusic';
 import { store } from '../state/store';
 import { button, segmented, toggle } from './components';
@@ -61,7 +61,7 @@ export function openSoundtrack(): void {
     // ---- recorded tracks
     if (TRACKS.length) {
       body.append(h('h3', null, 'Game music'));
-      TRACKS.forEach((t, i) => !t.exclusive && body.append(songRow(TRACK_BASE + i, t.title, `${t.genre} · ${t.artist} · ${t.license}`)));
+      TRACKS.forEach((t, i) => isRegularTrack(t) && body.append(songRow(TRACK_BASE + i, t.title, `${t.genre} · ${t.artist} · ${t.license}`)));
     }
     // ---- classic synth songs
     body.append(

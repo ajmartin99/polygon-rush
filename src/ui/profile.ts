@@ -233,7 +233,7 @@ function previewCard(id: string): HTMLElement {
 export function openAddOn(id: string, done: () => void = () => undefined): void {
   const def = productById(id);
   if (!def) return;
-  const body = h('div.col', { style: 'gap:0.6rem;align-items:center;text-align:center' });
+  const body = h('div.col.modal-scroll', { style: 'gap:0.6rem;align-items:center;text-align:center' });
   const render = () => {
     clear(body);
     const owned = isOwned(store.data, id);

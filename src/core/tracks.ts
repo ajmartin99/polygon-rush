@@ -41,6 +41,13 @@ export interface TrackDef {
   event?: EventId;
   /** Belongs to one mode (the Haunted Run): never in rotation, song pickers or player levels. */
   exclusive?: 'haunted';
+  /** Taken out of rotation (kept so the ids after it don't shift): never picked or offered again. */
+  retired?: true;
+}
+
+/** In rotation and offered in song pickers: not owned by one mode, not retired. */
+export function isRegularTrack(t: TrackDef): boolean {
+  return !t.exclusive && !t.retired;
 }
 
 /** Order is the id space: only ever append. */
@@ -376,7 +383,7 @@ export const TRACKS: TrackDef[] = [
   },
   // Spooky Season (Halloween)
   { title: '8-bit Haunted House', artist: 'Wolfgang_', genre: 'Spooky Chiptune', license: 'CC0', source: 'https://opengameart.org/content/8-bit-haunted-house-theme', file: 'haunted-house.mp3', duration: 44.9, bpm: 150.3, offset: 0.09, role: 'run', fast: true, event: 'halloween' },
-  { title: 'Doll House', artist: 'Alexandr Zhelanov', genre: 'Spooky Piano', license: 'CC-BY 4.0', source: 'https://opengameart.org/content/doll-house', file: 'doll-house.mp3', duration: 24.9, bpm: 100.2, offset: 0.269, role: 'run', event: 'halloween' },
+  { title: 'Doll House', artist: 'Alexandr Zhelanov', genre: 'Spooky Piano', license: 'CC-BY 4.0', source: 'https://opengameart.org/content/doll-house', file: 'doll-house.mp3', duration: 24.9, bpm: 100.2, offset: 0.269, role: 'run', event: 'halloween', retired: true },
   { title: 'Dissonant Waltz', artist: 'Yubatake', genre: 'Haunted Waltz', license: 'CC-BY 4.0', source: 'https://opengameart.org/content/dissonant-waltz', file: 'dissonant-waltz.mp3', duration: 170.0, bpm: 100.2, offset: 0.429, role: 'run', event: 'halloween' },
   { title: 'The 9th Circle', artist: 'Joth', genre: 'Industrial Dubstep', license: 'CC0', source: 'https://opengameart.org/content/the-9th-circle', file: 'the-9th-circle.mp3', duration: 170.8, bpm: 120.3, offset: 0.359, role: 'run', fast: true, event: 'halloween' },
 ];
@@ -392,7 +399,8 @@ export interface MusicInfo {
 
 /** Songs anyone can pick (everything but tracks that belong to one mode). */
 export function isPickable(id: number): boolean {
-  return !trackOf(id)?.exclusive;
+  const t = trackOf(id);
+  return !t || isRegularTrack(t);
 }
 
 export function isTrackId(id: number): boolean {
@@ -427,7 +435,7 @@ export function musicInfo(id: number): MusicInfo | null {
 /** Recorded tracks for a context, as music ids. */
 export function tracksFor(context: 'menu' | 'run' | 'race', now = new Date()): number[] {
   return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
-    .filter(({ t }) => !t.exclusive && (!t.event || activeEvent(now)?.id === t.event))
+    .filter(({ t }) => isRegularTrack(t) && (!t.event || activeEvent(now)?.id === t.event))
     .filter(({ t }) => (context === 'menu' ? t.role === 'menu' : context === 'race' ? t.fast === true : t.role === 'run'))
     .map(({ id }) => id);
 }
@@ -435,6 +443,6 @@ export function tracksFor(context: 'menu' | 'run' | 'race', now = new Date()): n
 /** A seasonal event's own soundtrack (its recorded tracks, plus tracks tagged for it). */
 export function eventTracks(event: EventId): number[] {
   return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
-    .filter(({ t }) => t.event === event && !t.exclusive)
+    .filter(({ t }) => t.event === event && isRegularTrack(t))
     .map(({ id }) => id);
 }

@@ -18,6 +18,8 @@ All notable changes to Polygon Rush are documented here.
 - 4 Heart Regens are now $2.99 (was $1.99), matching the 2,000-gem Gem Chest.
 
 ### Fixed
+- The Haunted Run's refill options all fit on screen again (the gem buttons were cut off on phones).
+- Retired "Doll House" from the soundtrack: at 25 seconds it was too short for a level. Levels that already use it still play it.
 - Live updates now install when you swipe the game closed: a downloaded update is switched to at the next launch, and an update already downloaded is never downloaded again.
 
 ## [1.0.11] - 2026-10-19

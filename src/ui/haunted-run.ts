@@ -43,7 +43,7 @@ export function startHaunted(diff: HauntedDiff): void {
 
 /** The Haunted Run card: attempts, timer, best runs, Hard / Easy and Heart Regens. */
 export function openHauntedRun(): void {
-  const body = h('div.col.haunted', { style: 'gap:0.6rem;align-items:center;text-align:center' });
+  const body = h('div.col.haunted.modal-scroll', { style: 'gap:0.6rem;align-items:center;text-align:center' });
   let timer = 0;
   const render = () => {
     clear(body);
@@ -53,7 +53,10 @@ export function openHauntedRun(): void {
     const bonus = (d: HauntedDiff) => fmt(Math.round(HAUNTED_RULES.finishBonus * HAUNTED_RULES.gemRate[d]));
     body.append(
       h('h2', null, '🎃 Haunted Run'),
-      h('p.muted.small', null, 'Today’s course is charted to Swing Along: jump, flip and glide on the beat. Jump the zombies shambling in your way, and fly around the ghosts haunting the sky! Reach the end of the song for a big gem bonus.'),
+      // Out of attempts the refill options need the room, so the course blurb steps aside.
+      ...(left > 0 || hs.regens > 0
+        ? [h('p.muted.small', null, 'Today’s course is charted to Swing Along: jump, flip and glide on the beat. Jump the zombies shambling in your way, and fly around the ghosts haunting the sky! Reach the end of the song for a big gem bonus.')]
+        : []),
       h(
         'div.hr-hearts',
         { 'aria-label': `${left} of ${HAUNTED_RULES.attempts} attempts left` },
@@ -105,7 +108,7 @@ export function openHauntedRun(): void {
           label,
           sub: `${fmt(price)} gems`,
           icon: 'gem',
-          cls: `${store.canAfford(price) ? 'yellow' : 'ghost'} lg`,
+          cls: `${store.canAfford(price) ? 'yellow' : 'ghost'}`,
           onClick: () => {
             if (!buyWithGems(id)) return;
             // A single Heart Regen is used straight away.
@@ -116,14 +119,13 @@ export function openHauntedRun(): void {
         });
       };
       body.append(
-        h('p.muted.small', null, 'Heart Regen refills your attempts now and starts a fresh 24 hours. Unused regens keep for the next limited-time run.'),
+        h('p.muted.small', null, 'A Heart Regen refills your attempts now. Extra regens keep for the next limited-time run.'),
         h(
           'div.actions',
           null,
-          button({ label: 'Heart Regen', sub: iap.priceOf(P.hauntedRegen1), icon: 'heart', cls: 'pink lg', onClick: buy(P.hauntedRegen1) }),
-          button({ label: '4 Heart Regens', sub: iap.priceOf(P.hauntedRegen4), icon: 'heart', cls: 'violet lg', onClick: buy(P.hauntedRegen4) }),
+          button({ label: 'Heart Regen', sub: iap.priceOf(P.hauntedRegen1), icon: 'heart', cls: 'pink', onClick: buy(P.hauntedRegen1) }),
+          button({ label: '4 Heart Regens', sub: iap.priceOf(P.hauntedRegen4), icon: 'heart', cls: 'violet', onClick: buy(P.hauntedRegen4) }),
         ),
-        h('p.muted.small', null, 'Or pay with gems:'),
         h('div.actions', null, gemButton(P.hauntedRegen1, 'Heart Regen'), gemButton(P.hauntedRegen4, '4 Heart Regens')),
       );
     }

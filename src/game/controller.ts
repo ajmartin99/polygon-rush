@@ -26,7 +26,7 @@ import { activeEvent, SPOOKY } from '../meta/events';
 import { MAX_START_LEVEL, clampStartLevel, levelStart, levelWorld } from '../meta/modes';
 import { endlessBestKey } from '../state/save';
 import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, LIGHTS_OUT_GEM_RATE, VARIANT_INFO, dailyRewardKey, dailySeed, dailyTwist, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
-import { TRACK_BASE, TRACKS } from '../core/tracks';
+import { isRegularTrack, TRACK_BASE, TRACKS } from '../core/tracks';
 import { HAUNTED_TRACK, hauntedPayout } from '../meta/haunted';
 import { InputManager } from './input';
 import type { Racer, RacerSpec } from './racer';
@@ -1319,6 +1319,6 @@ export class GameController {
 /** The Daily Run's soundtrack outside events: every regular recorded run track (not the player's own picks, so the beat is the same for everyone). */
 function dailySoundtrack(): number[] {
   return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
-    .filter(({ t }) => t.role === 'run' && !t.event && !t.exclusive)
+    .filter(({ t }) => t.role === 'run' && !t.event && isRegularTrack(t))
     .map(({ id }) => id);
 }

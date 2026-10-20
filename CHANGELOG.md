@@ -17,6 +17,9 @@ All notable changes to Polygon Rush are documented here.
 - Heart Regens aren't tied to Halloween: unused ones keep for the next limited-time run.
 - 4 Heart Regens are now $2.99 (was $1.99), matching the 2,000-gem Gem Chest.
 
+### Fixed
+- Live updates now install when you swipe the game closed: a downloaded update is switched to at the next launch, and an update already downloaded is never downloaded again.
+
 ## [1.0.11] - 2026-10-19
 
 ### Added

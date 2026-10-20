@@ -62,6 +62,8 @@ function registerRoutes(): void {
 }
 
 async function boot(): Promise<void> {
+  // A live update downloaded last time but not switched to yet (the app was closed): use it now.
+  if (await updates.applyPending()) return;
   ui.init();
   registerRoutes();
   await Promise.all([store.load(), levels.load()]);
@@ -126,7 +128,7 @@ async function boot(): Promise<void> {
   document.getElementById('boot')?.classList.add('hide');
   setTimeout(() => document.getElementById('boot')?.remove(), 600);
 
-  // The game is up: keep this build, and fetch a newer one if there is one.
+  // The game is up: fetch a newer build if there is one.
   void updates.start((notes) => ui.toast(`Update ready! ${notes || 'New maps and fixes'} arrive next time you open the game.`, 'star', 4200));
 
   // Monetisation services start after first paint; never block the menu.

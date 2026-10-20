@@ -20,17 +20,18 @@ FEATURES
 • Race mode: dash against 3 CPU rivals, grab ? boxes for boosts, shields and snowballs, and climb from Bronze to Polygon Legend
 • 2-Player Duel: split-screen racing on one device. Perfect for siblings and friends
 • Play Online: Quick Match with random racers (13+), or private rooms with a 4-letter code
-• Game Modes: Daily Run, One Heart, Gem Rush and more
-• Spooky Season: Halloween skins, bat and candy-corn trails and a haunted Daily Run (Oct 1 – Nov 7)
-• CREATE: build your own levels with spikes, saws, pads, portals and gems, test them, then share a level code
+• Game Modes: Daily Run, Rhythm Rush, Lights Out, One Heart, Gem Rush and Boss Battles against giant polygon bosses
+• Seasonal events: the Daily Run changes its look with the seasons, and Spooky Season (Oct 1 – Nov 7) brings Halloween skins, trails and the Haunted Run
+• CREATE: build your own levels with spikes, saws, pads, portals and gems, pick a world and a song, test them, then share them with a level code or to Community
+• Community levels: play levels made by other players, browse Trending, Highest Rated and Newest, and give thumbs up
 • Build Together: up to 4 friends edit the same level live, then race it
 • Friends: add friends by Name#number, see who's online and invite them to race or build
 • Quick Chat: friendly preset phrases and emotes for every age
-• Six worlds: Bubblegum Bay, Mint Meadow, Sunset Circuit, Ocean Prism, Candy Cosmos and Lemon Lab, with 26 real tracks from house and drum & bass to dubstep, synthwave, funk and rock, a new song every level
-• 23 skins with silly faces (sunglasses, kitty, dino, robot…) and 11 sparkly trails
+• Six worlds: Bubblegum Bay, Mint Meadow, Sunset Circuit, Ocean Prism, Candy Cosmos and Lemon Lab, with 30 real tracks from house and drum & bass to synthwave, funk and rock. Every Endless level lasts one full song, charted to the beat
+• 35 skins with silly faces (sunglasses, kitty, dino, robot…) and 15 sparkly trails
 • My Music: play your own songs while you rush
-• Easy, Medium or Hard: pick your challenge
-• Player profiles with badges and titles to show your friends
+• Easy, Normal or Extreme: pick your challenge
+• Player profiles with badges and titles: see your friends' profiles and the builders of Community levels
 • Daily gifts, missions, levels and rewards
 • Kid Mode: slower speed and extra hearts for younger players
 • Parental controls for online play, chat and purchases, generated names for under-13s, and kid-safe ads
@@ -66,7 +67,7 @@ Ages 5–8, 9–12, 13–15, 16–17, 18+ (mixed audience, with a neutral age sc
 **Extra rows only when the community server is enabled (`SERVER_URL`):**
 * **Personal info → Name:** the racer name (generated, or typed by 13+) with its #number. Shown only to friends and players in the same room. Not shared with third parties.
 * **Personal info → User IDs:** a random player id and a hashed random device key (no Google or ad id).
-* **App activity → Other actions:** friends list, friend requests, blocks, online status (menu / playing / building / in a room) and room invites (a room code). Purpose: app functionality. Deleted after 2 years unused, or in-app (Friends → Delete friends data).
+* **App activity → Other actions:** friends list, friend requests, blocks, online status (menu / playing / building / in a room), room invites (a room code) and the latest game profile card and skin (game facts only; shown to friends and to players of your shared levels). Purpose: app functionality. Deleted after 2 years unused, or in-app (Friends → Delete friends data).
 * **App activity → Other user-generated content:** shared Community levels (level code, plays, clears, likes, reports) and a snapshot of a public build room's level when someone reports it. Deleted in-app (unshare, or Friends → Delete friends data).
 * Data is encrypted in transit (https/wss). Deletion: in-app (Friends → Delete friends data).
 

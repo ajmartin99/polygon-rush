@@ -138,8 +138,11 @@ export interface SaveData {
   bosses: BossProgress;
   /** Players you banned from rooms you host (anonymous room id + their name then). */
   roomBans: { rid: string; name: string; at: number }[];
-  /** Played the beta (1.0.x): exclusive rewards granted. */
-  beta: { tester: boolean; version: string; at: number };
+  /**
+   * Joined the beta (1.0.x): Founding Tester title. Test days (5 minutes of
+   * active play) earn the trail, emote and skin (see meta/beta).
+   */
+  beta: { tester: boolean; version: string; at: number; days: string[]; today: string; todaySec: number; claimed: string[] };
   best: Record<string, number>;
   /** Highest Endless level reached (1-based), per difficulty (same keys as `best`). */
   levels: Record<string, number>;
@@ -247,7 +250,7 @@ export function createSave(now = Date.now()): SaveData {
     roomBans: [],
     haunted: emptyHaunted(),
     bosses: {},
-    beta: { tester: false, version: '', at: 0 },
+    beta: { tester: false, version: '', at: 0, days: [], today: '', todaySec: 0, claimed: [] },
     best: {},
     levels: {},
     stats: emptyStats(),
@@ -302,6 +305,9 @@ export function migrate(raw: unknown): SaveData {
   save.skins.owned = str(save.skins.owned);
   save.trails.owned = str(save.trails.owned);
   save.phrases.owned = str(save.phrases.owned);
+  save.beta.days = [...new Set(save.beta.days.filter((d): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)))].slice(-60);
+  save.beta.claimed = save.beta.claimed.filter((c): c is string => c === 'trail' || c === 'skin');
+  save.beta.todaySec = Math.max(0, Math.min(24 * 3600, Math.floor(save.beta.todaySec) || 0));
   save.haunted.used = Math.max(0, Math.floor(save.haunted.used) || 0);
   save.haunted.regens = Math.max(0, Math.min(999, Math.floor(save.haunted.regens) || 0));
   for (const [k, rec] of Object.entries(save.bosses)) {

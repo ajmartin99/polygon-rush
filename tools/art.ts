@@ -9,8 +9,10 @@ import { drawCharacter, drawParticleShape } from '../src/render/character';
 import { BIOMES, lighten, rgba } from '../src/render/biomes';
 import { skinById } from '../src/meta/catalog';
 import type { ShapeMode } from '../src/game/shapes';
+import { SPOOKY } from '../src/meta/events';
+import { drawGhost, drawPumpkin, drawZombie } from '../src/render/spooky';
 
-type Kind = 'fg' | 'bg' | 'mono' | 'legacy' | 'round' | 'store' | 'feature' | 'splash';
+type Kind = 'fg' | 'bg' | 'mono' | 'legacy' | 'round' | 'store' | 'feature' | 'splash' | 'spooky-store' | 'spooky-feature' | 'spooky-cast';
 
 const hash = (n: number) => {
   const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
@@ -156,6 +158,96 @@ function scene(ctx: CanvasRenderingContext2D, w: number, h: number): void {
   }
 }
 
+// ------------------------------------------------------------------ Spooky Season
+/** Night sky fading to a pumpkin-orange horizon, a big moon and a few bats. */
+function spookySky(ctx: CanvasRenderingContext2D, w: number, h: number, moonX: number, moonY: number, moonR: number): void {
+  const sky = ctx.createLinearGradient(0, 0, 0, h);
+  sky.addColorStop(0, '#1a0838');
+  sky.addColorStop(0.55, SPOOKY.mid);
+  sky.addColorStop(1, SPOOKY.skyBottom);
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, w, h);
+  const glow = ctx.createRadialGradient(moonX, moonY, moonR * 0.8, moonX, moonY, moonR * 2.6);
+  glow.addColorStop(0, 'rgba(255,243,214,0.45)');
+  glow.addColorStop(1, 'rgba(255,243,214,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = '#fff3d6';
+  ctx.beginPath();
+  ctx.arc(moonX, moonY, moonR, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(214,190,150,0.55)';
+  for (const [dx, dy, cr] of [[-0.3, -0.2, 0.16], [0.25, 0.15, 0.22], [-0.05, 0.38, 0.12]] as const) {
+    ctx.beginPath();
+    ctx.arc(moonX + dx * moonR, moonY + dy * moonR, cr * moonR, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+function bat(ctx: CanvasRenderingContext2D, x: number, y: number, sz: number, flap = 0.6): void {
+  ctx.fillStyle = '#1a0b2b';
+  ctx.beginPath();
+  ctx.moveTo(x, y);
+  ctx.quadraticCurveTo(x - sz * 0.6, y - sz * (0.2 + flap * 0.6), x - sz * 1.3, y - sz * flap * 0.3);
+  ctx.quadraticCurveTo(x - sz * 0.7, y + sz * 0.1, x, y + sz * 0.25);
+  ctx.quadraticCurveTo(x + sz * 0.7, y + sz * 0.1, x + sz * 1.3, y - sz * flap * 0.3);
+  ctx.quadraticCurveTo(x + sz * 0.6, y - sz * (0.2 + flap * 0.6), x, y);
+  ctx.fill();
+}
+
+/** The classic runner in a witch hat, with speed lines. */
+function spookyHero(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, rot = -0.12): void {
+  ctx.save();
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 3; i++) {
+    ctx.strokeStyle = 'rgba(255,214,150,0.9)';
+    ctx.lineWidth = size * 0.07;
+    const y = cy - size * 0.25 + i * size * 0.25;
+    const len = size * (0.45 - Math.abs(i - 1) * 0.12);
+    ctx.beginPath();
+    ctx.moveTo(cx - size * 0.62 - len, y);
+    ctx.lineTo(cx - size * 0.62, y);
+    ctx.stroke();
+  }
+  drawCharacter(ctx, cx, cy, size, 'square', { ...skinById('classic'), topper: 'witch' }, { rot, faceRot: rot, lookX: 0.8, lookY: -0.2, time: 0 });
+  ctx.restore();
+}
+
+/** A zombie standing on `groundY`, facing left (toward the runner). */
+function zombieAt(ctx: CanvasRenderingContext2D, x: number, groundY: number, u: number, time: number): void {
+  ctx.save();
+  ctx.translate(x, groundY);
+  ctx.scale(-1, 1);
+  drawZombie(ctx, u, time);
+  ctx.restore();
+}
+
+/** A ghost centred at (x, y), facing left. */
+function ghostAt(ctx: CanvasRenderingContext2D, x: number, y: number, u: number, time: number): void {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(-1, 1);
+  drawGhost(ctx, 0, 0, u, time);
+  ctx.restore();
+}
+
+/** Spooky Season ground: dark violet tiles with a glowing orange edge. */
+function spookyGround(ctx: CanvasRenderingContext2D, w: number, h: number, ground: number): void {
+  ctx.fillStyle = rgba(SPOOKY.mid, 0.85);
+  ctx.beginPath();
+  ctx.moveTo(0, ground);
+  for (let i = 0; i <= 14; i++) ctx.lineTo((i / 14) * w, ground - h * (0.06 + hash(i * 7) * 0.14));
+  ctx.lineTo(w, ground);
+  ctx.fill();
+  const gg = ctx.createLinearGradient(0, ground, 0, h);
+  gg.addColorStop(0, SPOOKY.ground);
+  gg.addColorStop(1, SPOOKY.groundDark);
+  ctx.fillStyle = gg;
+  ctx.fillRect(0, ground, w, h - ground);
+  ctx.fillStyle = SPOOKY.groundEdge;
+  ctx.fillRect(0, ground, w, Math.max(2, h * 0.012));
+}
+
 function gemShape(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
   ctx.fillStyle = '#3ad7ff';
   ctx.beginPath();
@@ -229,6 +321,47 @@ function render(kind: Kind, w: number, h: number): string {
       ctx.strokeText('Rush · Jump · Flip · Fly', w * 0.27, h * 0.72);
       ctx.fillStyle = '#ffffff';
       ctx.fillText('Rush · Jump · Flip · Fly', w * 0.27, h * 0.72);
+      break;
+    }
+    case 'spooky-store': {
+      // The Play listing icon for Spooky Season (swap it in by hand for the event).
+      spookySky(ctx, w, h, w * 0.73, h * 0.27, m * 0.16);
+      bat(ctx, w * 0.2, h * 0.16, m * 0.06, 0.8);
+      bat(ctx, w * 0.36, h * 0.1, m * 0.04, -0.2);
+      ghostAt(ctx, w * 0.2, h * 0.36, m * 0.13, 0.4);
+      drawPumpkin(ctx, w * 0.82, h * 0.8, m * 0.1, 0.3);
+      spookyHero(ctx, w * 0.54, h * 0.56, m * 0.42);
+      break;
+    }
+    case 'spooky-feature': {
+      spookySky(ctx, w, h, w * 0.86, h * 0.24, h * 0.14);
+      const ground = h * 0.8;
+      spookyGround(ctx, w, h, ground);
+      for (const [bx, by, bs, f] of [[0.62, 0.14, 0.05, 0.8], [0.7, 0.08, 0.035, -0.3], [0.97, 0.45, 0.04, 0.4]] as const) bat(ctx, w * bx, h * by, h * bs, f);
+      drawPumpkin(ctx, w * 0.53, ground - h * 0.05, h * 0.055, 0.2);
+      spookyHero(ctx, w * 0.62, ground - h * 0.34, h * 0.17, -0.3);
+      for (let i = 0; i < 4; i++) gemShape(ctx, w * (0.67 + i * 0.03), ground - h * (0.36 - i * 0.04), h * 0.02);
+      zombieAt(ctx, w * 0.8, ground, h * 0.2, 0.3);
+      ghostAt(ctx, w * 0.9, h * 0.42, h * 0.13, 0.8);
+      drawPumpkin(ctx, w * 0.96, ground - h * 0.05, h * 0.05, 0.6);
+      title(ctx, w * 0.26, h * 0.34, h * 0.17);
+      ctx.font = `700 ${h * 0.065}px Fredoka`;
+      ctx.textAlign = 'center';
+      ctx.lineWidth = h * 0.014;
+      ctx.strokeStyle = '#1a0b45';
+      ctx.strokeText('The Haunted Run is here!', w * 0.26, h * 0.72);
+      ctx.fillStyle = '#ffb36b';
+      ctx.fillText('The Haunted Run is here!', w * 0.26, h * 0.72);
+      break;
+    }
+    case 'spooky-cast': {
+      // Transparent: the Haunted Run's cast in a row, for the website.
+      const ground = h * 0.88;
+      drawPumpkin(ctx, w * 0.07, ground - h * 0.09, h * 0.09, 0.2);
+      spookyHero(ctx, w * 0.24, ground - h * 0.36, h * 0.3, -0.18);
+      zombieAt(ctx, w * 0.48, ground, h * 0.34, 0.5);
+      ghostAt(ctx, w * 0.7, h * 0.4, h * 0.22, 1.1);
+      drawPumpkin(ctx, w * 0.9, ground - h * 0.1, h * 0.1, 0.7);
       break;
     }
     case 'splash': {

@@ -41,6 +41,13 @@ export interface TrackDef {
   event?: EventId;
   /** Belongs to one mode (the Haunted Run): never in rotation, song pickers or player levels. */
   exclusive?: 'haunted';
+  /** Taken out of rotation (kept so the ids after it don't shift): never picked or offered again. */
+  retired?: true;
+}
+
+/** In rotation and offered in song pickers: not owned by one mode, not retired. */
+export function isRegularTrack(t: TrackDef): boolean {
+  return !t.exclusive && !t.retired;
 }
 
 /** Order is the id space: only ever append. */
@@ -376,7 +383,7 @@ export const TRACKS: TrackDef[] = [
   },
   // Spooky Season (Halloween)
   { title: '8-bit Haunted House', artist: 'Wolfgang_', genre: 'Spooky Chiptune', license: 'CC0', source: 'https://opengameart.org/content/8-bit-haunted-house-theme', file: 'haunted-house.mp3', duration: 44.9, bpm: 150.3, offset: 0.09, role: 'run', fast: true, event: 'halloween' },
-  { title: 'Doll House', artist: 'Alexandr Zhelanov', genre: 'Spooky Piano', license: 'CC-BY 4.0', source: 'https://opengameart.org/content/doll-house', file: 'doll-house.mp3', duration: 24.9, bpm: 100.2, offset: 0.269, role: 'run', event: 'halloween' },
+  { title: 'Doll House', artist: 'Alexandr Zhelanov', genre: 'Spooky Piano', license: 'CC-BY 4.0', source: 'https://opengameart.org/content/doll-house', file: 'doll-house.mp3', duration: 24.9, bpm: 100.2, offset: 0.269, role: 'run', event: 'halloween', retired: true },
   { title: 'Dissonant Waltz', artist: 'Yubatake', genre: 'Haunted Waltz', license: 'CC-BY 4.0', source: 'https://opengameart.org/content/dissonant-waltz', file: 'dissonant-waltz.mp3', duration: 170.0, bpm: 100.2, offset: 0.429, role: 'run', event: 'halloween' },
   { title: 'The 9th Circle', artist: 'Joth', genre: 'Industrial Dubstep', license: 'CC0', source: 'https://opengameart.org/content/the-9th-circle', file: 'the-9th-circle.mp3', duration: 170.8, bpm: 120.3, offset: 0.359, role: 'run', fast: true, event: 'halloween' },
 ];
@@ -392,7 +399,8 @@ export interface MusicInfo {
 
 /** Songs anyone can pick (everything but tracks that belong to one mode). */
 export function isPickable(id: number): boolean {
-  return !trackOf(id)?.exclusive;
+  const t = trackOf(id);
+  return !t || isRegularTrack(t);
 }
 
 export function isTrackId(id: number): boolean {
@@ -427,7 +435,7 @@ export function musicInfo(id: number): MusicInfo | null {
 /** Recorded tracks for a context, as music ids. */
 export function tracksFor(context: 'menu' | 'run' | 'race', now = new Date()): number[] {
   return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
-    .filter(({ t }) => !t.exclusive && (!t.event || activeEvent(now)?.id === t.event))
+    .filter(({ t }) => isRegularTrack(t) && (!t.event || activeEvent(now)?.id === t.event))
     .filter(({ t }) => (context === 'menu' ? t.role === 'menu' : context === 'race' ? t.fast === true : t.role === 'run'))
     .map(({ id }) => id);
 }
@@ -435,6 +443,37 @@ export function tracksFor(context: 'menu' | 'run' | 'race', now = new Date()): n
 /** A seasonal event's own soundtrack (its recorded tracks, plus tracks tagged for it). */
 export function eventTracks(event: EventId): number[] {
   return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
-    .filter(({ t }) => t.event === event && !t.exclusive)
+    .filter(({ t }) => t.event === event && isRegularTrack(t))
     .map(({ id }) => id);
+}
+
+/**
+ * The songs Endless levels are built on: every regular run track (not a
+ * season's, not a mode's own, not retired), in id order.
+ */
+export function endlessSongs(): number[] {
+  return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
+    .filter(({ t }) => t.role === 'run' && !t.event && isRegularTrack(t))
+    .map(({ id }) => id);
+}
+
+/** How often a level plays its main song (otherwise its backup). */
+export const MAIN_SONG_CHANCE = 0.65;
+
+/**
+ * An Endless level's two songs (0-based level index): its main song and a
+ * backup, fixed for that level. During a season the backup is one of the
+ * season's songs. -1 when there's no recorded music at all.
+ */
+export function levelSongs(level: number, now = new Date()): { main: number; backup: number } {
+  const list = endlessSongs();
+  const n = list.length;
+  if (!n) return { main: -1, backup: -1 };
+  const i = ((level % n) + n) % n;
+  const main = list[i];
+  const ev = activeEvent(now);
+  const season = ev ? eventTracks(ev.id) : [];
+  // Half a list away, so the backup is never the main song (and rarely a neighbour's).
+  const backup = season.length ? season[i % season.length] : n > 1 ? list[(i + Math.max(1, Math.floor(n / 2))) % n] : main;
+  return { main, backup };
 }

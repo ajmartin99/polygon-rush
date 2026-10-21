@@ -26,7 +26,7 @@ import { activeEvent, SPOOKY } from '../meta/events';
 import { MAX_START_LEVEL, clampStartLevel, levelStart, levelWorld } from '../meta/modes';
 import { endlessBestKey } from '../state/save';
 import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, LIGHTS_OUT_GEM_RATE, VARIANT_INFO, dailyRewardKey, dailySeed, dailyTwist, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
-import { TRACK_BASE, TRACKS } from '../core/tracks';
+import { isRegularTrack, TRACK_BASE, TRACKS } from '../core/tracks';
 import { HAUNTED_TRACK, hauntedPayout } from '../meta/haunted';
 import { InputManager } from './input';
 import type { Racer, RacerSpec } from './racer';
@@ -49,10 +49,32 @@ const BOX_TEXT: Record<BoxItem, string> = {
   magnet: 'MAGNET!',
 };
 
-/** Lights Out: how bright the beat flash is, from the beat phase (0 on the beat, fading fast). */
-export function lightsFlash(phase: number): number {
-  const k = Math.max(0, 1 - phase * 2.6);
-  return k * k;
+/** Lights Out's candle at a moment: how bright it is, how hard it's being blown (0..1) and its flicker (-1..1). */
+export interface CandleState {
+  light: number;
+  blow: number;
+  flicker: number;
+}
+
+const smooth = (t: number) => {
+  const k = Math.min(1, Math.max(0, t));
+  return k * k * (3 - 2 * k);
+};
+
+/**
+ * Lights Out: the runner carries a candle. On every beat it gets blown on:
+ * the flame leans and the light pulls in, then it swells back. Every change
+ * is smooth and stays inside the candle's glow (the dark never flashes), so
+ * it's safe for players sensitive to flashing. With Reduce motion it burns
+ * steady.
+ */
+export function candleAt(phase: number, time: number, still = false): CandleState {
+  if (still) return { light: 0.75, blow: 0, flicker: 0 };
+  const p = ((phase % 1) + 1) % 1;
+  // A puff just after the beat, then a slower recovery.
+  const blow = p < 0.3 ? smooth(p / 0.3) : 1 - smooth((p - 0.3) / 0.7);
+  const flicker = 0.5 * Math.sin(time * 13.1) + 0.3 * Math.sin(time * 7.3 + 1.7) + 0.2 * Math.sin(time * 23.7 + 0.4);
+  return { light: Math.min(1, Math.max(0, 0.9 - 0.4 * blow + 0.04 * flicker)), blow, flicker };
 }
 
 /** The menu backdrop stops after this long without a touch. */
@@ -344,7 +366,7 @@ export class GameController {
       if (this.startLevel > 1) hud.showHint(`Level ${this.startLevel}`, BIOMES[world].name, 2200, '24%');
       this.go();
       if (d.stats.runs === 0) hud.showHint('Tap or hold anywhere to play!', 'Avoid spikes, grab gems', 3200, '22%');
-      else if (this.variant === 'lightsout') hud.showHint('Lights Out!', 'Every beat flashes the way ahead. Feel the rhythm!', 2600, '24%');
+      else if (this.variant === 'lightsout') hud.showHint('Lights Out!', 'Your candle flickers with the beat. Feel the rhythm!', 2600, '24%');
     } else if (this.kind === 'custom' && req.mode === 'custom') {
       music.level(req.level.music, req.level.theme, !!req.haunted);
       const track = trackOf(req.level.music);
@@ -697,7 +719,7 @@ export class GameController {
       haunted: this.paletteFor(this.session?.racers[0]?.x ?? 0) === SPOOKY,
       secretsFound: store.data.secrets.found,
       boss: this.kind === 'custom' && this.phase !== 'results' ? this.boss : null,
-      lightsOut: this.kind === 'endless' && this.variant === 'lightsout' ? lightsFlash(audio.beatPhase()) : undefined,
+      lightsOut: this.kind === 'endless' && this.variant === 'lightsout' ? candleAt(audio.beatPhase(), performance.now() / 1000, store.settings.reducedMotion) : undefined,
     });
     if (this.kind === 'attract' || this.phase === 'results') return;
     const ctx = this.renderer.ctx;
@@ -1319,6 +1341,6 @@ export class GameController {
 /** The Daily Run's soundtrack outside events: every regular recorded run track (not the player's own picks, so the beat is the same for everyone). */
 function dailySoundtrack(): number[] {
   return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
-    .filter(({ t }) => t.role === 'run' && !t.event && !t.exclusive)
+    .filter(({ t }) => t.role === 'run' && !t.event && isRegularTrack(t))
     .map(({ id }) => id);
 }

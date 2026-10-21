@@ -29,7 +29,7 @@ FEATURES
 • Quick Chat: friendly preset phrases and emotes for every age
 • Six worlds: Bubblegum Bay, Mint Meadow, Sunset Circuit, Ocean Prism, Candy Cosmos and Lemon Lab, with 30 real tracks from house and drum & bass to synthwave, funk and rock. Every Endless level lasts one full song, charted to the beat
 • 35 skins with silly faces (sunglasses, kitty, dino, robot…) and 15 sparkly trails
-• My Music: play your own songs while you rush
+• My Music: play your own songs in the menus and races
 • Easy, Normal or Extreme: pick your challenge
 • Player profiles with badges and titles: see your friends' profiles and the builders of Community levels
 • Daily gifts, missions, levels and rewards

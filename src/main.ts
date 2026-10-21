@@ -1,7 +1,7 @@
 import './styles.css';
 import { App as CapApp } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
-import { isNative } from './core/platform';
+import { isNative, todayKey } from './core/platform';
 import { store } from './state/store';
 import { levels } from './state/levels';
 import { ensureMissions } from './meta/missions';
@@ -11,7 +11,7 @@ import { updates } from './services/updates';
 import { account } from './services/account';
 import { ui } from './ui/ui';
 import { CONFIG } from './config';
-import { grantBeta } from './meta/beta';
+import { addBetaPlay, BETA_REWARD, BETA_SKIN_DAYS, BETA_TRAIL_DAYS, claimBetaRewards, joinBeta } from './meta/beta';
 import { nav } from './ui/nav';
 import { localCard, ProfileScreen, watchBadges } from './ui/profile';
 import { ModesScreen } from './ui/screens/modes';
@@ -61,6 +61,28 @@ function registerRoutes(): void {
   nav.register('pals', () => new PalsScreen());
 }
 
+/** Counts active play time (screen on, touched in the last 2 minutes): the Veteran badge and beta test days. */
+function startPlayClock(): void {
+  const TICK = 15;
+  let lastInput = Date.now();
+  const touched = () => (lastInput = Date.now());
+  window.addEventListener('pointerdown', touched, true);
+  window.addEventListener('keydown', touched, true);
+  window.setInterval(() => {
+    if (document.visibilityState !== 'visible' || Date.now() - lastInput > 120_000) return;
+    const d = store.data;
+    d.stats.playSeconds += TICK;
+    const { counted, unlocked } = addBetaPlay(d, CONFIG.version, TICK, todayKey());
+    store.commit();
+    if (counted && !unlocked.length) {
+      const next = d.beta.days.length < BETA_TRAIL_DAYS ? BETA_TRAIL_DAYS : BETA_SKIN_DAYS;
+      if (d.beta.days.length < BETA_SKIN_DAYS) ui.toast(`Test day ${d.beta.days.length} of ${next} counted. Thanks for testing!`, 'check', 3500);
+    }
+    if (unlocked.includes('trail')) ui.toast('Beta reward unlocked: the Debug Pixels trail and 🧪 emote are yours forever!', 'gift', 6000);
+    if (unlocked.includes('skin')) ui.toast(`Beta reward unlocked: the Beta Bot skin and ${BETA_REWARD.gems} gems are yours forever!`, 'gift', 6000);
+  }, TICK * 1000);
+}
+
 async function boot(): Promise<void> {
   // A live update downloaded last time but not switched to yet (the app was closed): use it now.
   if (await updates.applyPending()) return;
@@ -69,7 +91,8 @@ async function boot(): Promise<void> {
   await Promise.all([store.load(), levels.load()]);
   ensureMissions(store.data);
   // Beta builds (1.0.x): thank testers with exclusive items, once.
-  const betaGift = grantBeta(store.data, CONFIG.version);
+  const betaJoined = joinBeta(store.data, CONFIG.version);
+  claimBetaRewards(store.data);
   store.commit();
 
   document.documentElement.classList.toggle('reduced-motion', store.settings.reducedMotion);
@@ -91,7 +114,12 @@ async function boot(): Promise<void> {
   friends.on('notice', (msg) => ui.toast(msg, 'info', 4500));
   friends.start();
   watchBadges();
-  if (betaGift) setTimeout(() => ui.toast('Thanks for beta testing! Beta Bot skin, Debug Pixels trail, 🧪 emote and 500 gems are yours forever.', 'gift', 6000), 2500);
+  if (betaJoined)
+    setTimeout(
+      () => ui.toast(`Welcome, Founding Tester! Play 5 minutes a day: ${BETA_TRAIL_DAYS} days unlocks the Debug Pixels trail and 🧪 emote, ${BETA_SKIN_DAYS} days the Beta Bot skin and ${BETA_REWARD.gems} gems.`, 'gift', 8000),
+      2500,
+    );
+  startPlayClock();
   if (serverAvailable()) void serverApi<{ freeChat?: boolean }>('/api/status').then(setServerFeatures, () => undefined);
   game.startAttract();
   if (import.meta.env.DEV) {

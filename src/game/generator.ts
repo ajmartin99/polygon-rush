@@ -42,6 +42,16 @@ export interface GenOptions {
 }
 
 /** Charted levels: seconds between taps by difficulty, [run start, fully ramped]. */
+/** Endless rest stops: every this many levels, the new level opens with a gentle stretch. */
+export const BREATHER_EVERY = 2;
+/** How long the rest stretch lasts (gems only, no hazards). */
+export const BREATHER_SECONDS = 5;
+
+/** Level (0-based) that opens with a rest stretch: Level 3, 5, 7… */
+export function isBreatherLevel(level: number): boolean {
+  return level > 0 && level % BREATHER_EVERY === 0;
+}
+
 const CHART_GAP: Record<Difficulty, [number, number]> = { easy: [1.6, 1.1], medium: [1.2, 0.75], hard: [0.8, 0.45] };
 /** The shortest gap a shape allows between taps (a jump must land first). */
 const CHART_MIN_GAP: Record<ShapeMode, number> = { square: 0.52, diamond: 0.6, triangle: 0.55, hexagon: 0.5 };
@@ -338,7 +348,9 @@ export class LevelGen {
     // The first beat far enough ahead of the cursor, k beats after the last tap (two beats in at a new song).
     // Just through a portal: about a second to settle into the new shape first.
     let b = Math.ceil((at.t + (newShape ? 0.9 : 0.05) - grid.offset) / unit - 1e-6);
-    b = Math.max(b, this.chartBeat + k, fresh ? 2 : -Infinity);
+    // Every few levels the new song opens with a few easy seconds to rest the fingers.
+    const rest = fresh && isBreatherLevel(at.level);
+    b = Math.max(b, this.chartBeat + k, fresh ? 2 : -Infinity, rest ? Math.ceil((BREATHER_SECONDS - grid.offset) / unit) : -Infinity);
     const t = grid.offset + b * unit;
     const xT = this.x + (t - at.t) * v;
     const span = this.opts.levels!.at(Math.max(0, this.x - this.origin));
@@ -349,6 +361,7 @@ export class LevelGen {
       this.x = Math.max(this.x + 1, levelEnd + 0.5);
       return true;
     }
+    if (rest) this.gemLine(this.x + 2, xT - v * 0.8, mode === 'square' || mode === 'diamond' ? 1.1 : MID, 1.6);
     this.chartBeat = b;
     this.taps.push(xT);
     const xAt = (s: number) => xT + s * v;

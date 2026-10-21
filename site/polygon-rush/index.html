@@ -11,8 +11,22 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600&family=Nunito:wght@400;700;800&display=swap" />
     <link rel="stylesheet" href="../assets/site.css" />
+    <script>
+      // Spooky Season (Oct 1 – Nov 7, same as the game): the page dresses up for Halloween.
+      (function () {
+        var d = new Date(), md = (d.getMonth() + 1) * 100 + d.getDate();
+        if (md >= 1001 && md <= 1107) document.documentElement.classList.add('spooky');
+      })();
+    </script>
   </head>
   <body>
+    <div class="haunt" aria-hidden="true">
+      <svg class="ghost g1" viewBox="0 0 40 46"><path d="M20 2C9 2 3 10 3 20v22l6-5 5 5 6-5 6 5 5-5 6 5V20C37 10 31 2 20 2Z" fill="#f4f1ff" stroke="#9c94d8" stroke-width="2"/><circle cx="14" cy="18" r="3" fill="#2a1d5a"/><circle cx="25" cy="18" r="3" fill="#2a1d5a"/><ellipse cx="20" cy="27" rx="3" ry="4" fill="#2a1d5a"/></svg>
+      <svg class="ghost g2" viewBox="0 0 40 46"><path d="M20 2C9 2 3 10 3 20v22l6-5 5 5 6-5 6 5 5-5 6 5V20C37 10 31 2 20 2Z" fill="#f4f1ff" stroke="#9c94d8" stroke-width="2"/><circle cx="14" cy="18" r="3" fill="#2a1d5a"/><circle cx="25" cy="18" r="3" fill="#2a1d5a"/><ellipse cx="20" cy="27" rx="3" ry="4" fill="#2a1d5a"/></svg>
+      <svg class="bat b1" viewBox="0 0 60 24"><path d="M30 6C26 2 18 0 2 6c8 0 12 4 12 10 4-4 9-4 12 0 2-3 3-5 4-10 1 5 2 7 4 10 3-4 8-4 12 0 0-6 4-10 12-10C42 0 34 2 30 6Z" fill="#1a0b2b"/></svg>
+      <svg class="bat b2" viewBox="0 0 60 24"><path d="M30 6C26 2 18 0 2 6c8 0 12 4 12 10 4-4 9-4 12 0 2-3 3-5 4-10 1 5 2 7 4 10 3-4 8-4 12 0 0-6 4-10 12-10C42 0 34 2 30 6Z" fill="#1a0b2b"/></svg>
+      <svg class="bat b3" viewBox="0 0 60 24"><path d="M30 6C26 2 18 0 2 6c8 0 12 4 12 10 4-4 9-4 12 0 2-3 3-5 4-10 1 5 2 7 4 10 3-4 8-4 12 0 0-6 4-10 12-10C42 0 34 2 30 6Z" fill="#1a0b2b"/></svg>
+    </div>
     <header class="wrap top">
       <a class="brand" href="../"><svg class="brand-mark" viewBox="0 0 34 34" aria-hidden="true"><rect x="2" y="14" width="14" height="14" rx="3" fill="#ffd23f"/><path d="M24 4 32 18H16Z" fill="#3ee6b0"/><circle cx="25" cy="26" r="6" fill="#ff6fae"/></svg>Soft-Game Brothers</a>
       <nav class="nav" aria-label="Main">
@@ -22,7 +36,8 @@
     </header>
     <main class="wrap">
       <section class="app-hero">
-        <img src="img/icon.png" alt="Polygon Rush app icon" width="120" height="120" />
+        <img class="icon-normal" src="img/icon.png" alt="Polygon Rush app icon" width="120" height="120" />
+        <img class="icon-spooky" src="img/icon-spooky.png" alt="Polygon Rush app icon in a witch hat" width="120" height="120" />
         <div>
           <span class="eyebrow">Arcade runner · Android · All ages</span>
           <h1>Polygon Rush</h1>
@@ -33,9 +48,14 @@
           </div>
         </div>
       </section>
+      <section class="section haunted" aria-labelledby="haunted-h">
+        <h2 id="haunted-h">🎃 Spooky Season is on!</h2>
+        <p class="lede">The <b>Haunted Run</b> is open until November 7: a Halloween course charted to the beat. Jump the zombies shambling in your way, fly around the ghosts and dodge the pumpkins, and reach the end of the song for a big gem bonus. Plus Halloween skins, trails and a haunted Daily Run.</p>
+        <img src="img/haunted-cast.webp" alt="The Polygon Rush runner in a witch hat, a zombie, a ghost and two jack-o'-lanterns" width="1200" height="420" loading="lazy" />
+      </section>
       <section class="section beta" aria-labelledby="beta-h">
         <h2 id="beta-h">Test it before everyone else</h2>
-        <p class="lede">Polygon Rush is in beta on Android. Testers play new versions first, tell us what to fix, and keep the exclusive <b>Beta Bot</b> skin, <b>Debug Pixels</b> trail and <b>Founding Tester</b> badge forever. They're gone for good at the full release.</p>
+        <p class="lede">Polygon Rush is in beta on Android. Testers play new versions first and tell us what to fix. Join and you get the <b>Founding Tester</b> title right away. Play 5 minutes a day and you earn the <b>Debug Pixels</b> trail after 7 days and the <b>Beta Bot</b> skin after 12, yours forever. They're gone for good at the full release.</p>
         <div class="btns">
           <a class="btn" href="https://polygon-rush.softgamebros.com/beta">I'm interested in testing</a>
         </div>
@@ -53,7 +73,7 @@
         <h2 id="feat-h">What's inside</h2>
         <ul class="features">
           <li><b>Four shapes, one button</b>Jumper, Glider, Roller and Hopper each play differently.</li>
-          <li><b>Endless levels</b>Six worlds that speed up as you go, with a new song every level.</li>
+          <li><b>Endless levels</b>Six worlds that speed up as you go. Every level has its own song, and the course is built to its beat.</li>
           <li><b>Race and duel</b>CPU rivals, two players on one phone, or online rooms with a code.</li>
           <li><b>Friends</b>Add friends by Name#number, see who's online and invite them to race.</li>
           <li><b>Create</b>Build levels, share a code, or build together with up to 4 friends.</li>

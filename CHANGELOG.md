@@ -4,7 +4,11 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+## [1.0.12] - 2026-10-21
+
 ### Added
+- **Halloween look:** ghosts drift past the moon and a zombie shambles along the home screen during Spooky Season. The website dresses up too (Oct 1 – Nov 7): a witch-hat icon, a Spooky Season box with the Haunted Run's cast, floating ghosts and bats. Spooky Play Store icon and feature graphic are in `store/seasonal/`.
+- **Beta deal: everything in the Shop for gems** until the full release, flagged by a "Beta deal" chip on the home screen. No Ads 2,200 gems, Legend Pack 2,950, Starter Pack 3,650 (its No Ads and Golden skin; the 2,500 bonus gems come only with the paid pack), plus Heart Regens and the profile add-ons. Anything bought stays yours after the beta.
 - **Pay for Heart Regens with gems.** When you're out of Haunted Run attempts you can now spend gems instead of money: a Heart Regen costs 660 gems and 4 Heart Regens cost 2,200, what the same price buys in gems plus 10%.
 
 - **Profile add-ons** (see a live preview of your own card first, then pay with money or gems):
@@ -14,10 +18,19 @@ All notable changes to Polygon Rush are documented here.
 - **See other players' profiles outside rooms:** tap **Profile** next to a friend in the Friends list, or **(name)'s profile** on a Community level, to see their card, badges, add-ons and Spotlight level.
 
 ### Changed
+- **Every Endless level has its own songs.** Each level has a main song and a backup song, and the course is charted to whichever one plays: usually the main, sometimes the backup. During a season the backup is one of the season's songs. Songs can no longer be skipped, picked or switched off, and My Music now plays in the menus and races only. Settings > Soundtrack lists which songs each level plays.
+- **Lights Out has a candle and no flashes.** The screen used to light up on every beat, which was hard to play and risky for players sensitive to flashing. Now your runner carries a candle that lights the way ahead. On every beat it gets blown on: the flame leans back, puffs a little smoke and the light pulls in, then it swells back bright. Every change is smooth and stays inside the candle's glow; the rest of the screen stays dark. With Reduce motion the candle burns steady.
+- **Rest stops in Endless:** every 2nd level (Level 3, 5, 7…) opens with about 5 easy seconds of gems and no hazards.
+- **Beta rewards are earned now.** Joining the test gives the Founding Tester title right away. A test day counts after 5 minutes of active play: 7 test days unlock the Debug Pixels trail and 🧪 emote, 12 the Beta Bot skin and 500 gems (any days, not in a row). Progress shows in Profile. Testers who already received everything keep it.
+- Play time now counts towards the Veteran badge (it never did).
 - Heart Regens aren't tied to Halloween: unused ones keep for the next limited-time run.
 - 4 Heart Regens are now $2.99 (was $1.99), matching the 2,000-gem Gem Chest.
 
 ### Fixed
+- The banner ad no longer covers the bottom of menu screens. The game always leaves room for it when it's showing, including after coming back to a menu, and none when no ad loaded.
+- The racer name screen fits phones held sideways: title and racer on the left, name and Let's Rush! on the right (the title and button were cut off). Taller screens keep one column, and anything that still doesn't fit scrolls.
+- The Haunted Run's refill options all fit on screen again (the gem buttons were cut off on phones).
+- Retired "Doll House" from the soundtrack: at 25 seconds it was too short for a level. Levels that already use it still play it.
 - Live updates now install when you swipe the game closed: a downloaded update is switched to at the next launch, and an update already downloaded is never downloaded again.
 
 ## [1.0.11] - 2026-10-19

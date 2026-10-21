@@ -1,4 +1,5 @@
 import { CONFIG } from '../config';
+import { isBetaBuild } from './beta';
 import type { SaveData } from '../state/save';
 import { LEGEND_PACK_SKINS, LEGEND_PACK_TRAILS } from './catalog';
 
@@ -52,12 +53,20 @@ export const GEM_MARKUP = 1.1;
  * price buys in the gem pack at the same price, plus 10%. 0 when it can't be
  * paid with gems.
  */
-export function gemPriceOf(id: string): number {
+export function gemPriceOf(id: string, version = CONFIG.version): number {
   const def = productById(id);
-  if (!def?.gemPay) return 0;
+  // During the beta (1.0.x) everything in the Shop but the gem packs can be bought with gems.
+  const beta = isBetaBuild(version) && BETA_GEM_ITEMS.includes(id);
+  if (!def || (!def.gemPay && !beta)) return 0;
   const pack = PRODUCTS.find((p) => p.gems && p.kind === 'consumable' && p.fallbackPrice === def.fallbackPrice);
-  return pack?.gems ? Math.round(pack.gems * GEM_MARKUP) : 0;
+  if (pack?.gems) return Math.round(pack.gems * GEM_MARKUP);
+  // No pack at that price: the Gem Chest's gems-per-dollar, plus 10%, to the nearest 50.
+  const dollars = Number(def.fallbackPrice.replace(/[^0-9.]/g, ''));
+  return dollars > 0 ? Math.round((dollars * (2000 / 2.99) * GEM_MARKUP) / 50) * 50 : 0;
 }
+
+/** Bought with gems during the beta (on top of the always gem-payable items). */
+const BETA_GEM_ITEMS: string[] = [P.removeAds, P.starterPack, P.legendPack];
 
 export function isOwned(save: SaveData, id: string): boolean {
   if (id === P.removeAds) return save.purchases.noAds;
@@ -80,7 +89,7 @@ export interface GrantResult {
  * never double-grants); consumables are de-duplicated by transaction id by the
  * caller. Mutates `save`.
  */
-export function grantProduct(save: SaveData, id: string): GrantResult {
+export function grantProduct(save: SaveData, id: string, withGems = false): GrantResult {
   const r: GrantResult = { gems: 0, noAds: false, skins: [], trails: [] };
   const addSkin = (s: string) => {
     if (!save.skins.owned.includes(s)) {
@@ -100,7 +109,8 @@ export function grantProduct(save: SaveData, id: string): GrantResult {
       save.purchases.noAds = true;
       break;
     case P.starterPack:
-      if (!save.purchases.starter) r.gems = 2500;
+      // Paid with gems (beta), it's the No Ads and Golden skin without the gem bonus.
+      if (!save.purchases.starter && !withGems) r.gems = 2500;
       save.purchases.starter = true;
       r.noAds = !save.purchases.noAds;
       save.purchases.noAds = true;

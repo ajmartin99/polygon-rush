@@ -6,6 +6,8 @@ import { formatHandle } from '../shared/handle';
 import { store } from '../state/store';
 import { leagueFor } from '../meta/economy';
 import { CONFIG } from '../config';
+import { todayKey } from '../core/platform';
+import { BETA_DAY_SECONDS, BETA_REWARD, BETA_SKIN_DAYS, BETA_TRAIL_DAYS, isBetaBuild } from '../meta/beta';
 import { gemPriceOf, isOwned, productById } from '../meta/products';
 import { iap } from '../services/iap';
 import { buyProduct, buyWithGems } from './screens/shop';
@@ -233,7 +235,7 @@ function previewCard(id: string): HTMLElement {
 export function openAddOn(id: string, done: () => void = () => undefined): void {
   const def = productById(id);
   if (!def) return;
-  const body = h('div.col', { style: 'gap:0.6rem;align-items:center;text-align:center' });
+  const body = h('div.col.modal-scroll', { style: 'gap:0.6rem;align-items:center;text-align:center' });
   const render = () => {
     clear(body);
     const owned = isOwned(store.data, id);
@@ -279,6 +281,24 @@ export function openAddOn(id: string, done: () => void = () => undefined): void 
   ui.modal(body, { showClose: true });
   // Fresh numbers for the preview (quietly; it works offline with the last ones seen).
   if (canUseSharedLevels(store.data)) void sharedLevels.refreshMine().then(() => body.isConnected && render(), () => undefined);
+}
+
+/** Beta testers: test days so far and what they unlock (hidden once everything is earned). */
+function betaPanel(): HTMLElement | null {
+  const b = store.data.beta;
+  if (!b.tester || !isBetaBuild(CONFIG.version) || (b.claimed.includes('trail') && b.claimed.includes('skin'))) return null;
+  const days = b.days.length;
+  const today = b.today === todayKey() ? Math.min(BETA_DAY_SECONDS, b.todaySec) : 0;
+  const tier = (need: number, what: string, done: boolean) =>
+    h('div.beta-tier', null, ic(done ? 'check' : 'lock'), h('span', null, `${need} test days: ${what}`), done ? h('b', null, 'Unlocked') : h('b', null, `${Math.min(days, need)}/${need}`));
+  return h(
+    'div.beta-panel',
+    null,
+    h('h3', null, 'Beta tester rewards'),
+    h('p.muted.small', null, `A test day counts after 5 minutes of play. Today: ${Math.floor(today / 60)} of 5 min${b.days.includes(todayKey()) ? ' ✓' : ''}.`),
+    tier(BETA_TRAIL_DAYS, 'Debug Pixels trail + 🧪 emote', b.claimed.includes('trail')),
+    tier(BETA_SKIN_DAYS, `Beta Bot skin + ${BETA_REWARD.gems} gems`, b.claimed.includes('skin')),
+  );
 }
 
 export class ProfileScreen extends BaseScreen {
@@ -383,6 +403,7 @@ export class ProfileScreen extends BaseScreen {
         h(
           'div.profile-right',
           null,
+          betaPanel(),
           h('h3', null, 'Title'),
           titles,
           h('h3', null, 'Banner'),

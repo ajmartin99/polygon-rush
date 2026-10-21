@@ -40,6 +40,10 @@ class AdService extends Emitter<AdEvents> {
   private interstitialLoaded = false;
   private bannerShown = false;
   private bannerWanted = false;
+  /** Last size AdMob reported for the banner (it doesn't report again on resume). */
+  private bannerHeight = 0;
+  /** An ad is in the banner (no gap is kept for one that failed to load). */
+  private bannerLoaded = false;
   private runsThisSession = 0;
   privacyOptionsRequired = false;
 
@@ -110,10 +114,22 @@ class AdService extends Emitter<AdEvents> {
     void AdMob.addListener(RewardAdPluginEvents.FailedToLoad, () => (this.rewardedLoaded = false));
     void AdMob.addListener(InterstitialAdPluginEvents.Loaded, () => (this.interstitialLoaded = true));
     void AdMob.addListener(InterstitialAdPluginEvents.FailedToLoad, () => (this.interstitialLoaded = false));
+    void AdMob.addListener(BannerAdPluginEvents.Loaded, () => {
+      this.bannerLoaded = true;
+      this.applyBannerSpace();
+    });
+    void AdMob.addListener(BannerAdPluginEvents.FailedToLoad, () => {
+      this.bannerLoaded = false;
+      this.applyBannerSpace();
+    });
+    // The size can arrive before showBanner() resolves, and isn't sent again on resume:
+    // keep it and apply it whenever the banner is up. A sized banner has an ad in it.
     void AdMob.addListener(BannerAdPluginEvents.SizeChanged, (size) => {
-      const height = this.bannerShown ? size.height : 0;
-      document.documentElement.style.setProperty('--banner-h', `${height}px`);
-      this.emit('banner', { height });
+      if (size.height > 0) {
+        this.bannerHeight = size.height;
+        this.bannerLoaded = true;
+      }
+      this.applyBannerSpace();
     });
   }
 
@@ -273,6 +289,13 @@ class AdService extends Emitter<AdEvents> {
     }
   }
 
+  /** Keep the app clear of the banner: room for it while it's up, none otherwise. */
+  private applyBannerSpace(): void {
+    const height = this.bannerWanted && this.bannerShown && this.bannerLoaded ? this.bannerHeight : 0;
+    document.documentElement.style.setProperty('--banner-h', `${height}px`);
+    this.emit('banner', { height });
+  }
+
   /** Banner on menu screens only — never during gameplay. */
   async showBanner(): Promise<void> {
     this.bannerWanted = true;
@@ -292,11 +315,12 @@ class AdService extends Emitter<AdEvents> {
     } catch {
       this.bannerShown = false;
     }
+    this.applyBannerSpace();
   }
 
   async hideBanner(): Promise<void> {
     this.bannerWanted = false;
-    document.documentElement.style.setProperty('--banner-h', '0px');
+    this.applyBannerSpace();
     if (!this.native || !this.bannerShown) return;
     try {
       await AdMob.hideBanner();
@@ -315,7 +339,7 @@ class AdService extends Emitter<AdEvents> {
     }
     this.bannerShown = false;
     this.interstitialLoaded = false;
-    document.documentElement.style.setProperty('--banner-h', '0px');
+    this.applyBannerSpace();
   }
 }
 

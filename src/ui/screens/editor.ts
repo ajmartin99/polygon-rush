@@ -1,7 +1,7 @@
 import { audio } from '../../core/audio';
 import { music } from '../../core/music';
 import { SONGS } from '../../core/songs';
-import { musicInfo, TRACK_BASE, TRACKS } from '../../core/tracks';
+import { isRegularTrack, musicInfo, TRACK_BASE, TRACKS } from '../../core/tracks';
 import { canTypeName } from '../../services/names';
 import { checkDisplayText, NAME_MESSAGES } from '../../shared/chat-filter';
 import { BIOMES } from '../../render/biomes';
@@ -562,7 +562,7 @@ export class EditorScreen extends BaseScreen {
       lenEl.textContent = `${d.settings.length}m`;
     };
     // The map music library: the world's theme, the recorded tracks, then the classic songs.
-    const songs = [-1, ...TRACKS.flatMap((t, i) => (t.exclusive ? [] : [TRACK_BASE + i])), ...SONGS.map((_, i) => i)];
+    const songs = [-1, ...TRACKS.flatMap((t, i) => (isRegularTrack(t) ? [TRACK_BASE + i] : [])), ...SONGS.map((_, i) => i)];
     const songLabel = () => {
       const m = musicInfo(d.settings.music);
       return !m ? 'World theme' : m.artist ? `${m.title} · ${m.genre} · ${m.artist}` : `${m.title} · ${m.genre}`;

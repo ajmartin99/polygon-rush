@@ -318,7 +318,7 @@ export class ShopScreen extends BaseScreen {
         wrap.appendChild(button({ label: 'See Starter Pack', icon: 'star', cls: 'yellow', onClick: () => this.goGems() }));
         break;
       case 'beta':
-        info.textContent = 'A thank-you for beta testers. It can’t be bought, and it’s gone for good after the beta.';
+        info.textContent = 'Earned by beta testers who play 5 minutes a day: 7 days for the trail and emote, 12 days for the skin. It can’t be bought, and it’s gone for good after the beta.';
         wrap.appendChild(button({ label: 'Beta testers only', icon: 'lock', cls: 'ghost', disabled: true }));
         break;
       case 'legend':
@@ -387,7 +387,7 @@ export class ShopScreen extends BaseScreen {
       const price = u.kind === 'gems' || u.kind === 'event' ? u.price : 0;
       const buy = () => {
         if (has) return;
-        if (u.kind === 'beta') return void ui.toast('A thank-you for beta testers only.', 'lock');
+        if (u.kind === 'beta') return void ui.toast('Beta testers earn it by playing 5 minutes a day on 7 days. Gone after the beta.', 'lock', 3500);
         if (price > 0 && !store.spendGems(price)) {
           ui.sfx('error');
           ui.toast('Not enough gems — rush for more or visit the gem shop!', 'gem');

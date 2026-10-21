@@ -14,6 +14,8 @@ All notable changes to Polygon Rush are documented here.
 - **See other players' profiles outside rooms:** tap **Profile** next to a friend in the Friends list, or **(name)'s profile** on a Community level, to see their card, badges, add-ons and Spotlight level.
 
 ### Changed
+- **Beta rewards are earned now.** Joining the test gives the Founding Tester title right away. A test day counts after 5 minutes of active play: 7 test days unlock the Debug Pixels trail and 🧪 emote, 12 the Beta Bot skin and 500 gems (any days, not in a row). Progress shows in Profile. Testers who already received everything keep it.
+- Play time now counts towards the Veteran badge (it never did).
 - Heart Regens aren't tied to Halloween: unused ones keep for the next limited-time run.
 - 4 Heart Regens are now $2.99 (was $1.99), matching the 2,000-gem Gem Chest.
 

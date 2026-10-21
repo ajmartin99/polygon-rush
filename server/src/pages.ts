@@ -67,7 +67,7 @@ export function betaPage(): string {
   return page(
     'Test Polygon Rush early',
     `<h1>Test Polygon Rush early</h1>
-<p>Play new versions before anyone else and help us make the game better. Beta testers keep the exclusive <b>Beta Bot</b> skin, <b>Debug Pixels</b> trail, 🧪 emote and <b>Founding Tester</b> badge forever: they disappear for good at the full release.</p>
+<p>Play new versions before anyone else and help us make the game better. Join and you get the <b>Founding Tester</b> title right away. Play 5 minutes a day to earn the rest: the <b>Debug Pixels</b> trail and 🧪 emote after 7 days, the <b>Beta Bot</b> skin and 500 gems after 12. They're yours forever, and gone for good at the full release.</p>
 <p class="muted">For grown-ups: testers must be 18 or older, or a parent or guardian signing up for their child. Android only for now.</p>
 <form id="f">
 <label for="email">Email for Google Play</label>

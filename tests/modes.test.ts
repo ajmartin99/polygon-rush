@@ -86,14 +86,20 @@ describe('Endless levels', () => {
 });
 
 describe('Lights Out', () => {
-  it('the lantern breathes smoothly with the beat (no flashing), still with Reduce motion', async () => {
-    const { lightsGlow } = await import('../src/game/controller');
-    expect(lightsGlow(0)).toBe(1);
-    expect(lightsGlow(0.5)).toBeCloseTo(0);
-    // Smooth: no jump anywhere in the beat.
-    for (let p = 0; p < 1; p += 0.01) expect(Math.abs(lightsGlow(p + 0.01) - lightsGlow(p))).toBeLessThan(0.04);
-    expect(lightsGlow(0, true)).toBe(0.5);
-    expect(lightsGlow(0.37, true)).toBe(0.5);
+  it('the candle is blown on each beat and recovers, smoothly (no flashing); steady with Reduce motion', async () => {
+    const { candleAt } = await import('../src/game/controller');
+    // Bright on the beat, dimmest just after it (the puff), bright again by the next.
+    expect(candleAt(0, 0).blow).toBeCloseTo(0);
+    expect(candleAt(0.3, 0).blow).toBeCloseTo(1);
+    expect(candleAt(0.999, 0).blow).toBeLessThan(0.01);
+    expect(candleAt(0.3, 0).light).toBeLessThan(candleAt(0, 0).light);
+    // Smooth: no jump anywhere in the beat, and it never goes dark.
+    for (let p = 0; p < 1; p += 0.01) {
+      expect(Math.abs(candleAt(p + 0.01, p).light - candleAt(p, p).light)).toBeLessThan(0.05);
+      expect(candleAt(p, p).light).toBeGreaterThan(0.4);
+    }
+    expect(candleAt(0.3, 5, true)).toEqual(candleAt(0.8, 9, true));
+    expect(candleAt(0.3, 5, true).blow).toBe(0);
     expect(variantBestKey('lightsout', { kidMode: false, difficulty: 'hard' })).toBe('lightsout_hard');
   });
 });

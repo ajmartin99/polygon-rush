@@ -51,7 +51,8 @@ export interface RenderOptions {
   /** Golden Shapes already found (drawn faded). */
   secretsFound?: readonly number[];
   /** Lights Out: the course is dark; 0..1 is how bright the beat flash is right now. */
-  lightsOut?: number;
+  /** Lights Out's candle (see candleAt). */
+  lightsOut?: { light: number; blow: number; flicker: number };
   /** Boss Battles: the boss (big gems are drawn as its charge orbs). */
   boss?: BossView | null;
 }
@@ -225,7 +226,7 @@ export class Renderer {
     if (!me.dead) this.drawRacer(me, sx, sy, s, time, 1, pal);
     this.fx.draw(ctx, sx, sy, s, false, x0, x1);
     if (opts.boss) this.drawBoss(opts.boss, r, me, sx, sy, s, time);
-    if (opts.lightsOut !== undefined) this.drawDarkness(r, sx(me.x), sy(me.body.y), s, opts.lightsOut);
+    if (opts.lightsOut !== undefined) this.drawDarkness(r, sx(me.x), sy(me.body.y), s, opts.lightsOut, me.body.gdir, time);
 
     if (this.fx.flash > 0) {
       const g = ctx.createRadialGradient(r.x + r.w / 2, r.y + r.h / 2, r.h * 0.3, r.x + r.w / 2, r.y + r.h / 2, r.w * 0.7);
@@ -801,21 +802,76 @@ export class Renderer {
    * beat the glow opens wide and the dark thins, lighting the way ahead.
    */
   /**
-   * Lights Out: the dark stays put; only a lantern around and ahead of the
-   * runner lets you see, its edge breathing with the beat (`glow` 0..1).
-   * No full-screen flashes.
+   * Lights Out: the dark stays put; only the runner's candle lights the way
+   * ahead. Its light pulls in and the flame leans when the beat blows on it,
+   * then swells back. No full-screen flashes.
    */
-  private drawDarkness(r: ViewRect, px: number, py: number, s: number, glow: number): void {
+  private drawDarkness(r: ViewRect, px: number, py: number, s: number, c: { light: number; blow: number; flicker: number }, gdir: number, time: number): void {
     const ctx = this.ctx;
     const a = 0.95;
-    // Centred ahead of the runner (that's where you need to see).
-    const cx = px + s * 2.5;
-    const g = ctx.createRadialGradient(cx, py, s * (2 + 0.5 * glow), cx, py, s * (6 + 1.2 * glow));
-    g.addColorStop(0, 'rgba(4,2,14,0)');
+    // The light reaches ahead of the runner (that's where you need to see).
+    const cx = px + s * 2.2;
+    const g = ctx.createRadialGradient(cx, py, s * (1.7 + 0.9 * c.light), cx, py, s * (4.6 + 2.4 * c.light));
+    g.addColorStop(0, `rgba(4,2,14,${0.08 * c.blow})`);
     g.addColorStop(0.5, `rgba(4,2,14,${a * 0.45})`);
     g.addColorStop(1, `rgba(4,2,14,${a})`);
     ctx.fillStyle = g;
     ctx.fillRect(r.x, r.y, r.w, r.h);
+    // The flame floats just behind the runner's head (below it on the ceiling).
+    const fx = px - s * 0.75;
+    const fy = py + gdir * s * 1.05 + Math.sin(time * 3) * s * 0.06;
+    // Warm candle glow.
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const warm = ctx.createRadialGradient(fx, fy, 0, fx, fy, s * (2.6 + 1.6 * c.light));
+    warm.addColorStop(0, `rgba(255,170,70,${0.22 * c.light})`);
+    warm.addColorStop(1, 'rgba(255,120,40,0)');
+    ctx.fillStyle = warm;
+    ctx.fillRect(fx - s * 4.5, fy - s * 4.5, s * 9, s * 9);
+    ctx.restore();
+    this.drawFlame(fx, fy, s, c, time);
+  }
+
+  /** A little candle flame: leans back and shrinks when blown on, with a wisp of smoke. */
+  private drawFlame(x: number, y: number, s: number, c: { light: number; blow: number; flicker: number }, time: number): void {
+    const ctx = this.ctx;
+    const h = s * 0.8 * (1 - 0.35 * c.blow) * (1 + 0.06 * c.flicker);
+    const w = s * 0.38 * (1 - 0.15 * c.blow);
+    // Smoke curls off a hard-blown flame.
+    if (c.blow > 0.4) {
+      const k = (c.blow - 0.4) / 0.6;
+      for (let i = 0; i < 3; i++) {
+        const t = (time * 1.5 + i / 3) % 1;
+        ctx.fillStyle = `rgba(200,190,220,${0.18 * k * (1 - t)})`;
+        ctx.beginPath();
+        ctx.arc(x - s * (0.3 + t * 0.6), y - h - s * t * 0.7 + Math.sin(t * 6 + i) * s * 0.08, s * (0.08 + t * 0.12), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.save();
+    ctx.translate(x, y);
+    // Blown backwards (to the left), with a little lively sway.
+    ctx.rotate(-0.6 * c.blow + 0.06 * c.flicker);
+    const halo = ctx.createRadialGradient(0, -h * 0.35, 0, 0, -h * 0.35, h * 1.2);
+    halo.addColorStop(0, `rgba(255,200,90,${0.55 * c.light})`);
+    halo.addColorStop(1, 'rgba(255,140,40,0)');
+    ctx.fillStyle = halo;
+    ctx.fillRect(-h * 1.3, -h * 1.6, h * 2.6, h * 2.6);
+    const drop = (hh: number, ww: number, fill: string | CanvasGradient) => {
+      ctx.beginPath();
+      ctx.moveTo(0, -hh);
+      ctx.bezierCurveTo(ww * 0.9, -hh * 0.45, ww, 0, 0, hh * 0.18);
+      ctx.bezierCurveTo(-ww, 0, -ww * 0.9, -hh * 0.45, 0, -hh);
+      ctx.fillStyle = fill;
+      ctx.fill();
+    };
+    const body = ctx.createLinearGradient(0, -h, 0, h * 0.2);
+    body.addColorStop(0, '#ff6a2a');
+    body.addColorStop(0.55, '#ffb23f');
+    body.addColorStop(1, '#ffe08a');
+    drop(h, w, body);
+    drop(h * 0.55, w * 0.5, '#fff6d8');
+    ctx.restore();
   }
 
   /** Boss Battles: the boss floating ahead, its health bar, and your shots flying back at it. */

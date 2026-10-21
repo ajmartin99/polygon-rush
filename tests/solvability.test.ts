@@ -5,7 +5,7 @@ import { LevelTimeline } from '../src/game/levels';
 import { BotBrain } from '../src/game/bot';
 import { createBody, newEvents, stepBody } from '../src/game/physics';
 import { endlessSpeedAt, RACE_SPEED, type Difficulty } from '../src/game/constants';
-import { PATTERN_IDS } from '../src/game/generator';
+import { BREATHER_SECONDS, isBreatherLevel, PATTERN_IDS } from '../src/game/generator';
 
 interface RunResult {
   distance: number;
@@ -176,6 +176,25 @@ describe('beat-synced endless levels', () => {
         if (phase < 0.03 || phase > 0.97) onBeat++;
       }
       expect(onBeat / gen.taps.length, diff).toBeGreaterThan(0.97);
+    }
+  });
+
+  it('every 2nd level opens with a few easy seconds (no taps)', () => {
+    for (const diff of ['easy', 'medium', 'hard'] as Difficulty[]) {
+      const levels = timeline(diff);
+      const gen = new LevelGen(new World(), { seed: 91, kind: 'endless', diff, levels });
+      gen.ensure(4000);
+      const first = new Map<number, number>();
+      for (const x of gen.taps) {
+        const lv = levels.at(x).index;
+        if (!first.has(lv)) first.set(lv, levels.secondsInto(x));
+      }
+      for (const [lv, t] of first) {
+        if (lv === 0) continue;
+        if (isBreatherLevel(lv)) expect(t, `${diff} level ${lv + 1}`).toBeGreaterThanOrEqual(BREATHER_SECONDS - 0.05);
+        else expect(t, `${diff} level ${lv + 1}`).toBeLessThan(BREATHER_SECONDS);
+      }
+      expect([...first.keys()].some(isBreatherLevel), diff).toBe(true);
     }
   });
 

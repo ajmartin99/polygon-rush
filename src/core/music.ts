@@ -1,7 +1,7 @@
 import { store } from '../state/store';
 import { audio } from './audio';
 import { menuTheme, RACE_SONG, SONGS, songsFor, WORLD_SONGS } from './songs';
-import { TRACK_BASE, USER_BASE, isPickable, trackOf, tracksFor } from './tracks';
+import { MAIN_SONG_CHANCE, TRACK_BASE, USER_BASE, isPickable, levelSongs, trackOf, tracksFor } from './tracks';
 import type { LevelSong } from '../game/levels';
 import { myMusic } from '../services/mymusic';
 import { activeEvent } from '../meta/events';
@@ -104,7 +104,11 @@ class MusicDirector extends Emitter<{ song: number }> {
   /** The Daily Run's set soundtrack (null for normal runs). */
   private fixed: number[] | null = null;
 
-  /** Song for a level, chosen once (shuffled, no repeats until all have played). */
+  /**
+   * Song for a level, chosen once per run. Endless levels have their own two
+   * songs (main and backup, see levelSongs): one plays, picked at random.
+   * Players can't skip or swap it: the level is built on that song.
+   */
   private planned(level: number): number {
     let id = this.plan.get(level);
     if (id !== undefined) return id;
@@ -113,7 +117,15 @@ class MusicDirector extends Emitter<{ song: number }> {
       this.plan.set(level, id);
       return id;
     }
-    const pool = this.pool('run');
+    const { main, backup } = levelSongs(level);
+    const ok = [main, backup].filter((i) => i >= 0 && !this.broken.has(i));
+    if (ok.length) {
+      id = ok.length > 1 && main !== backup ? (Math.random() < MAIN_SONG_CHANCE ? main : backup) : ok[0];
+      this.plan.set(level, id);
+      return id;
+    }
+    // No recorded music at all: the classic songs, shuffled.
+    const pool = songsFor('run');
     this.planBag = this.planBag.filter((i) => pool.includes(i));
     if (!this.planBag.length) {
       const prev = this.plan.get(level - 1);
@@ -261,7 +273,7 @@ class MusicDirector extends Emitter<{ song: number }> {
   }
 
   private allowed(song: number): boolean {
-    return !store.settings.musicOff.includes(song) && !this.broken.has(song);
+    return !this.broken.has(song);
   }
 
   private start(context: MusicContext, first: number, force = false): void {

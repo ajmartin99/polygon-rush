@@ -14,6 +14,8 @@ All notable changes to Polygon Rush are documented here.
 - **See other players' profiles outside rooms:** tap **Profile** next to a friend in the Friends list, or **(name)'s profile** on a Community level, to see their card, badges, add-ons and Spotlight level.
 
 ### Changed
+- **Every Endless level has its own songs.** Each level has a main song and a backup song, and the course is charted to whichever one plays: usually the main, sometimes the backup. During a season the backup is one of the season's songs. Songs can no longer be skipped, picked or switched off, and My Music now plays in the menus and races only. Settings > Soundtrack lists which songs each level plays.
+- **Rest stops in Endless:** every 2nd level (Level 3, 5, 7…) opens with about 5 easy seconds of gems and no hazards.
 - **Beta rewards are earned now.** Joining the test gives the Founding Tester title right away. A test day counts after 5 minutes of active play: 7 test days unlock the Debug Pixels trail and 🧪 emote, 12 the Beta Bot skin and 500 gems (any days, not in a row). Progress shows in Profile. Testers who already received everything keep it.
 - Play time now counts towards the Veteran badge (it never did).
 - Heart Regens aren't tied to Halloween: unused ones keep for the next limited-time run.

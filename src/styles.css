@@ -1146,6 +1146,17 @@ p {
   border-radius: 0.8rem;
 }
 
+.song-row .lvl-no {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 0.6rem;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.85rem;
+}
+
 .song-row.on {
   background: rgba(62, 230, 176, 0.16);
 }

@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { audio } from '../src/core/audio';
 import { music } from '../src/core/music';
 import { menuTheme, SONGS, songsFor } from '../src/core/songs';
-import { TRACK_BASE, TRACKS, tracksFor } from '../src/core/tracks';
+import { levelSongs, TRACK_BASE, TRACKS, tracksFor } from '../src/core/tracks';
 import { store } from '../src/state/store';
 
 const played: number[] = [];
@@ -90,12 +90,23 @@ describe('music director', () => {
     expect(new Set(played).size).toBe(pool.length);
   });
 
-  it('skips songs switched off in settings', () => {
-    const keep = tracksFor('run').slice(0, 2);
-    store.data.settings.musicOff = tracksFor('run').filter((i) => !keep.includes(i));
-    music.run(0);
-    for (let i = 0; i < 8; i++) music.skip();
-    expect(played.every((i) => keep.includes(i))).toBe(true);
+  it('Endless levels always play their own main or backup song, whatever the settings', () => {
+    store.data.settings.musicOff = tracksFor('run');
+    store.data.settings.myMusic = 'only';
+    const seen = new Set<number>();
+    for (let run = 0; run < 30; run++) {
+      music.resetPlan(true);
+      for (let l = 0; l < 6; l++) {
+        const id = music.levelSong(l).id;
+        const { main, backup } = levelSongs(l);
+        expect([main, backup]).toContain(id);
+        if (l === 0) seen.add(id);
+      }
+    }
+    // Both of level 1's songs come up over a few runs.
+    expect(seen.size).toBe(2);
+    music.resetPlan(false);
+    store.data.settings.myMusic = 'mix';
   });
 
   it('falls back to the full list when everything is off', () => {

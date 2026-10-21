@@ -446,3 +446,34 @@ export function eventTracks(event: EventId): number[] {
     .filter(({ t }) => t.event === event && isRegularTrack(t))
     .map(({ id }) => id);
 }
+
+/**
+ * The songs Endless levels are built on: every regular run track (not a
+ * season's, not a mode's own, not retired), in id order.
+ */
+export function endlessSongs(): number[] {
+  return TRACKS.map((t, i) => ({ t, id: TRACK_BASE + i }))
+    .filter(({ t }) => t.role === 'run' && !t.event && isRegularTrack(t))
+    .map(({ id }) => id);
+}
+
+/** How often a level plays its main song (otherwise its backup). */
+export const MAIN_SONG_CHANCE = 0.65;
+
+/**
+ * An Endless level's two songs (0-based level index): its main song and a
+ * backup, fixed for that level. During a season the backup is one of the
+ * season's songs. -1 when there's no recorded music at all.
+ */
+export function levelSongs(level: number, now = new Date()): { main: number; backup: number } {
+  const list = endlessSongs();
+  const n = list.length;
+  if (!n) return { main: -1, backup: -1 };
+  const i = ((level % n) + n) % n;
+  const main = list[i];
+  const ev = activeEvent(now);
+  const season = ev ? eventTracks(ev.id) : [];
+  // Half a list away, so the backup is never the main song (and rarely a neighbour's).
+  const backup = season.length ? season[i % season.length] : n > 1 ? list[(i + Math.max(1, Math.floor(n / 2))) % n] : main;
+  return { main, backup };
+}

@@ -49,10 +49,14 @@ const BOX_TEXT: Record<BoxItem, string> = {
   magnet: 'MAGNET!',
 };
 
-/** Lights Out: how bright the beat flash is, from the beat phase (0 on the beat, fading fast). */
-export function lightsFlash(phase: number): number {
-  const k = Math.max(0, 1 - phase * 2.6);
-  return k * k;
+/**
+ * Lights Out: how far the runner's lantern reaches (0..1), from the beat
+ * phase. It breathes smoothly with the beat (widest on it) and never blinks
+ * or lights the whole screen: safe for players sensitive to flashing. With
+ * Reduce motion it holds still.
+ */
+export function lightsGlow(phase: number, still = false): number {
+  return still ? 0.5 : 0.5 + 0.5 * Math.cos(2 * Math.PI * phase);
 }
 
 /** The menu backdrop stops after this long without a touch. */
@@ -344,7 +348,7 @@ export class GameController {
       if (this.startLevel > 1) hud.showHint(`Level ${this.startLevel}`, BIOMES[world].name, 2200, '24%');
       this.go();
       if (d.stats.runs === 0) hud.showHint('Tap or hold anywhere to play!', 'Avoid spikes, grab gems', 3200, '22%');
-      else if (this.variant === 'lightsout') hud.showHint('Lights Out!', 'Every beat flashes the way ahead. Feel the rhythm!', 2600, '24%');
+      else if (this.variant === 'lightsout') hud.showHint('Lights Out!', 'Your lantern glows with the beat. Feel the rhythm!', 2600, '24%');
     } else if (this.kind === 'custom' && req.mode === 'custom') {
       music.level(req.level.music, req.level.theme, !!req.haunted);
       const track = trackOf(req.level.music);
@@ -697,7 +701,7 @@ export class GameController {
       haunted: this.paletteFor(this.session?.racers[0]?.x ?? 0) === SPOOKY,
       secretsFound: store.data.secrets.found,
       boss: this.kind === 'custom' && this.phase !== 'results' ? this.boss : null,
-      lightsOut: this.kind === 'endless' && this.variant === 'lightsout' ? lightsFlash(audio.beatPhase()) : undefined,
+      lightsOut: this.kind === 'endless' && this.variant === 'lightsout' ? lightsGlow(audio.beatPhase(), store.settings.reducedMotion) : undefined,
     });
     if (this.kind === 'attract' || this.phase === 'results') return;
     const ctx = this.renderer.ctx;

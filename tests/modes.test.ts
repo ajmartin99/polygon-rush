@@ -86,11 +86,14 @@ describe('Endless levels', () => {
 });
 
 describe('Lights Out', () => {
-  it('flashes on the beat and fades fast', async () => {
-    const { lightsFlash } = await import('../src/game/controller');
-    expect(lightsFlash(0)).toBe(1);
-    expect(lightsFlash(0.2)).toBeLessThan(0.3);
-    expect(lightsFlash(0.5)).toBe(0);
+  it('the lantern breathes smoothly with the beat (no flashing), still with Reduce motion', async () => {
+    const { lightsGlow } = await import('../src/game/controller');
+    expect(lightsGlow(0)).toBe(1);
+    expect(lightsGlow(0.5)).toBeCloseTo(0);
+    // Smooth: no jump anywhere in the beat.
+    for (let p = 0; p < 1; p += 0.01) expect(Math.abs(lightsGlow(p + 0.01) - lightsGlow(p))).toBeLessThan(0.04);
+    expect(lightsGlow(0, true)).toBe(0.5);
+    expect(lightsGlow(0.37, true)).toBe(0.5);
     expect(variantBestKey('lightsout', { kidMode: false, difficulty: 'hard' })).toBe('lightsout_hard');
   });
 });

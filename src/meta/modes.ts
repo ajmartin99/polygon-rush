@@ -75,7 +75,7 @@ export const VARIANT_INFO: Record<EndlessVariant, { name: string; blurb: string 
   oneheart: { name: 'One Heart', blurb: 'One bump and it’s over. For pros.' },
   gemrush: { name: 'Gem Rush', blurb: `${GEM_RUSH_SECONDS} seconds. Grab every gem, and bumps drop 5!` },
   rhythm: { name: 'Rhythm Rush', blurb: 'Every obstacle is set on the beat: jump, hop and flip right on it! Perfect taps build a combo and multiply your score; off-beat taps break it.' },
-  lightsout: { name: 'Lights Out', blurb: 'Pitch dark! Every beat of the music flashes the way ahead for a moment. Run by rhythm and memory. Pays 1.5× gems.' },
+  lightsout: { name: 'Lights Out', blurb: 'Pitch dark! Only your lantern lights the way, glowing with the beat. Run by rhythm and memory. Pays 1.5× gems.' },
 };
 
 // ------------------------------------------------------------------ levels

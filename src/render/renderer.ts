@@ -800,14 +800,19 @@ export class Renderer {
    * Lights Out: darkness everywhere but a small glow around the runner. On a
    * beat the glow opens wide and the dark thins, lighting the way ahead.
    */
-  private drawDarkness(r: ViewRect, px: number, py: number, s: number, flash: number): void {
+  /**
+   * Lights Out: the dark stays put; only a lantern around and ahead of the
+   * runner lets you see, its edge breathing with the beat (`glow` 0..1).
+   * No full-screen flashes.
+   */
+  private drawDarkness(r: ViewRect, px: number, py: number, s: number, glow: number): void {
     const ctx = this.ctx;
-    const a = 0.97 - 0.72 * flash;
-    // Centre the light a little ahead of the runner (that's where you need to see).
-    const cx = px + s * (1 + flash * 3);
-    const g = ctx.createRadialGradient(cx, py, s * (0.9 + flash), cx, py, s * (3 + flash * 7));
+    const a = 0.95;
+    // Centred ahead of the runner (that's where you need to see).
+    const cx = px + s * 2.5;
+    const g = ctx.createRadialGradient(cx, py, s * (2 + 0.5 * glow), cx, py, s * (6 + 1.2 * glow));
     g.addColorStop(0, 'rgba(4,2,14,0)');
-    g.addColorStop(0.55, `rgba(4,2,14,${a * 0.75})`);
+    g.addColorStop(0.5, `rgba(4,2,14,${a * 0.45})`);
     g.addColorStop(1, `rgba(4,2,14,${a})`);
     ctx.fillStyle = g;
     ctx.fillRect(r.x, r.y, r.w, r.h);

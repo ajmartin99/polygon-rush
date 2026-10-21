@@ -110,39 +110,48 @@ export class NameScreen extends BaseScreen {
     });
     this.el.append(
       h(
-        'div.grow.center',
+        'div.grow.center.screen-scroll',
         null,
         h(
-          'div.panel.col',
-          { style: 'width:min(32rem,94vw);gap:1rem;align-items:center;text-align:center' },
-          h('h2', null, first ? 'Choose your racer name!' : 'Change your name'),
-          previewCanvas({ skin: store.data.skins.equipped, animate: true, scale: 0.6 }, 'hero-preview'),
-          h('div.name-card', null, label, reroll),
-          h('p.muted.small', null, canTypeName() ? 'Tap the dice for a new name, or type your own below.' : 'Tap the dice for a new name. Names are made up so everyone stays safe.'),
-          canTypeName() ? typed : null,
-          canTypeName() ? hint : null,
-          button({
-            label: first ? "Let's Rush!" : 'Save',
-            icon: first ? 'play' : 'check',
-            cls: 'mint lg',
-            onClick: async () => {
-              const want = input.value.trim();
-              if (want) {
-                const r = await claimTypedName(want);
-                if (!r.ok) {
-                  hint.textContent = r.message;
-                  hint.classList.add('bad');
-                  return;
+          'div.panel.name-panel',
+          null,
+          // Two columns on short landscape screens (see .name-panel), one otherwise.
+          h(
+            'div.name-side',
+            null,
+            h('h2', null, first ? 'Choose your racer name!' : 'Change your name'),
+            previewCanvas({ skin: store.data.skins.equipped, animate: true, scale: 0.6 }, 'hero-preview'),
+          ),
+          h(
+            'div.name-side',
+            null,
+            h('div.name-card', null, label, reroll),
+            h('p.muted.small', null, canTypeName() ? 'Tap the dice for a new name, or type your own below.' : 'Tap the dice for a new name. Names are made up so everyone stays safe.'),
+            canTypeName() ? typed : null,
+            canTypeName() ? hint : null,
+            button({
+              label: first ? "Let's Rush!" : 'Save',
+              icon: first ? 'play' : 'check',
+              cls: 'mint lg',
+              onClick: async () => {
+                const want = input.value.trim();
+                if (want) {
+                  const r = await claimTypedName(want);
+                  if (!r.ok) {
+                    hint.textContent = r.message;
+                    hint.classList.add('bad');
+                    return;
+                  }
+                  name = r.name;
                 }
-                name = r.name;
-              }
-              store.data.profile.name = name;
-              store.commit();
-              void friends.refresh();
-              nav.go(first ? 'difficulty' : 'menu', first ? { first: true } : undefined);
-            },
-          }),
-          first ? null : button({ label: 'Cancel', cls: 'ghost sm', onClick: () => nav.go('settings'), sfx: 'back' }),
+                store.data.profile.name = name;
+                store.commit();
+                void friends.refresh();
+                nav.go(first ? 'difficulty' : 'menu', first ? { first: true } : undefined);
+              },
+            }),
+            first ? null : button({ label: 'Cancel', cls: 'ghost sm', onClick: () => nav.go('settings'), sfx: 'back' }),
+          ),
         ),
       ),
     );

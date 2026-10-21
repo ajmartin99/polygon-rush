@@ -52,7 +52,8 @@ describe('backup codes', () => {
     await restoreBackup(code);
     expect(store.data.purchases.spotlight).toBe(true);
     expect(store.data.purchases.builder).toBe(false);
-    expect(store.data.purchases.noAds).toBe(false);
+    // No Ads can be bought with gems during the beta, so it travels too.
+    expect(store.data.purchases.noAds).toBe(true);
   });
 
   it('refuses an edited code (decode, change gems, encode)', async () => {

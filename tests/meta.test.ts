@@ -144,6 +144,9 @@ describe('products', () => {
     expect(gemPriceOf('gems_small')).toBe(0);
     expect(gemPriceOf('creator_spotlight')).toBe(660);
     expect(gemPriceOf('builder_pack')).toBe(2200);
+    // No Ads: gems only during the beta (1.0.x), money always.
+    expect(gemPriceOf('remove_ads', '1.0.12')).toBe(2200);
+    expect(gemPriceOf('remove_ads', '1.1.0')).toBe(0);
     const s = createSave();
     grantProduct(s, 'haunted_regen_4');
     expect(s.haunted.regens).toBe(4);

@@ -1,4 +1,5 @@
 import { CONFIG } from '../config';
+import { isBetaBuild } from './beta';
 import type { SaveData } from '../state/save';
 import { LEGEND_PACK_SKINS, LEGEND_PACK_TRAILS } from './catalog';
 
@@ -52,9 +53,11 @@ export const GEM_MARKUP = 1.1;
  * price buys in the gem pack at the same price, plus 10%. 0 when it can't be
  * paid with gems.
  */
-export function gemPriceOf(id: string): number {
+export function gemPriceOf(id: string, version = CONFIG.version): number {
   const def = productById(id);
-  if (!def?.gemPay) return 0;
+  // During the beta (1.0.x) testers can also turn ads off with gems.
+  const beta = id === P.removeAds && isBetaBuild(version);
+  if (!def || (!def.gemPay && !beta)) return 0;
   const pack = PRODUCTS.find((p) => p.gems && p.kind === 'consumable' && p.fallbackPrice === def.fallbackPrice);
   return pack?.gems ? Math.round(pack.gems * GEM_MARKUP) : 0;
 }

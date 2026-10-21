@@ -49,6 +49,7 @@ export function buyWithGems(id: string): boolean {
   }
   grantProduct(store.data, id);
   store.commit();
+  if (id === CONFIG.iap.products.removeAds) void ads.removeAll();
   ui.sfx('reward');
   return true;
 }
@@ -559,6 +560,19 @@ export class ShopScreen extends BaseScreen {
                 this.render();
               },
             }),
+      // Some items can be paid with gems too (No Ads only during the beta).
+      !owned && !isAddOn(p.id) && gemPriceOf(p.id) > 0
+        ? button({
+            label: `${fmt(gemPriceOf(p.id))} gems`,
+            icon: 'gem',
+            cls: `${store.canAfford(gemPriceOf(p.id)) ? 'yellow' : 'ghost'} sm`,
+            onClick: () => {
+              if (!buyWithGems(p.id)) return;
+              ui.toast(p.id === CONFIG.iap.products.removeAds ? 'Ads are off. Thanks for testing!' : `${p.name}: yours!`, 'sparkle', 3000);
+              this.render();
+            },
+          })
+        : null,
     );
   }
 }

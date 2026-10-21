@@ -392,3 +392,136 @@ a.app:hover {
     height: 96px;
   }
 }
+
+/* ---------- Spooky Season (html.spooky, Oct 1 – Nov 7) */
+.haunted,
+.icon-spooky,
+.haunt {
+  display: none;
+}
+
+.spooky .haunted,
+.spooky .haunt {
+  display: block;
+}
+
+.spooky .icon-spooky {
+  display: inline-block;
+}
+
+.spooky .icon-normal {
+  display: none;
+}
+
+.spooky body {
+  background:
+    radial-gradient(50rem 26rem at 85% -8%, rgba(255, 122, 47, 0.45) 0%, transparent 60%),
+    radial-gradient(40rem 30rem at 0% 100%, rgba(139, 47, 208, 0.35) 0%, transparent 65%),
+    #140a2a;
+}
+
+.spooky .eyebrow,
+.spooky h2 {
+  color: #ffb36b;
+}
+
+.haunted {
+  border: 2px solid #ff9a3c;
+  border-radius: 24px;
+  padding: 20px 22px;
+  background: linear-gradient(135deg, rgba(255, 122, 47, 0.16), rgba(91, 45, 130, 0.35));
+}
+
+.haunted img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 8px;
+}
+
+/* Ghosts and bats drifting behind the page. Decoration only. */
+.haunt {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.spooky .wrap,
+.spooky footer {
+  position: relative;
+  z-index: 1;
+}
+
+.haunt svg {
+  position: absolute;
+  opacity: 0.55;
+}
+
+.haunt .ghost {
+  width: 56px;
+  animation: haunt-float 9s ease-in-out infinite;
+}
+
+.haunt .g1 {
+  left: 4%;
+  top: 30%;
+}
+
+.haunt .g2 {
+  right: 5%;
+  top: 62%;
+  width: 44px;
+  animation-delay: -4s;
+}
+
+.haunt .bat {
+  width: 54px;
+  animation: haunt-fly 16s linear infinite;
+}
+
+.haunt .b1 {
+  top: 12%;
+}
+
+.haunt .b2 {
+  top: 22%;
+  width: 38px;
+  animation-delay: -6s;
+}
+
+.haunt .b3 {
+  top: 48%;
+  width: 30px;
+  animation-delay: -11s;
+}
+
+@keyframes haunt-float {
+  0%,
+  100% {
+    transform: translateY(0) rotate(-4deg);
+  }
+  50% {
+    transform: translateY(-24px) rotate(4deg);
+  }
+}
+
+@keyframes haunt-fly {
+  from {
+    transform: translateX(-80px);
+  }
+  to {
+    transform: translateX(calc(100vw + 80px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .haunt svg {
+    animation: none;
+  }
+
+  .haunt .bat {
+    left: 70%;
+  }
+}

@@ -5,6 +5,7 @@ All notable changes to Polygon Rush are documented here.
 ## [Unreleased]
 
 ### Added
+- **Halloween look:** ghosts drift past the moon and a zombie shambles along the home screen during Spooky Season. The website dresses up too (Oct 1 – Nov 7): a witch-hat icon, a Spooky Season box with the Haunted Run's cast, floating ghosts and bats. Spooky Play Store icon and feature graphic are in `store/seasonal/`.
 - **Beta deal: everything in the Shop for gems** until the full release, flagged by a "Beta deal" chip on the home screen. No Ads 2,200 gems, Legend Pack 2,950, Starter Pack 3,650 (its No Ads and Golden skin; the 2,500 bonus gems come only with the paid pack), plus Heart Regens and the profile add-ons. Anything bought stays yours after the beta.
 - **Pay for Heart Regens with gems.** When you're out of Haunted Run attempts you can now spend gems instead of money: a Heart Regen costs 660 gems and 4 Heart Regens cost 2,200, what the same price buys in gems plus 10%.
 

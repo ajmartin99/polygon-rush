@@ -48,4 +48,9 @@ for (const [name, k] of Object.entries(densities)) {
 for (const [path, [w, h]] of Object.entries(splashSizes)) await save(`${res}/${path}`, 'splash', w, h);
 await save('store/icon-512.png', 'store', 512, 512);
 await save('store/feature-graphic-1024x500.png', 'feature', 1024, 500);
+// Spooky Season: Play listing icon and feature graphic to swap in by hand for the event,
+// and the Haunted Run cast for the website (convert to webp: site/polygon-rush/img/haunted-cast.webp).
+await save('store/seasonal/spooky-icon-512.png', 'spooky-store', 512, 512);
+await save('store/seasonal/spooky-feature-1024x500.png', 'spooky-feature', 1024, 500);
+await save('store/seasonal/haunted-cast.png', 'spooky-cast', 1200, 420);
 await browser.close();

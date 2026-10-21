@@ -5,6 +5,7 @@ import { dailyAvailable } from '../../meta/daily';
 import { claimableCount } from '../../meta/missions';
 import { leagueFor } from '../../meta/economy';
 import { CONFIG } from '../../config';
+import { isBetaBuild } from '../../meta/beta';
 import { BaseScreen, button, confirm, gemChip, levelChip, setBadge } from '../components';
 import { h, ic, fmt } from '../dom';
 import { nav } from '../nav';
@@ -76,6 +77,7 @@ export class MenuScreen extends BaseScreen {
         levelChip(),
         h('div.chip', { title: 'Trophies' }, ic('trophy'), h('span', null, fmt(d.trophies))),
         eventChip(),
+        betaDealChip(),
         h('div.spacer'),
         gemChip(this),
         friendsBtn,
@@ -187,4 +189,15 @@ function heroPreview(): HTMLCanvasElement {
     haptics.light();
   });
   return c;
+}
+
+/** Beta (1.0.x): everything in the Shop can be bought with gems, for a limited time. */
+function betaDealChip(): HTMLElement | null {
+  if (!isBetaBuild(CONFIG.version)) return null;
+  return h(
+    'button.event-chip.beta-chip',
+    { onclick: () => nav.go('shop', { tab: 'gems' }), 'aria-label': 'Beta deal: everything in the Shop for gems' },
+    h('span.ev-pumpkin', null, '🧪'),
+    h('span', null, h('b', null, 'Beta deal'), h('small', null, 'All Shop items for gems!')),
+  );
 }

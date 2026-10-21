@@ -5,7 +5,7 @@ All notable changes to Polygon Rush are documented here.
 ## [Unreleased]
 
 ### Added
-- **Beta testers can turn ads off with gems:** No Ads costs 2,200 gems (or $2.99) until the full release, and stays off for good. The Shop also offers Heart Regens for gems.
+- **Beta deal: everything in the Shop for gems** until the full release, flagged by a "Beta deal" chip on the home screen. No Ads 2,200 gems, Legend Pack 2,950, Starter Pack 3,650 (its No Ads and Golden skin; the 2,500 bonus gems come only with the paid pack), plus Heart Regens and the profile add-ons. Anything bought stays yours after the beta.
 - **Pay for Heart Regens with gems.** When you're out of Haunted Run attempts you can now spend gems instead of money: a Heart Regen costs 660 gems and 4 Heart Regens cost 2,200, what the same price buys in gems plus 10%.
 
 - **Profile add-ons** (see a live preview of your own card first, then pay with money or gems):

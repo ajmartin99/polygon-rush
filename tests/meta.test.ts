@@ -147,6 +147,15 @@ describe('products', () => {
     // No Ads: gems only during the beta (1.0.x), money always.
     expect(gemPriceOf('remove_ads', '1.0.12')).toBe(2200);
     expect(gemPriceOf('remove_ads', '1.1.0')).toBe(0);
+    // The packs too, during the beta only (Gem Chest rate + 10%, to the nearest 50).
+    expect(gemPriceOf('legend_pack', '1.0.12')).toBe(2950);
+    expect(gemPriceOf('starter_pack', '1.0.12')).toBe(3650);
+    expect(gemPriceOf('legend_pack', '1.1.0')).toBe(0);
+    expect(gemPriceOf('gems_large', '1.0.12')).toBe(0);
+    // A Starter Pack bought with gems doesn't hand out its bonus gems.
+    const g = createSave();
+    expect(grantProduct(g, 'starter_pack', true).gems).toBe(0);
+    expect(g.purchases.noAds && g.skins.owned.includes('golden')).toBe(true);
     const s = createSave();
     grantProduct(s, 'haunted_regen_4');
     expect(s.haunted.regens).toBe(4);

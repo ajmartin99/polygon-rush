@@ -47,9 +47,9 @@ export function buyWithGems(id: string): boolean {
     ui.toast('Not enough gems — rush for more or visit the gem shop!', 'gem');
     return false;
   }
-  grantProduct(store.data, id);
+  grantProduct(store.data, id, true);
   store.commit();
-  if (id === CONFIG.iap.products.removeAds) void ads.removeAll();
+  if (id === CONFIG.iap.products.removeAds || id === CONFIG.iap.products.starterPack) void ads.removeAll();
   ui.sfx('reward');
   return true;
 }
@@ -568,7 +568,15 @@ export class ShopScreen extends BaseScreen {
             cls: `${store.canAfford(gemPriceOf(p.id)) ? 'yellow' : 'ghost'} sm`,
             onClick: () => {
               if (!buyWithGems(p.id)) return;
-              ui.toast(p.id === CONFIG.iap.products.removeAds ? 'Ads are off. Thanks for testing!' : `${p.name}: yours!`, 'sparkle', 3000);
+              ui.toast(
+                p.id === CONFIG.iap.products.removeAds
+                  ? 'Ads are off. Thanks for testing!'
+                  : p.id === CONFIG.iap.products.starterPack
+                    ? 'No Ads and the Golden skin are yours! (The 2,500 bonus gems come with the paid pack.)'
+                    : `${p.name}: yours!`,
+                'sparkle',
+                3500,
+              );
               this.render();
             },
           })

@@ -180,6 +180,10 @@ export class Renderer {
 
   /** The runner's x for the view being drawn (moving saws follow it). */
   private runnerX = 0;
+  /** Accessibility: bold outlines on everything that hurts, and a darker background behind the track. */
+  highContrast = false;
+  /** Accessibility: the edge of the view pulses on each beat. */
+  beatPulse = false;
   private haunted = false;
   private bossFight = false;
   private beatPhase = 0;
@@ -213,6 +217,10 @@ export class Renderer {
     const x1 = cam.x + r.w / s + 3;
 
     this.drawBackground(r, cam, pal, time, opts.beat);
+    if (this.highContrast) {
+      ctx.fillStyle = 'rgba(6,3,18,0.5)';
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+    }
     // Spooky Season on the home screen: ghosts drift through the sky and a zombie shambles by.
     if (this.haunted && opts.dim) this.drawHauntedMenu(r, sy, s, time);
     if (opts.markers) for (const m of opts.markers) if (m.x > x0 && m.x < x1) this.drawMarker(sx(m.x), sy, s, m.label, m.color, time);
@@ -240,6 +248,7 @@ export class Renderer {
       ctx.fillStyle = g;
       ctx.fillRect(r.x, r.y, r.w, r.h);
     }
+    if (this.beatPulse && !opts.dim) this.drawBeatPulse(r, opts.beat);
     if (opts.dim) {
       const g = ctx.createLinearGradient(0, r.y, 0, r.y + r.h);
       g.addColorStop(0, 'rgba(18,8,48,0.6)');
@@ -268,6 +277,7 @@ export class Renderer {
           if (o.mob) this.drawMob(o.mob, sx(sawX(o, this.runnerX)), sy(sawY(o, this.runnerX)), s, time + o.x);
           else if (this.haunted) drawPumpkin(this.ctx, sx(o.x), sy(sawY(o, this.runnerX)), o.r * s, time + o.x);
           else this.drawSaw(pal, sx(o.x), sy(sawY(o, this.runnerX)), o.r * s, time);
+          if (this.highContrast) this.hazardRing(sx(sawX(o, this.runnerX)), sy(sawY(o, this.runnerX)), o.r * s);
           break;
         case 'pad':
           this.drawPad(sx(o.x), sy(o.y), s, o.dir, time);
@@ -539,12 +549,48 @@ export class Renderer {
     ctx.lineWidth = Math.max(1.5, size * 0.07);
     ctx.lineJoin = 'round';
     ctx.stroke();
+    if (this.highContrast) {
+      // Dark edge, then white: readable on any world colour.
+      ctx.lineWidth = Math.max(3, size * 0.16);
+      ctx.strokeStyle = '#000000';
+      ctx.stroke();
+      ctx.lineWidth = Math.max(1.5, size * 0.08);
+      ctx.strokeStyle = '#ffffff';
+      ctx.stroke();
+      return;
+    }
     ctx.strokeStyle = 'rgba(255,255,255,0.45)';
     ctx.lineWidth = Math.max(1, size * 0.04);
     ctx.beginPath();
     ctx.moveTo(bx - hw * 0.45, by - h * 0.12);
     ctx.lineTo(bx - hw * 0.05, by - h * 0.75);
     ctx.stroke();
+  }
+
+  /** High contrast: a black-and-white ring around a round hazard (saws, pumpkins, monsters). */
+  private hazardRing(cx: number, cy: number, rr: number): void {
+    const ctx = this.ctx;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rr * 1.06, 0, Math.PI * 2);
+    ctx.lineWidth = Math.max(3, rr * 0.2);
+    ctx.strokeStyle = '#000000';
+    ctx.stroke();
+    ctx.lineWidth = Math.max(1.5, rr * 0.1);
+    ctx.strokeStyle = '#ffffff';
+    ctx.stroke();
+  }
+
+  /** "Show the beat": the view's edge glows on each beat and fades before the next. */
+  private drawBeatPulse(r: ViewRect, beat: number): void {
+    const a = Math.pow(1 - Math.min(1, Math.max(0, beat)), 3) * 0.55;
+    if (a < 0.02) return;
+    const ctx = this.ctx;
+    const w = Math.min(r.w, r.h) * 0.05;
+    ctx.save();
+    ctx.lineWidth = w;
+    ctx.strokeStyle = `rgba(255,255,255,${a.toFixed(3)})`;
+    ctx.strokeRect(r.x + w / 2, r.y + w / 2, r.w - w, r.h - w);
+    ctx.restore();
   }
 
   /** Halloween: a pale moon with a few bats flapping across it. */

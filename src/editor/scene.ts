@@ -105,6 +105,7 @@ export class EditorScene implements Scene {
     this.clampCamera(view, area);
     this.view = renderer.frameView(area, this.session.camX);
     const pal = BIOMES[doc.settings.theme % BIOMES.length];
+    renderer.highContrast = store.settings.highContrast;
     renderer.renderScene(this.world, this.view, {
       palette: pal,
       time,

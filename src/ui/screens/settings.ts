@@ -120,6 +120,41 @@ async function openParentalControls(): Promise<void> {
   );
 }
 
+/** Settings → Accessibility: options for seeing, hearing, reading and motion. */
+export function openAccessibility(): void {
+  const s = store.settings;
+  const set = <K extends 'reducedMotion' | 'bigText' | 'highContrast' | 'easyFont' | 'beatPulse' | 'beatBuzz'>(k: K) => (v: boolean) => store.setSetting(k, v);
+  ui.modal(
+    [
+      h('h2', null, 'Accessibility'),
+      h(
+        'div.col.body-scroll',
+        { style: 'text-align:left;gap:0.8rem' },
+        h('h3', null, 'Seeing'),
+        row('eye', 'High contrast', 'Bold black-and-white outlines on spikes, saws and monsters, a darker background behind the track and brighter menu text. Helps with colour blindness and low vision.', toggle(s.highContrast, set('highContrast'), 'High contrast')),
+        row('info', 'Bigger text', 'Larger small print in menus.', toggle(s.bigText, set('bigText'), 'Bigger text')),
+        row('edit', 'Easy-read font', 'A plain, wider-spaced font instead of the rounded game font.', toggle(s.easyFont, set('easyFont'), 'Easy-read font')),
+        h('h3', null, 'Motion'),
+        row('motion', 'Reduce motion', 'Less shaking, flashing and moving backgrounds. Lights Out keeps a steady candle.', toggle(s.reducedMotion, set('reducedMotion'), 'Reduce motion')),
+        h('h3', null, 'Hearing'),
+        row('music', 'Show the beat', 'The edge of the screen pulses on every beat, so you can jump on the rhythm without sound.', toggle(s.beatPulse, set('beatPulse'), 'Show the beat')),
+        row(
+          'vibrate',
+          'Feel the beat',
+          'A light buzz on every beat during runs (turns Vibration on).',
+          toggle(s.beatBuzz, (v) => {
+            store.setSetting('beatBuzz', v);
+            if (v && !store.settings.haptics) store.setSetting('haptics', true);
+          }, 'Feel the beat'),
+        ),
+        h('h3', null, 'Speed'),
+        row('child', 'Kid Mode', 'Slower Endless with 5 hearts. Good for anyone who wants more time to react.', toggle(s.kidMode, (v) => store.setSetting('kidMode', v), 'Kid Mode')),
+      ),
+    ],
+    { showClose: true, wide: true },
+  );
+}
+
 export class SettingsScreen extends BaseScreen {
   constructor() {
     super('.solid');
@@ -190,7 +225,7 @@ export class SettingsScreen extends BaseScreen {
             ),
             row('sound', 'Sound effects', 'Jumps, gems & more', slider(s.sfx, (v) => store.setSetting('sfx', v), 'Sound volume')),
             row('vibrate', 'Vibration', 'Buzz on bumps and pickups', toggle(s.haptics, (v) => store.setSetting('haptics', v), 'Vibration')),
-            row('motion', 'Reduce motion', 'Less shaking and flashing', toggle(s.reducedMotion, (v) => store.setSetting('reducedMotion', v), 'Reduce motion')),
+            row('eye', 'Accessibility', 'Text size, contrast, motion, play without sound', button({ label: 'Options', cls: 'yellow sm', onClick: () => openAccessibility() })),
             row(
               'target',
               'Difficulty',

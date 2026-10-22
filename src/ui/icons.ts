@@ -33,6 +33,9 @@ export const ICONS = {
   trophy: svg(
     `<path d="M7 3h10v6a5 5 0 0 1-10 0z" fill="#ffd23f"/><path d="M7 5H3.5v1.5A3.5 3.5 0 0 0 7 10M17 5h3.5v1.5A3.5 3.5 0 0 1 17 10" fill="none" stroke="#ffd23f" stroke-width="2"/><path d="M10.5 13.5h3V17h-3z" fill="#e09a00"/><rect x="7" y="17" width="10" height="3.5" rx="1" fill="#e09a00"/><path d="M9 5v4" stroke="#fff6c8" stroke-width="1.6" stroke-linecap="round"/>`,
   ),
+  eye: svg(
+    `<path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><circle cx="12" cy="12" r="3.4" fill="currentColor"/>`,
+  ),
   gift: svg(
     `<rect x="3" y="9" width="18" height="5" rx="1" fill="#ff5fa2"/><rect x="4.5" y="14" width="15" height="7" rx="1" fill="#ff7ac6"/><rect x="10.5" y="9" width="3" height="12" fill="#ffd23f"/><path d="M12 9c-1-3-5-5-6-3s3 3 6 3zm0 0c1-3 5-5 6-3s-3 3-6 3z" fill="#ffd23f" stroke="#e09a00" stroke-width="1"/>`,
   ),

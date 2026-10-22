@@ -3,6 +3,7 @@ import { App as CapApp } from '@capacitor/app';
 import { SplashScreen } from '@capacitor/splash-screen';
 import { isNative, todayKey } from './core/platform';
 import { store } from './state/store';
+import type { Settings } from './state/save';
 import { levels } from './state/levels';
 import { ensureMissions } from './meta/missions';
 import { ads } from './services/ads';
@@ -61,6 +62,15 @@ function registerRoutes(): void {
   nav.register('pals', () => new PalsScreen());
 }
 
+/** Accessibility settings that live in CSS (the game view reads the rest itself). */
+function applyAccessibility(s: Settings): void {
+  const root = document.documentElement.classList;
+  root.toggle('reduced-motion', s.reducedMotion);
+  root.toggle('big-text', s.bigText);
+  root.toggle('high-contrast', s.highContrast);
+  root.toggle('easy-font', s.easyFont);
+}
+
 /** Counts active play time (screen on, touched in the last 2 minutes): the Veteran badge and beta test days. */
 function startPlayClock(): void {
   const TICK = 15;
@@ -95,8 +105,8 @@ async function boot(): Promise<void> {
   claimBetaRewards(store.data);
   store.commit();
 
-  document.documentElement.classList.toggle('reduced-motion', store.settings.reducedMotion);
-  store.on('settings', (s) => document.documentElement.classList.toggle('reduced-motion', s.reducedMotion));
+  applyAccessibility(store.settings);
+  store.on('settings', applyAccessibility);
 
   const game = new GameController(document.getElementById('game') as HTMLCanvasElement);
   nav.setPlayHandler((req) => game.play(req));

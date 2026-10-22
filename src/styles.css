@@ -2560,6 +2560,40 @@ input[type='range']::-moz-range-thumb {
   animation-iteration-count: 1 !important;
 }
 
+/* Accessibility (Settings → Accessibility) */
+.big-text .small,
+.big-text .muted,
+.big-text .setting .lbl span,
+.big-text .mc-blurb,
+.big-text .level-meta,
+.big-text .toast {
+  font-size: max(0.92rem, 1em);
+}
+.big-text .setting .lbl b,
+.big-text .mc-name {
+  font-size: 1.1rem;
+}
+.high-contrast {
+  --ink-soft: #ffffff;
+  --ink-dim: rgba(255, 255, 255, 0.92);
+  --glass: rgba(8, 4, 24, 0.82);
+  --glass-strong: rgba(8, 4, 24, 0.92);
+  --stroke: rgba(255, 255, 255, 0.75);
+}
+.high-contrast .mc-blurb {
+  opacity: 1;
+}
+.high-contrast .btn,
+.high-contrast .tab,
+.high-contrast .panel {
+  outline: 2px solid rgba(255, 255, 255, 0.55);
+  outline-offset: -2px;
+}
+.easy-font {
+  --font: Verdana, Tahoma, 'Segoe UI', Roboto, Arial, sans-serif;
+  letter-spacing: 0.02em;
+}
+
 /* Narrow (portrait / split-screen) layouts */
 @media (max-aspect-ratio: 5/4) {
   .menu-main,

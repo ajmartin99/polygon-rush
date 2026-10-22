@@ -19,6 +19,16 @@ export interface Settings {
   sfx: number; // 0..1
   haptics: boolean;
   reducedMotion: boolean;
+  /** Accessibility: larger secondary text. */
+  bigText: boolean;
+  /** Accessibility: bold outlines on hazards, darker backgrounds, brighter UI text. */
+  highContrast: boolean;
+  /** Accessibility: a plain, wider-spaced font instead of the rounded game font. */
+  easyFont: boolean;
+  /** Accessibility: the screen edge pulses on every beat (play without sound). */
+  beatPulse: boolean;
+  /** Accessibility: a light buzz on every beat during runs. */
+  beatBuzz: boolean;
   /** Kid Mode: slower speed and extra hearts in Endless. */
   kidMode: boolean;
   graphics: GraphicsQuality;
@@ -194,6 +204,11 @@ export const DEFAULT_SETTINGS: Settings = {
   sfx: 0.9,
   haptics: true,
   reducedMotion: false,
+  bigText: false,
+  highContrast: false,
+  easyFont: false,
+  beatPulse: false,
+  beatBuzz: false,
   kidMode: false,
   graphics: 'auto',
   onlineAllowed: true,

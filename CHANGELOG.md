@@ -4,6 +4,21 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+### Added
+- **Haunted Run story.** Grizelda the witch has stolen the Harvest Moon. The run is now four chapters, each with its own scenery and ground:
+  - **The Pumpkin Fields** at sunset: corn rows, scarecrows, glowing jack-o'-lanterns, and Grizelda flying off ahead.
+  - **Hollow Hill Graveyard:** tombstones, dead trees, an iron fence and an eerie green glow.
+  - **The Haunted House:** striped wallpaper, flickering candelabras, lightning at the windows and portraits whose eyes follow you.
+  - **Grizelda's Rooftop:** chimneys over the sleeping town and the Harvest Moon trapped in her green bubble.
+- **Witch fight on the rooftop.** Grizelda flies in for the finale. Every jump on the roof carries a glowing orb; grab orbs to strike her. Knock her off her broom (most of the orbs) to free the moon for **500 gems on Hard, 150 on Easy**. Reaching the end while she gets away pays 100 / 50.
+- Each chapter opens with a title card.
+
+### Changed
+- **Zombies and ghosts come alive.** They wander back and forth while you're far away: zombies shamble and turn at walls, spikes and drops, like goombas; ghosts drift through anything, bobbing as they go. When they notice you, a "!" pops up and they come at you, settling into their spot just before you arrive, so you still clear them on the beat.
+
+### Fixed
+- Haunted Run music not playing on the next attempt after losing, when the app had been in the background or another app had played sound. Paused music now restarts on retry, and the game restarts music it finds paused while you play.
+
 ## [1.0.13] - 2026-10-22
 
 ### Added

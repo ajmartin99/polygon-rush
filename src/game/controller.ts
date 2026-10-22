@@ -23,11 +23,12 @@ import type { Scene } from './scene';
 import { SECRET_LEVELS } from './generator';
 import { DIFFICULTY_GEM_RATE, DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED } from './constants';
 import { activeEvent, SPOOKY } from '../meta/events';
+import { STORY_PALETTES, type StoryView } from '../render/haunted-scenery';
 import { MAX_START_LEVEL, clampStartLevel, levelStart, levelWorld } from '../meta/modes';
 import { endlessBestKey } from '../state/save';
 import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, LIGHTS_OUT_GEM_RATE, VARIANT_INFO, dailyRewardKey, dailySeed, dailyTwist, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
 import { isRegularTrack, TRACK_BASE, TRACKS } from '../core/tracks';
-import { HAUNTED_TRACK, hauntedPayout } from '../meta/haunted';
+import { chapterAt, HAUNTED_CHAPTERS, HAUNTED_TRACK, hauntedPayout, WITCH_NAME, witchHealth } from '../meta/haunted';
 import { InputManager } from './input';
 import type { Racer, RacerSpec } from './racer';
 import { RhythmScore } from './rhythm';
@@ -94,7 +95,9 @@ export class GameController {
   private req: PlayRequest | null = null;
   private variant: EndlessVariant = 'classic';
   /** Boss Battles: the boss being fought (null in other modes). */
-  private boss: (BossView & { def: BossDef }) | null = null;
+  private boss: (BossView & { def?: BossDef }) | null = null;
+  /** Haunted Run: the story chapter the runner is in (-1 before the start). */
+  private storyChapter = -1;
   /** Rhythm Rush scoring (null in other modes). */
   private rhythm: RhythmScore | null = null;
   /** The press state last step (Rhythm Rush judges each new press). */
@@ -254,8 +257,16 @@ export class GameController {
         const def = req.boss ? bossById(req.boss) : undefined;
         if (def) {
           const { hp } = bossHealth(req.level);
-          this.boss = { def, name: def.name, shape: def.shape, color: def.color, hp, max: hp, hit: 0, shot: 0, down: 0 };
+          this.boss = { def, name: def.name, shape: def.shape, color: def.color, fromX: 0, hp, max: hp, hit: 0, shot: 0, down: 0 };
         }
+        // The Haunted Run ends on the rooftop against Grizelda the witch.
+        const ch = req.haunted ? req.chapters : undefined;
+        if (ch && ch.length === HAUNTED_CHAPTERS.length) {
+          const fromX = ch[ch.length - 1];
+          const { hp } = witchHealth(req.level, fromX);
+          this.boss = { name: WITCH_NAME, shape: 'witch', color: '#7cff4f', fromX, hp, max: hp, hit: 0, shot: 0, down: 0 };
+        }
+        this.storyChapter = -1;
         break;
       }
       case 'endless': {
@@ -472,7 +483,7 @@ export class GameController {
         haptics.medium();
       }),
       s.on('gem', ({ racer, value, x, y }) => {
-        if (this.boss && value > 1 && local(racer)) return this.bossHit(racer);
+        if (this.boss && value > 1 && local(racer) && racer.x >= this.boss.fromX) return this.bossHit(racer);
         if (local(racer) || this.kind === 'attract') this.renderer.fx.gem(x, y, value, local(racer));
         if (!local(racer)) return;
         audio.play(value > 1 ? 'bigGem' : 'gem');
@@ -547,7 +558,7 @@ export class GameController {
     b.down = 1;
     r.invuln = 10;
     this.renderer.fx.addShake(0.6);
-    this.hud?.showHint(`${b.name} defeated!`, 'You win!', 1800, '30%');
+    this.hud?.showHint(`${b.name} defeated!`, b.shape === 'witch' ? 'The Harvest Moon is free!' : 'You win!', 1800, '30%');
     setTimeout(() => audio.play('newBest'), 250);
     if (this.phase === 'running') {
       this.phase = 'finishing';
@@ -655,6 +666,7 @@ export class GameController {
     }
     this.updateMusic();
     this.progressEvents();
+    this.storyEvents();
     const b = this.boss;
     if (b && this.phase !== 'paused') {
       b.hit = Math.max(0, b.hit - raw);
@@ -726,6 +738,7 @@ export class GameController {
       haunted: this.paletteFor(this.session?.racers[0]?.x ?? 0) === SPOOKY,
       secretsFound: store.data.secrets.found,
       boss: this.kind === 'custom' && this.phase !== 'results' ? this.boss : null,
+      story: this.storyView(),
       lightsOut: this.kind === 'endless' && this.variant === 'lightsout' ? candleAt(audio.beatPhase(), performance.now() / 1000, store.settings.reducedMotion) : undefined,
     });
     if (this.kind === 'attract' || this.phase === 'results') return;
@@ -753,7 +766,10 @@ export class GameController {
     const s = this.session;
     // Spooky Season: the menu backdrop and the Haunted Run are haunted.
     if (this.kind === 'attract' && activeEvent()?.id === 'halloween') return SPOOKY;
-    if (this.kind === 'custom' && this.req?.mode === 'custom' && this.req.haunted) return SPOOKY;
+    if (this.kind === 'custom' && this.req?.mode === 'custom' && this.req.haunted) {
+      const ch = this.req.chapters;
+      return ch ? STORY_PALETTES[chapterAt(ch, x)] : SPOOKY;
+    }
     const level = this.level();
     if (level) return BIOMES[level.theme % BIOMES.length];
     if (s && s.raceLike) return BIOMES[(s.opts.seed >>> 0) % BIOMES.length];
@@ -766,6 +782,30 @@ export class GameController {
   }
 
   /** World banners and distance milestones for the local endless runner. */
+  /** Haunted Run: which chapter's scenery to draw, fading into the next over its last 10 tiles. */
+  private storyView(): StoryView | undefined {
+    const req = this.req;
+    if (this.kind !== 'custom' || req?.mode !== 'custom' || !req.chapters) return undefined;
+    const ch = req.chapters;
+    const x = this.session?.racers[0]?.x ?? 0;
+    const c = chapterAt(ch, x);
+    const next = ch[c + 1];
+    const fade = next === undefined ? 0 : Math.min(1, Math.max(0, (x - (next - 10)) / 10));
+    return { chapter: c, fade, moonFree: !!this.boss && this.boss.hp <= 0 };
+  }
+
+  /** Haunted Run: a title card as you reach each chapter of the story. */
+  private storyEvents(): void {
+    const req = this.req;
+    if (this.kind !== 'custom' || req?.mode !== 'custom' || !req.chapters || this.phase !== 'running') return;
+    const c = chapterAt(req.chapters, this.session!.racers[0].x);
+    if (c === this.storyChapter) return;
+    this.storyChapter = c;
+    const ch = HAUNTED_CHAPTERS[c];
+    if (ch) this.hud?.showHint(ch.name, ch.line, 2600, '26%');
+    if (ch?.id === 'roof') audio.play('portal');
+  }
+
   private progressEvents(): void {
     if (this.kind !== 'endless' || this.phase !== 'running') return;
     const s = this.session!;
@@ -1019,17 +1059,22 @@ export class GameController {
     if (req.haunted) {
       const diff = req.haunted;
       const h = d.haunted;
-      const pay = hauntedPayout(diff, r.gems, completed);
+      const witchDown = completed && !!this.boss && this.boss.hp <= 0;
+      const pay = hauntedPayout(diff, r.gems, completed, witchDown);
       if (pay > 0) store.addGems(pay);
       h.best[diff] = Math.max(h.best[diff], progress);
-      if (completed) {
+      if (witchDown) {
         h.clears[diff] += 1;
-        missions.push(`Haunted Run cleared on ${diff === 'hard' ? 'Hard' : 'Easy'}! +${pay} gems`);
+        missions.push(`${WITCH_NAME} defeated on ${diff === 'hard' ? 'Hard' : 'Easy'}! The Harvest Moon is free. +${pay} gems`);
+      } else if (completed) {
+        h.clears[diff] += 1;
+        missions.push(`You reached the end, but ${WITCH_NAME} got away. +${pay} gems`);
+        if (this.boss) missions.push(`She had ${this.boss.hp} of ${this.boss.max} health left. Grab the glowing orbs on the rooftop!`);
       } else if (pay > 0) missions.push(`Haunted Run: +${pay} gems${diff === 'easy' ? ' (Easy pays half)' : ''}`);
       d.stats.gemsCollected += r.gems;
     }
     const boss = this.boss;
-    if (req.boss && boss) {
+    if (req.boss && boss?.def) {
       const def = boss.def;
       const rec = d.bosses[def.id] ?? { wins: 0, best: 0 };
       rec.best = Math.max(rec.best, 1 - boss.hp / boss.max);
@@ -1061,7 +1106,12 @@ export class GameController {
         hits: r.hits,
         verifiedNow,
         missionsDone: missions,
-        win: req.boss && this.boss ? { big: 'VICTORY!', sub: `You beat ${this.boss.name}!` } : undefined,
+        win:
+          req.boss && this.boss
+            ? { big: 'VICTORY!', sub: `You beat ${this.boss.name}!` }
+            : req.haunted && completed && this.boss && this.boss.hp <= 0
+              ? { big: 'VICTORY!', sub: `${WITCH_NAME} tumbles off her broom. The Harvest Moon is free!` }
+              : undefined,
         notesTitle: req.boss ? (completed ? 'Boss defeated!' : r.dead ? 'Knocked out!' : 'It got away!') : req.haunted ? 'Haunted Run' : undefined,
         rate: req.rate,
       },
@@ -1131,8 +1181,10 @@ export class GameController {
         this.phase = 'finishing';
         // A boss still standing when the song ends gets away.
         const escaped = !!this.boss && this.boss.hp > 0;
-        if (escaped) this.hud?.showHint(`${this.boss!.name} got away!`, '', 1600, '30%');
-        this.finishTimer = window.setTimeout(() => this.endLevel(r, !escaped), 1400);
+        const witch = this.boss?.shape === 'witch';
+        if (escaped) this.hud?.showHint(witch ? `${this.boss!.name} got away with the moon!` : `${this.boss!.name} got away!`, witch ? 'You made it to the end, though!' : '', 1600, '30%');
+        // The Haunted Run counts reaching the end as a clear even if the witch escapes.
+        this.finishTimer = window.setTimeout(() => this.endLevel(r, !escaped || witch), 1400);
       }
       return;
     }

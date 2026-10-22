@@ -28,19 +28,65 @@ export const HAUNTED_RULES = {
   attempts: 2,
   windowMs: 24 * 60 * 60 * 1000,
   gemRate: { hard: 1, easy: 0.5 } as Record<HauntedDiff, number>,
-  /** Paid on reaching the end of the song (scaled by the rate). */
-  finishBonus: 300,
+  /** Knocking Grizelda off her broom (the finale), and reaching the end while she gets away. */
+  witchBonus: { hard: 500, easy: 150 } as Record<HauntedDiff, number>,
+  escapeBonus: { hard: 100, easy: 50 } as Record<HauntedDiff, number>,
   /** Hearts in a run: Hard is one bump and out. */
   hearts: { hard: 1, easy: 3 } as Record<HauntedDiff, number>,
   /** Speed index into LEVEL_SPEEDS. */
   speed: { hard: 2, easy: 0 } as Record<HauntedDiff, number>,
 };
 
+/**
+ * The story: Grizelda the witch has stolen the Harvest Moon. You chase her
+ * through the Pumpkin Fields, Hollow Hill Graveyard and her Haunted House,
+ * then fight her on the rooftop: grab the glowing orbs to strike her.
+ */
+export interface HauntedChapter {
+  id: 'fields' | 'graveyard' | 'house' | 'roof';
+  name: string;
+  line: string;
+}
+
+export const HAUNTED_CHAPTERS: HauntedChapter[] = [
+  { id: 'fields', name: 'The Pumpkin Fields', line: 'Grizelda the witch stole the Harvest Moon! Chase her!' },
+  { id: 'graveyard', name: 'Hollow Hill Graveyard', line: 'The dead are restless tonight…' },
+  { id: 'house', name: 'The Haunted House', line: 'Her lair! Watch out for the ghosts.' },
+  { id: 'roof', name: 'Grizelda’s Rooftop', line: 'Grab the glowing orbs to strike the witch!' },
+];
+
+export const WITCH_NAME = 'Grizelda';
+/** The finale is the last few 32-beat phrases. */
+const WITCH_PHRASES = 3;
+const BIG = 1;
+
 type Mode = 'square' | 'triangle' | 'hexagon' | 'diamond';
 const MODE_V: Record<Mode, number> = { square: 0, triangle: 1, hexagon: 2, diamond: 3 };
 
 /** Build the day's course. Deterministic for (difficulty, seed). */
 export function hauntedCourse(diff: HauntedDiff, seed: number): LevelContent {
+  return hauntedPlan(diff, seed).level;
+}
+
+/** Where each chapter starts (tile x), the witch fight being the last one. */
+export function hauntedChapterStarts(diff: HauntedDiff, seed: number): number[] {
+  return hauntedPlan(diff, seed).chapters;
+}
+
+/** Which chapter a runner at `x` is in. */
+export function chapterAt(starts: readonly number[], x: number): number {
+  let c = 0;
+  while (c + 1 < starts.length && x >= starts[c + 1]) c++;
+  return c;
+}
+
+/** Glowing orbs on the rooftop, and how many hits knock Grizelda off her broom (most, not all). */
+export function witchHealth(level: LevelContent, fromX: number): { orbs: number; hp: number } {
+  const orbs = level.pieces.filter((p) => p.t === 'gem' && p.v === BIG && p.x >= fromX).length;
+  return { orbs, hp: Math.max(1, Math.ceil(orbs * 0.6)) };
+}
+
+function hauntedPlan(diff: HauntedDiff, seed: number): { level: LevelContent; chapters: number[] } {
   const hard = diff === 'hard';
   const v = LEVEL_SPEEDS[HAUNTED_RULES.speed[diff]];
   const rng = new Rng((seed ^ (hard ? 0x7a11 : 0x3e5d)) >>> 0);
@@ -67,13 +113,18 @@ export function hauntedCourse(diff: HauntedDiff, seed: number): LevelContent {
     if (m === order[i - 1]) m = pool[(pool.indexOf(m) + 1) % pool.length];
     order.push(m);
   }
-  order[order.length - 1] = 'square'; // the finale is a Jumper sprint
+  // The witch fight is on foot (Jumper): jump her attacks, grab the orbs at the top of each jump.
+  const witchFrom = Math.max(1, phrases - WITCH_PHRASES);
+  for (let i = witchFrom; i < phrases; i++) order[i] = 'square';
+  const witchX = col(beatAt(firstBeat + witchFrom * 32));
+  let witch = false;
 
   for (let k = 0; k < firstBeat; k += 2) gem(beatAt(k) + 0.1, 0);
 
   let mode: Mode = 'square';
   for (let p = 0; p < phrases; p++) {
     const start = firstBeat + p * 32;
+    witch = p >= witchFrom;
     const end = Math.min(totalBeats - 2, start + 32);
     const next = order[p];
     let k = start;
@@ -122,7 +173,9 @@ export function hauntedCourse(diff: HauntedDiff, seed: number): LevelContent {
       put('spike', c + 1);
       put('spike', c + 2);
     }
-    gem(ta + apex, k % 8 === 0 ? 3 : 2, k % 16 === 0);
+    // On the rooftop every jump carries a glowing orb (it fires back at the witch).
+    if (witch) gem(ta + apex, 2, true);
+    else gem(ta + apex, k % 8 === 0 ? 3 : 2);
   }
 
   /** Glider: a gate on every beat (Easy: every other), gaps switching high and low. */
@@ -162,16 +215,23 @@ export function hauntedCourse(diff: HauntedDiff, seed: number): LevelContent {
   }
 
   const length = col(END_AT) + 2;
+  // Fields and graveyard share the first half, the house the phrases before the finale.
+  const houseFrom = Math.max(1, witchFrom - 2);
+  const graveFrom = Math.max(1, Math.min(houseFrom - 1, Math.round(houseFrom / 2)));
+  const chapters = [0, col(beatAt(firstBeat + graveFrom * 32)), col(beatAt(firstBeat + houseFrom * 32)), witchX];
   return {
-    name: [55, 61],
-    title: 'Haunted Run',
-    authors: [],
-    theme: 4,
-    music: HAUNTED_TRACK,
-    speed: HAUNTED_RULES.speed[diff],
-    hearts: HAUNTED_RULES.hearts[diff],
-    length,
-    pieces: [...pieces.values()],
+    chapters,
+    level: {
+      name: [55, 61],
+      title: 'Haunted Run',
+      authors: [],
+      theme: 4,
+      music: HAUNTED_TRACK,
+      speed: HAUNTED_RULES.speed[diff],
+      hearts: HAUNTED_RULES.hearts[diff],
+      length,
+      pieces: [...pieces.values()],
+    },
   };
 }
 
@@ -236,8 +296,13 @@ export function useRegen(h: HauntedState, now = Date.now()): boolean {
   return true;
 }
 
-/** Gems for a run: collected gems plus the finish bonus, at the difficulty's rate. */
-export function hauntedPayout(diff: HauntedDiff, gems: number, finished: boolean): number {
+/**
+ * Gems for a run: collected gems at the difficulty's rate, plus the witch
+ * bonus for knocking Grizelda off her broom, or a smaller one for reaching
+ * the end while she got away.
+ */
+export function hauntedPayout(diff: HauntedDiff, gems: number, finished: boolean, witchDown = false): number {
   const rate = HAUNTED_RULES.gemRate[diff];
-  return Math.round((gems + (finished ? HAUNTED_RULES.finishBonus : 0)) * rate);
+  const bonus = witchDown ? HAUNTED_RULES.witchBonus[diff] : finished ? HAUNTED_RULES.escapeBonus[diff] : 0;
+  return Math.round(gems * rate) + bonus;
 }

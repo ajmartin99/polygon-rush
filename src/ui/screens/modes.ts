@@ -42,7 +42,7 @@ export class ModesScreen extends BaseScreen {
             {
               id: 'haunted',
               name: '🎃 Haunted Run',
-              blurb: 'A Halloween course charted to Swing Along. Very hard. Finish the song for a big gem bonus.',
+              blurb: 'Chase Grizelda the witch through the Pumpkin Fields, a graveyard and her Haunted House, then knock her off her broom for a big gem bonus!',
               icon: 'sparkle' as IconName,
               color: 'orange spooky',
               tag: left > 0 ? `${left} of ${HAUNTED_RULES.attempts} attempts` : hs.regens > 0 ? `${hs.regens} Heart Regen${hs.regens > 1 ? 's' : ''}` : 'Out of attempts',

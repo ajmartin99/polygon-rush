@@ -55,6 +55,8 @@ export type PlayRequest =
       rate?: LevelRating;
       /** Haunted Run: its difficulty (beat sync, payout, attempts). */
       haunted?: 'hard' | 'easy';
+      /** Haunted Run: where each story chapter starts (the last is the witch fight). */
+      chapters?: number[];
       /** Boss Battles: which boss (its health bar, orbs and rewards). */
       boss?: BossId;
       /** Replaces Retry / Restart (the Haunted Run spends an attempt). */

@@ -1,4 +1,5 @@
-import { drawGhost, drawPumpkin, drawZombie } from './spooky';
+import { drawGhost, drawPumpkin, drawWitch, drawZombie } from './spooky';
+import { drawStoryScenery, type StoryView } from './haunted-scenery';
 import { CEIL, VIEW_BOTTOM, VIEW_H, VIEW_TOP } from '../game/constants';
 import type { GameSession } from '../game/session';
 import type { Racer } from '../game/racer';
@@ -58,12 +59,16 @@ export interface RenderOptions {
   lightsOut?: { light: number; blow: number; flicker: number };
   /** Boss Battles: the boss (big gems are drawn as its charge orbs). */
   boss?: BossView | null;
+  /** Haunted Run: the story chapter's own scenery instead of the world background. */
+  story?: StoryView;
 }
 
 /** What the renderer needs to draw a boss fight. */
 export interface BossView {
   name: string;
-  shape: 'square' | 'triangle' | 'hexagon';
+  shape: 'square' | 'triangle' | 'hexagon' | 'witch';
+  /** The fight starts here (the Haunted Run's witch flies in at the rooftop); 0 = from the start. */
+  fromX: number;
   color: string;
   hp: number;
   max: number;
@@ -186,6 +191,8 @@ export class Renderer {
   beatPulse = false;
   private haunted = false;
   private bossFight = false;
+  /** Big gems from here on are the boss's charge orbs. */
+  private bossFrom = 0;
   private beatPhase = 0;
   private secretsFound: readonly number[] = [];
 
@@ -193,8 +200,9 @@ export class Renderer {
     const ctx = this.ctx;
     const cam = this.camera(view, dt);
     this.runnerX = view.racer.x;
-    this.haunted = !!opts.haunted;
+    this.haunted = !!opts.haunted || !!opts.story;
     this.bossFight = !!opts.boss;
+    this.bossFrom = opts.boss?.fromX ?? 0;
     this.beatPhase = opts.beat;
     this.secretsFound = opts.secretsFound ?? [];
     const r = view.rect;
@@ -216,7 +224,8 @@ export class Renderer {
     const x0 = cam.x - 3;
     const x1 = cam.x + r.w / s + 3;
 
-    this.drawBackground(r, cam, pal, time, opts.beat);
+    if (opts.story) drawStoryScenery(ctx, r, cam, opts.story, time, opts.beat, this.detail, this.fx.reducedMotion);
+    else this.drawBackground(r, cam, pal, time, opts.beat);
     if (this.highContrast) {
       ctx.fillStyle = 'rgba(6,3,18,0.5)';
       ctx.fillRect(r.x, r.y, r.w, r.h);
@@ -227,7 +236,8 @@ export class Renderer {
 
     const me = view.racer;
     this.drawTrack(session.world, x0, x1, sx, sy, s, pal, time, me.collected, me.body.usedOrb);
-    if (this.haunted) this.drawFog(r, sy, s, cam.x, time);
+    // Ground fog outdoors (not inside the Haunted House or up on the roof).
+    if (this.haunted && (!opts.story || opts.story.chapter < 2)) this.drawFog(r, sy, s, cam.x, time);
 
     this.fx.draw(ctx, sx, sy, s, true, x0, x1);
     for (const other of session.racers) {
@@ -238,7 +248,8 @@ export class Renderer {
     }
     if (!me.dead && !opts.noRacers) this.drawRacer(me, sx, sy, s, time, 1, pal);
     this.fx.draw(ctx, sx, sy, s, false, x0, x1);
-    if (opts.boss) this.drawBoss(opts.boss, r, me, sx, sy, s, time);
+    // A boss that joins later (the witch) flies in as you get close.
+    if (opts.boss && me.x > opts.boss.fromX - 16) this.drawBoss(opts.boss, r, me, sx, sy, s, time);
     if (opts.lightsOut !== undefined) this.drawDarkness(r, sx(me.x), sy(me.body.y), s, opts.lightsOut, me.body.gdir, time);
 
     if (this.fx.flash > 0) {
@@ -287,7 +298,7 @@ export class Renderer {
           break;
         case 'gem':
           if (collected?.has(o.id)) break;
-          if (this.bossFight && o.big) this.drawChargeOrb(sx(o.x), sy(o.y), s, time + o.x);
+          if (this.bossFight && o.big && o.x >= this.bossFrom) this.drawChargeOrb(sx(o.x), sy(o.y), s, time + o.x);
           else this.drawGem(sx(o.x), sy(o.y) + Math.sin(time * 4 + o.x) * s * 0.06, s, o.big, time + o.x);
           break;
         case 'pickup':
@@ -906,24 +917,72 @@ export class Renderer {
     ctx.restore();
   }
 
+  /** A shot from the runner to the boss. */
+  private drawShot(b: BossView, me: Racer, bx: number, by: number, sx: (x: number) => number, sy: (y: number) => number, s: number): void {
+    if (b.shot <= 0) return;
+    const ctx = this.ctx;
+    const k = 1 - b.shot;
+    const px = sx(me.x) + (bx - sx(me.x)) * k;
+    const py = sy(me.body.y) + (by - sy(me.body.y)) * k - Math.sin(k * Math.PI) * s * 1.5;
+    const g = ctx.createRadialGradient(px, py, 0, px, py, s * 0.6);
+    g.addColorStop(0, 'rgba(255,255,255,1)');
+    g.addColorStop(0.4, 'rgba(120,240,255,0.9)');
+    g.addColorStop(1, 'rgba(120,240,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(px - s * 0.6, py - s * 0.6, s * 1.2, s * 1.2);
+  }
+
+  /** The boss's health bar with its name. */
+  private drawBossBar(b: BossView, r: ViewRect): void {
+    const ctx = this.ctx;
+    const u = Math.min(r.h, r.w / 1.45) / 22;
+    const bw = r.w * 0.36;
+    const x0 = r.x + (r.w - bw) / 2;
+    // Under the level's progress bar, its name where the level title would be.
+    const y0 = r.y + u * 4.2;
+    ctx.fillStyle = 'rgba(16,8,48,0.7)';
+    ctx.beginPath();
+    ctx.roundRect(x0 - u * 0.3, y0 - u * 0.3, bw + u * 0.6, u * 1.3, u * 0.6);
+    ctx.fill();
+    ctx.fillStyle = b.color;
+    ctx.beginPath();
+    ctx.roundRect(x0, y0, Math.max(0, bw * (b.hp / b.max)), u * 0.7, u * 0.35);
+    ctx.fill();
+    ctx.font = `700 ${Math.round(u * 0.85)}px Fredoka, system-ui, sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.lineWidth = Math.max(2, u * 0.16);
+    ctx.strokeStyle = 'rgba(16,8,48,0.85)';
+    ctx.strokeText(b.name, r.x + r.w / 2, y0 - u * 0.4);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(b.name, r.x + r.w / 2, y0 - u * 0.4);
+  }
+
   /** Boss Battles: the boss floating ahead, its health bar, and your shots flying back at it. */
   private drawBoss(b: BossView, r: ViewRect, me: Racer, sx: (x: number) => number, sy: (y: number) => number, s: number, time: number): void {
     const ctx = this.ctx;
-    const bx = r.x + r.w * 0.8 + b.hit * s * 1.2;
-    const by = sy(4.4) + Math.sin(time * 2.2) * s * 0.35;
-    const size = s * 1.6 * (b.down > 0 ? b.down : 1) * (1 + 0.06 * Math.max(0, 1 - this.beatPhase * 4));
-    // A shot from the runner to the boss.
-    if (b.shot > 0) {
-      const k = 1 - b.shot;
-      const px = sx(me.x) + (bx - sx(me.x)) * k;
-      const py = sy(me.body.y) + (by - sy(me.body.y)) * k - Math.sin(k * Math.PI) * s * 1.5;
-      const g = ctx.createRadialGradient(px, py, 0, px, py, s * 0.6);
-      g.addColorStop(0, 'rgba(255,255,255,1)');
-      g.addColorStop(0.4, 'rgba(120,240,255,0.9)');
-      g.addColorStop(1, 'rgba(120,240,255,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(px - s * 0.6, py - s * 0.6, s * 1.2, s * 1.2);
+    // Flying in from off screen over the 16 tiles before the fight.
+    const enter = b.fromX > 0 ? Math.min(1, Math.max(0, (me.x - (b.fromX - 16)) / 14)) : 1;
+    const inX = (1 - enter) * (1 - enter) * r.w * 0.4;
+    const bx = r.x + r.w * 0.8 + b.hit * s * 1.2 + inX;
+    const by = sy(4.4) + Math.sin(time * 2.2) * s * 0.35 - inX * 0.3;
+    if (b.shape === 'witch') {
+      this.drawShot(b, me, bx, by, sx, sy, s);
+      ctx.save();
+      ctx.translate(bx, by);
+      if (b.down > 0) {
+        // Knocked off her broom: she tumbles away.
+        ctx.rotate((1 - b.down) * 5);
+        ctx.globalAlpha = b.down;
+        ctx.translate(0, (1 - b.down) * s * 4);
+      }
+      drawWitch(ctx, s * 1.25, time, b.hit > 0, this.beatPhase);
+      ctx.restore();
+      if (enter >= 1) this.drawBossBar(b, r);
+      return;
     }
+    const size = s * 1.6 * (b.down > 0 ? b.down : 1) * (1 + 0.06 * Math.max(0, 1 - this.beatPhase * 4));
+    this.drawShot(b, me, bx, by, sx, sy, s);
     if (size > 1) {
       ctx.save();
       ctx.translate(bx, by);
@@ -993,28 +1052,7 @@ export class Renderer {
       ctx.stroke();
       ctx.restore();
     }
-    // Health bar with the boss's name.
-    const u = Math.min(r.h, r.w / 1.45) / 22;
-    const bw = r.w * 0.36;
-    const x0 = r.x + (r.w - bw) / 2;
-    // Under the level's progress bar, its name where the level title would be.
-    const y0 = r.y + u * 4.2;
-    ctx.fillStyle = 'rgba(16,8,48,0.7)';
-    ctx.beginPath();
-    ctx.roundRect(x0 - u * 0.3, y0 - u * 0.3, bw + u * 0.6, u * 1.3, u * 0.6);
-    ctx.fill();
-    ctx.fillStyle = b.color;
-    ctx.beginPath();
-    ctx.roundRect(x0, y0, Math.max(0, bw * (b.hp / b.max)), u * 0.7, u * 0.35);
-    ctx.fill();
-    ctx.font = `700 ${Math.round(u * 0.85)}px Fredoka, system-ui, sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    ctx.lineWidth = Math.max(2, u * 0.16);
-    ctx.strokeStyle = 'rgba(16,8,48,0.85)';
-    ctx.strokeText(b.name, r.x + r.w / 2, y0 - u * 0.4);
-    ctx.fillStyle = '#ffffff';
-    ctx.fillText(b.name, r.x + r.w / 2, y0 - u * 0.4);
+    this.drawBossBar(b, r);
   }
 
   /** Boss Battles: a charge orb (grab it to fire it back at the boss). */

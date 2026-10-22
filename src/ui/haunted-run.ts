@@ -1,6 +1,6 @@
 import { CONFIG } from '../config';
 import { activeEvent } from '../meta/events';
-import { attemptsLeft, HAUNTED_RULES, hauntedLevel, refillIn, useAttempt, useRegen, type HauntedDiff } from '../meta/haunted';
+import { attemptsLeft, HAUNTED_RULES, hauntedChapterStarts, hauntedLevel, refillIn, useAttempt, useRegen, WITCH_NAME, type HauntedDiff } from '../meta/haunted';
 import { dailySeed } from '../meta/modes';
 import { gemPriceOf } from '../meta/products';
 import { iap } from '../services/iap';
@@ -35,6 +35,7 @@ export function startHaunted(diff: HauntedDiff): void {
     mode: 'custom',
     level: hauntedLevel(diff, dailySeed()),
     haunted: diff,
+    chapters: hauntedChapterStarts(diff, dailySeed()),
     exit: () => nav.go('modes'),
     // Retry spends another attempt (or offers a Heart Regen).
     onRetry: () => startHaunted(diff),
@@ -50,12 +51,15 @@ export function openHauntedRun(): void {
     const hs = store.data.haunted;
     const left = attemptsLeft(hs);
     const wait = refillIn(hs);
-    const bonus = (d: HauntedDiff) => fmt(Math.round(HAUNTED_RULES.finishBonus * HAUNTED_RULES.gemRate[d]));
+    const bonus = (d: HauntedDiff) => fmt(HAUNTED_RULES.witchBonus[d]);
     body.append(
       h('h2', null, '🎃 Haunted Run'),
       // Out of attempts the refill options need the room, so the course blurb steps aside.
       ...(left > 0 || hs.regens > 0
-        ? [h('p.muted.small', null, 'Today’s course is charted to Swing Along: jump, flip and glide on the beat. Jump the zombies shambling in your way, and fly around the ghosts haunting the sky! Reach the end of the song for a big gem bonus.')]
+        ? [
+            h('p.small', null, `${WITCH_NAME} the witch has stolen the Harvest Moon! Chase her through the Pumpkin Fields, Hollow Hill Graveyard and her Haunted House, all on the beat of Swing Along.`),
+            h('p.muted.small', null, `On her rooftop, grab the glowing orbs to strike her. Knock ${WITCH_NAME} off her broom for the big bonus. A new course every day.`),
+          ]
         : []),
       h(
         'div.hr-hearts',
@@ -76,8 +80,8 @@ export function openHauntedRun(): void {
         h(
           'div.actions',
           null,
-          button({ label: 'Hard', sub: `1× gems · finish +${bonus('hard')}`, icon: 'bolt', cls: 'red lg', onClick: () => (m.close(), startHaunted('hard')) }),
-          button({ label: 'Easy', sub: `0.5× gems · finish +${bonus('easy')}`, icon: 'play', cls: 'mint lg', onClick: () => (m.close(), startHaunted('easy')) }),
+          button({ label: 'Hard', sub: `1× gems · witch +${bonus('hard')}`, icon: 'bolt', cls: 'red lg', onClick: () => (m.close(), startHaunted('hard')) }),
+          button({ label: 'Easy', sub: `0.5× gems · witch +${bonus('easy')}`, icon: 'play', cls: 'mint lg', onClick: () => (m.close(), startHaunted('easy')) }),
         ),
       );
     } else if (hs.regens > 0) {

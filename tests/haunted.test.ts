@@ -3,7 +3,7 @@ import { mobFacing, sawX, sawY, World } from '../src/game/world';
 import { BotBrain } from '../src/game/bot';
 import { createBody, newEvents, stepBody } from '../src/game/physics';
 import { buildWorld, levelSpeed } from '../src/game/level';
-import { attemptsLeft, emptyHaunted, hauntedCourse, hauntedPayout, refillIn, useAttempt, useRegen, HAUNTED_RULES, HAUNTED_TRACK, type HauntedDiff } from '../src/meta/haunted';
+import { attemptsLeft, emptyHaunted, hauntedCourse, hauntedPayout, refillIn, useAttempt, useRegen, chapterAt, hauntedChapterStarts, witchHealth, HAUNTED_CHAPTERS, HAUNTED_RULES, HAUNTED_TRACK, type HauntedDiff } from '../src/meta/haunted';
 
 /** A perfect bot plays the course; returns where it got hit (if anywhere). */
 function botRun(diff: HauntedDiff, seed: number) {
@@ -109,11 +109,28 @@ describe('Haunted Run', () => {
     expect(h.regens).toBe(3);
   });
 
-  it('Hard pays full, Easy half, with a big bonus for reaching the end', () => {
+  it('Hard pays full gems, Easy half, plus the witch bonus (or a smaller one if she gets away)', () => {
     expect(hauntedPayout('hard', 100, false)).toBe(100);
     expect(hauntedPayout('easy', 100, false)).toBe(50);
-    expect(hauntedPayout('hard', 100, true)).toBe(100 + HAUNTED_RULES.finishBonus);
-    expect(hauntedPayout('easy', 100, true)).toBe((100 + HAUNTED_RULES.finishBonus) / 2);
+    expect(hauntedPayout('hard', 100, true)).toBe(100 + HAUNTED_RULES.escapeBonus.hard);
+    expect(hauntedPayout('hard', 100, true, true)).toBe(100 + HAUNTED_RULES.witchBonus.hard);
+    expect(hauntedPayout('easy', 100, true, true)).toBe(50 + HAUNTED_RULES.witchBonus.easy);
+    expect(HAUNTED_RULES.witchBonus).toEqual({ hard: 500, easy: 150 });
+  });
+
+  it('runs through four chapters to the witch, whose orbs are all on the rooftop', () => {
+    for (const diff of ['hard', 'easy'] as const) {
+      const level = hauntedCourse(diff, 7);
+      const starts = hauntedChapterStarts(diff, 7);
+      expect(starts).toHaveLength(HAUNTED_CHAPTERS.length);
+      for (let i = 1; i < starts.length; i++) expect(starts[i]).toBeGreaterThan(starts[i - 1] + 20);
+      expect(chapterAt(starts, starts[2] + 1)).toBe(2);
+      const big = level.pieces.filter((p) => p.t === 'gem' && p.v === 1);
+      expect(big.every((p) => p.x >= starts[3])).toBe(true);
+      const { orbs, hp } = witchHealth(level, starts[3]);
+      expect(orbs).toBeGreaterThan(8);
+      expect(hp).toBeLessThan(orbs);
+    }
   });
 });
 

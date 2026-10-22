@@ -190,3 +190,135 @@ export function drawGhost(ctx: CanvasRenderingContext2D, px: number, py: number,
   ctx.ellipse(r * 0.32, r * 0.15, r * (0.1 + lunge * 0.12), r * (0.14 + lunge * 0.16 + Math.abs(Math.sin(time * 4)) * 0.04), 0, 0, Math.PI * 2);
   ctx.fill();
 }
+
+/**
+ * Grizelda the witch on her broomstick, facing left (at the runner), centred
+ * on the origin. `hit` flashes her white; she cackles on the beat.
+ */
+export function drawWitch(ctx: CanvasRenderingContext2D, s: number, time: number, hit: boolean, beat: number): void {
+  const pulse = Math.pow(1 - Math.min(1, Math.max(0, beat)), 3);
+  ctx.save();
+  // Green magic glow.
+  const glow = ctx.createRadialGradient(0, -s * 0.3, s * 0.3, 0, -s * 0.3, s * 2);
+  glow.addColorStop(0, `rgba(124,255,79,${0.25 + pulse * 0.2})`);
+  glow.addColorStop(1, 'rgba(124,255,79,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(-s * 2, -s * 2.3, s * 4, s * 4);
+  ctx.rotate(Math.sin(time * 2.4) * 0.06);
+  const line = Math.max(1.5, s * 0.06);
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  // Broom: stick and straw bristles trailing behind (to the right).
+  ctx.strokeStyle = '#6b4220';
+  ctx.lineWidth = s * 0.14;
+  ctx.beginPath();
+  ctx.moveTo(-s * 1.4, s * 0.38);
+  ctx.lineTo(s * 1.0, s * 0.2);
+  ctx.stroke();
+  ctx.fillStyle = hit ? '#ffffff' : '#e8b04a';
+  ctx.strokeStyle = '#8a5a14';
+  ctx.lineWidth = line;
+  ctx.beginPath();
+  ctx.moveTo(s * 0.95, s * 0.12);
+  for (let i = 0; i <= 6; i++) {
+    const a = -0.5 + (i / 6) * 1.0;
+    const len = s * (0.85 + Math.sin(time * 9 + i) * 0.06);
+    ctx.lineTo(s * 0.95 + Math.cos(a) * len, s * 0.2 + Math.sin(a) * len);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#7a1e8a';
+  ctx.fillRect(s * 0.85, s * 0.05, s * 0.16, s * 0.3);
+  // Cloak, flapping.
+  const flap = Math.sin(time * 6) * s * 0.12;
+  ctx.fillStyle = hit ? '#ffffff' : '#4a1a6e';
+  ctx.strokeStyle = '#1b0a2a';
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.15, -s * 0.75);
+  ctx.quadraticCurveTo(s * 0.65, -s * 0.2, s * 0.9 + flap, s * 0.45);
+  ctx.lineTo(-s * 0.55, s * 0.4);
+  ctx.quadraticCurveTo(-s * 0.55, -s * 0.2, -s * 0.15, -s * 0.75);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  // Hands on the broom.
+  ctx.fillStyle = hit ? '#ffffff' : '#7fd85a';
+  for (const hx of [-s * 0.55, -s * 0.2]) {
+    ctx.beginPath();
+    ctx.arc(hx, s * 0.32, s * 0.11, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Orange hair.
+  ctx.strokeStyle = '#ff7a2a';
+  ctx.lineWidth = s * 0.07;
+  for (let i = 0; i < 5; i++) {
+    const hx = s * (0.05 + i * 0.06);
+    ctx.beginPath();
+    ctx.moveTo(hx, -s * 1.05);
+    ctx.quadraticCurveTo(hx + s * 0.25, -s * 0.8, hx + s * (0.35 + i * 0.03) + flap, -s * (0.45 - i * 0.04));
+    ctx.stroke();
+  }
+  // Green face with a long warty nose.
+  const hx = -s * 0.12;
+  const hy = -s * 0.95;
+  ctx.fillStyle = hit ? '#ffffff' : '#7fd85a';
+  ctx.strokeStyle = '#2a5a14';
+  ctx.lineWidth = line;
+  ctx.beginPath();
+  ctx.arc(hx, hy, s * 0.34, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(hx - s * 0.22, hy - s * 0.02);
+  ctx.quadraticCurveTo(hx - s * 0.62, hy + s * 0.06, hx - s * 0.66, hy + s * 0.2);
+  ctx.quadraticCurveTo(hx - s * 0.42, hy + s * 0.16, hx - s * 0.22, hy + s * 0.12);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#4a8a2a';
+  ctx.beginPath();
+  ctx.arc(hx - s * 0.48, hy + s * 0.06, s * 0.035, 0, Math.PI * 2);
+  ctx.fill();
+  // Yellow eyes with slit pupils, glancing at you.
+  for (const ex of [-0.2, 0.0]) {
+    ctx.fillStyle = '#ffe24a';
+    ctx.beginPath();
+    ctx.ellipse(hx + ex * s, hy - s * 0.08, s * 0.08, s * 0.065, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#1b0a2a';
+    ctx.fillRect(hx + ex * s - s * 0.035, hy - s * 0.13, s * 0.02, s * 0.1);
+  }
+  // Cackle on the beat (and when hit).
+  const open = hit ? 1 : pulse;
+  ctx.fillStyle = '#2a0a1a';
+  ctx.beginPath();
+  ctx.ellipse(hx - s * 0.12, hy + s * 0.2, s * 0.13, s * (0.03 + open * 0.07), 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff6d8';
+  ctx.fillRect(hx - s * 0.16, hy + s * 0.15, s * 0.05, s * 0.05);
+  // Tall crooked hat with a purple band and a buckle.
+  ctx.fillStyle = hit ? '#ffffff' : '#1b0a2a';
+  ctx.strokeStyle = '#000000';
+  ctx.beginPath();
+  ctx.ellipse(hx + s * 0.02, hy - s * 0.3, s * 0.55, s * 0.11, -0.1, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(hx - s * 0.28, hy - s * 0.34);
+  ctx.lineTo(hx + s * 0.32, hy - s * 0.4);
+  ctx.quadraticCurveTo(hx + s * 0.25, hy - s * 0.9, hx + s * 0.55 + flap * 0.5, hy - s * 1.25);
+  ctx.quadraticCurveTo(hx + s * 0.0, hy - s * 0.95, hx - s * 0.28, hy - s * 0.34);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#9b4ad8';
+  ctx.beginPath();
+  ctx.moveTo(hx - s * 0.26, hy - s * 0.42);
+  ctx.lineTo(hx + s * 0.3, hy - s * 0.48);
+  ctx.lineTo(hx + s * 0.28, hy - s * 0.58);
+  ctx.lineTo(hx - s * 0.22, hy - s * 0.52);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#ffd23f';
+  ctx.fillRect(hx - s * 0.02, hy - s * 0.55, s * 0.09, s * 0.08);
+  ctx.restore();
+}

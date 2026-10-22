@@ -5,6 +5,7 @@ All notable changes to Polygon Rush are documented here.
 ## [Unreleased]
 
 ### Changed
+- **Haunted Run monsters come at you.** Zombies shamble toward you along the ground and ghosts swoop in from ahead on a wavy path, instead of standing still or sinking straight down like pillars. Each one reaches its spot just before you do, so you still jump or fly around it on the beat.
 - The menu banner ad sits in a tray that matches the game, instead of the game showing at its sides.
 
 ## [1.0.12] - 2026-10-21

@@ -3,7 +3,7 @@ import { CEIL, VIEW_BOTTOM, VIEW_H, VIEW_TOP } from '../game/constants';
 import type { GameSession } from '../game/session';
 import type { Racer } from '../game/racer';
 import { SHAPE_INFO, type ShapeMode } from '../game/shapes';
-import { sawY, type World, type WorldObj } from '../game/world';
+import { sawX, sawY, type World, type WorldObj } from '../game/world';
 import { skinById } from '../meta/catalog';
 import { darken, lighten, rgba, type Palette } from './biomes';
 import { drawCharacter } from './character';
@@ -263,7 +263,7 @@ export class Renderer {
           this.drawSpike(pal, sx(o.x), sy(o.y), o.size * s, o.dir);
           break;
         case 'saw':
-          if (o.mob) this.drawMob(o.mob, sx(o.x), sy(sawY(o, this.runnerX)), s, time + o.x);
+          if (o.mob) this.drawMob(o.mob, sx(sawX(o, this.runnerX)), sy(sawY(o, this.runnerX)), s, time + o.x);
           else if (this.haunted) drawPumpkin(this.ctx, sx(o.x), sy(sawY(o, this.runnerX)), o.r * s, time + o.x);
           else this.drawSaw(pal, sx(o.x), sy(sawY(o, this.runnerX)), o.r * s, time);
           break;

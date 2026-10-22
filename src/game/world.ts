@@ -39,7 +39,16 @@ export interface Saw extends Base {
    * `ax` to `bx`. Tied to the runner's position (not the clock), so it is
    * the same for physics, the bot and the screen.
    */
-  move?: { ax: number; bx: number; from: number; to: number };
+  move?: {
+    ax: number;
+    bx: number;
+    from: number;
+    to: number;
+    /** Also comes in from this x (Haunted Run monsters walk and swoop at you), ending at `x`. */
+    fromX?: number;
+    /** Swoops up and down this much on the way in (settles by `bx`). */
+    wave?: number;
+  };
   /** Haunted Run: drawn as a zombie (on the ground) or a ghost (in the air) instead of a saw. */
   mob?: 'zombie' | 'ghost';
 }
@@ -49,7 +58,16 @@ export function sawY(s: Saw, runnerX: number): number {
   const m = s.move;
   if (!m) return s.y;
   const t = Math.min(1, Math.max(0, (runnerX - m.ax) / (m.bx - m.ax)));
-  return m.from + (m.to - m.from) * t * t * (3 - 2 * t);
+  const wave = m.wave ? m.wave * Math.sin(t * Math.PI * 3) * (1 - t) : 0;
+  return m.from + (m.to - m.from) * t * t * (3 - 2 * t) + wave;
+}
+
+/** Where a (possibly moving) saw is across, when the runner is at `runnerX`. */
+export function sawX(s: Saw, runnerX: number): number {
+  const m = s.move;
+  if (m?.fromX === undefined) return s.x;
+  const t = Math.min(1, Math.max(0, (runnerX - m.ax) / (m.bx - m.ax)));
+  return m.fromX + (s.x - m.fromX) * t * t * (3 - 2 * t);
 }
 
 export interface Gem extends Base {

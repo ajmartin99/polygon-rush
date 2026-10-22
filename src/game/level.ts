@@ -45,6 +45,9 @@ export interface Piece {
 /** Saw variants only the game's own courses use (not in the editor): Haunted Run monsters. */
 export const SAW_ZOMBIE = 2;
 export const SAW_GHOST = 3;
+/** How far ahead a Haunted Run zombie starts walking from, and a ghost swoops in from. */
+export const ZOMBIE_WALK = 5;
+export const GHOST_SWOOP = 7;
 
 /** How many variants each piece cycles through when tapped again. */
 export const VARIANTS: Record<PieceType, number> = {
@@ -298,15 +301,18 @@ export function buildWorld(level: LevelContent, world = new World()): World {
       }
       case 'saw': {
         if (p.v === SAW_ZOMBIE) {
-          // A zombie standing in the way (jump it).
+          // A zombie shambling toward you along the ground; it reaches its spot just before
+          // you do, so you still jump it on the beat.
           const zy = p.y + 0.6;
-          out.push({ id: id(), kind: 'saw', x: cx, y: zy, r: 0.6, mob: 'zombie', x0: cx - 0.6, x1: cx + 0.6, y0: zy - 0.6, y1: zy + 0.6 });
+          const from = cx + ZOMBIE_WALK;
+          out.push({ id: id(), kind: 'saw', x: cx, y: zy, r: 0.6, mob: 'zombie', move: { ax: cx - 14, bx: cx - 3, from: zy, to: zy, fromX: from }, x0: cx - 0.6, x1: from + 0.6, y0: zy - 0.6, y1: zy + 0.6 });
           break;
         }
         if (p.v === SAW_GHOST) {
-          // A ghost drifting down into its spot as you come (fly around it).
+          // A ghost swooping in at you from ahead and settling into its spot (fly around it).
           const r = 0.8;
-          out.push({ id: id(), kind: 'saw', x: cx, y: cy, r, mob: 'ghost', move: { ax: cx - 12, bx: cx - 2, from: cy + 1.2, to: cy }, x0: cx - r, x1: cx + r, y0: cy - r, y1: cy + 1.2 + r });
+          const from = cx + GHOST_SWOOP;
+          out.push({ id: id(), kind: 'saw', x: cx, y: cy, r, mob: 'ghost', move: { ax: cx - 14, bx: cx - 2, from: cy + 2, to: cy, fromX: from, wave: 0.9 }, x0: cx - r, x1: from + r, y0: cy - 0.9 - r, y1: cy + 2.9 + r });
           break;
         }
         const r = p.v ? 1.1 : 0.6;

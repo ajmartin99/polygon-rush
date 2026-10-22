@@ -4,6 +4,9 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+### Changed
+- The menu banner ad sits in a tray that matches the game, instead of the game showing at its sides.
+
 ## [1.0.12] - 2026-10-21
 
 ### Added

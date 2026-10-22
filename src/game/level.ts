@@ -94,6 +94,10 @@ export interface LevelData extends LevelContent {
   plays: number;
   /** Where it came from. */
   origin: 'mine' | 'code' | 'coop';
+  /** Your own levels: built in the app or in the web editor (Builder Pack). */
+  madeOn?: 'mobile' | 'web';
+  /** The web editor has this version (its `updated`), so it isn't sent again. */
+  synced?: number;
 }
 
 // ------------------------------------------------------------------ names
@@ -238,6 +242,8 @@ export function sanitizeLevel(raw: unknown): LevelData | null {
     best: typeof r.best === 'number' ? Math.min(1, Math.max(0, r.best)) : 0,
     plays: typeof r.plays === 'number' ? Math.max(0, Math.floor(r.plays)) : 0,
     origin,
+    ...(r.madeOn === 'mobile' || r.madeOn === 'web' ? { madeOn: r.madeOn } : {}),
+    ...(typeof r.synced === 'number' && Number.isFinite(r.synced) ? { synced: r.synced } : {}),
   };
 }
 

@@ -177,6 +177,8 @@ export interface SaveData {
     freeGemsCount: number;
   };
   tutorial: Record<string, boolean>;
+  /** Web editor (Builder Pack): a browser was linked, so levels sync and tests arrive. */
+  web: { linked: boolean };
   settings: Settings;
   /** Free Chat account on the community server (empty when not verified). */
   account: ChatAccount;
@@ -275,6 +277,7 @@ export function createSave(now = Date.now()): SaveData {
     purchases: { noAds: false, starter: false, legend: false, spotlight: false, builder: false, gemPacks: 0, tx: [] },
     ads: { runsSinceInterstitial: 0, lastInterstitialAt: 0, freeGemsDay: '', freeGemsCount: 0 },
     tutorial: {},
+    web: { linked: false },
     settings: { ...DEFAULT_SETTINGS },
     account: emptyAccount(),
   };

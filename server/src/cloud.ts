@@ -29,6 +29,7 @@ const LEVEL_ID_RE = /^[a-z0-9]{6,24}$/;
 const MAX_CODE = 16_000;
 
 export type MadeOn = 'mobile' | 'web';
+export type AgeBand = 'child' | 'teen' | 'adult';
 
 export interface CloudLevel {
   id: string;
@@ -71,13 +72,13 @@ const SCHEMA = `
 CREATE TABLE IF NOT EXISTS cloud_pairs (
   code TEXT PRIMARY KEY,
   player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
-  birth_year INTEGER NOT NULL DEFAULT 0,
+  band TEXT NOT NULL DEFAULT 'child',
   expires_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS cloud_sessions (
   token_hash TEXT PRIMARY KEY,
   player_id TEXT NOT NULL REFERENCES players(id) ON DELETE CASCADE,
-  birth_year INTEGER NOT NULL DEFAULT 0,
+  band TEXT NOT NULL DEFAULT 'child',
   created_at INTEGER NOT NULL,
   last_seen INTEGER NOT NULL
 );
@@ -147,21 +148,22 @@ export class CloudService {
     if (body.builder !== true) throw new ApiError(403, 'no_builder', 'The web editor comes with the Builder Pack.');
     if (!this.pairs.hit(me.id, now)) throw new ApiError(429, 'slow_down', 'Too many codes. Try again later.');
     this.x('DELETE FROM cloud_pairs WHERE player_id = ? OR expires_at < ?', me.id, now);
-    const birthYear = typeof body.birthYear === 'number' && Number.isInteger(body.birthYear) && body.birthYear > 1900 ? body.birthYear : 0;
+    // Only the age band travels (it sets what the editor allows, like typed level names), never the birth year.
+    const band: AgeBand = body.band === 'teen' || body.band === 'adult' ? body.band : 'child';
     for (let i = 0; i < 20; i++) {
       const code = Array.from({ length: 6 }, () => PAIR_ALPHABET[randomInt(PAIR_ALPHABET.length)]).join('');
       if (this.q('SELECT 1 AS ok FROM cloud_pairs WHERE code = ?', code)) continue;
-      this.x('INSERT INTO cloud_pairs (code, player_id, birth_year, expires_at) VALUES (?, ?, ?, ?)', code, me.id, birthYear, now + PAIR_MS);
+      this.x('INSERT INTO cloud_pairs (code, player_id, band, expires_at) VALUES (?, ?, ?, ?)', code, me.id, band, now + PAIR_MS);
       return { code, expiresAt: now + PAIR_MS };
     }
     throw new ApiError(503, 'busy', 'Please try again.');
   }
 
   /** Browser: swap the code for a session. */
-  link(body: Record<string, unknown>, ipKey: string, now = Date.now()): { token: string; name: string; tag: number; kid: boolean; birthYear: number } {
+  link(body: Record<string, unknown>, ipKey: string, now = Date.now()): { token: string; name: string; tag: number; kid: boolean; band: AgeBand } {
     if (!this.linkTries.hit(ipKey, now)) throw new ApiError(429, 'slow_down', 'Too many tries. Wait a while and try again.');
     const code = typeof body.code === 'string' ? body.code.toUpperCase().replace(/[^A-Z0-9]/g, '') : '';
-    const pair = code.length === 6 ? this.q<{ player_id: string; birth_year: number; expires_at: number }>('SELECT * FROM cloud_pairs WHERE code = ?', code) : undefined;
+    const pair = code.length === 6 ? this.q<{ player_id: string; band: AgeBand; expires_at: number }>('SELECT * FROM cloud_pairs WHERE code = ?', code) : undefined;
     if (!pair || pair.expires_at < now) throw new ApiError(404, 'bad_code', 'That code didn’t work. Make a new one in the game and try again.');
     this.x('DELETE FROM cloud_pairs WHERE code = ?', code);
     const p = this.q<PlayerRow>('SELECT * FROM players WHERE id = ?', pair.player_id);
@@ -170,15 +172,15 @@ export class CloudService {
     const old = this.qa<{ token_hash: string }>('SELECT token_hash FROM cloud_sessions WHERE player_id = ? ORDER BY last_seen DESC', p.id).slice(MAX_SESSIONS - 1);
     for (const o of old) this.x('DELETE FROM cloud_sessions WHERE token_hash = ?', o.token_hash);
     const token = randomId(24);
-    this.x('INSERT INTO cloud_sessions (token_hash, player_id, birth_year, created_at, last_seen) VALUES (?, ?, ?, ?, ?)', this.tokenHash(token), p.id, pair.birth_year, now, now);
-    return { token, name: p.name, tag: p.tag, kid: p.kid === 1, birthYear: pair.birth_year };
+    this.x('INSERT INTO cloud_sessions (token_hash, player_id, band, created_at, last_seen) VALUES (?, ?, ?, ?, ?)', this.tokenHash(token), p.id, pair.band, now, now);
+    return { token, name: p.name, tag: p.tag, kid: p.kid === 1, band: p.kid === 1 ? 'child' : pair.band };
   }
 
   /** Browser: who is signed in (and keep the session alive). */
-  webMe(token: string, now = Date.now()): { name: string; tag: number; kid: boolean; birthYear: number } {
+  webMe(token: string, now = Date.now()): { name: string; tag: number; kid: boolean; band: AgeBand } {
     const s = this.session(token, now);
     const p = this.q<PlayerRow>('SELECT * FROM players WHERE id = ?', s.player_id)!;
-    return { name: p.name, tag: p.tag, kid: p.kid === 1, birthYear: s.birth_year };
+    return { name: p.name, tag: p.tag, kid: p.kid === 1, band: p.kid === 1 ? 'child' : s.band };
   }
 
   logout(token: string): void {
@@ -199,8 +201,8 @@ export class CloudService {
     this.x('DELETE FROM cloud_pairs WHERE player_id = ?', me.id);
   }
 
-  private session(token: string, now: number): { player_id: string; birth_year: number } {
-    const s = token ? this.q<{ player_id: string; birth_year: number; last_seen: number }>('SELECT * FROM cloud_sessions WHERE token_hash = ?', this.tokenHash(token)) : undefined;
+  private session(token: string, now: number): { player_id: string; band: AgeBand } {
+    const s = token ? this.q<{ player_id: string; band: AgeBand; last_seen: number }>('SELECT * FROM cloud_sessions WHERE token_hash = ?', this.tokenHash(token)) : undefined;
     if (!s || s.last_seen < now - SESSION_DAYS * DAY) throw new ApiError(401, 'signed_out', 'Link this browser again with a code from the game.');
     // A moderator banned this racer name: the browser stops working too.
     this.players.byId(s.player_id, now);

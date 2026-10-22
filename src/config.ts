@@ -1,3 +1,4 @@
+import { IS_PORTAL } from './core/portal';
 /**
  * Build-time configuration. Every value can be overridden with a VITE_* env
  * variable (see .env.example and the GitHub workflows). Defaults are safe for
@@ -20,7 +21,8 @@ const rewardedId = str(env.VITE_ADMOB_REWARDED_ID, TEST_ADS.rewarded);
 const usingTestUnits = bannerId === TEST_ADS.banner || interstitialId === TEST_ADS.interstitial || rewardedId === TEST_ADS.rewarded;
 
 /** e.g. https://polygon-rush.example.com (no trailing slash). */
-const serverUrl = (env.VITE_SERVER_URL?.trim() || '').replace(/\/+$/, '');
+// The web editor is served by the game server itself, so it talks to the page's own origin.
+const serverUrl = (env.VITE_SERVER_URL?.trim() || (IS_PORTAL ? location.origin : '')).replace(/\/+$/, '');
 
 /** PeerJS signalling lives on the community server at /peerjs. */
 const serverPeer = (() => {

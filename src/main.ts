@@ -39,6 +39,9 @@ import { serverApi } from './services/server';
 import { friends } from './services/friends';
 import { initFriendInvites } from './ui/friend-invites';
 import { SONGS } from './core/songs';
+import { IS_PORTAL } from './core/portal';
+import { cloud } from './services/cloud';
+import { initWebTests, PortalScreen } from './ui/web-editor';
 
 function registerRoutes(): void {
   nav.register('agegate', () => new AgeGateScreen());
@@ -93,7 +96,44 @@ function startPlayClock(): void {
   }, TICK * 1000);
 }
 
+/**
+ * The web editor (a desktop browser on the game server's /build page): only
+ * the level builder, synced with the player's phone. No ads, purchases,
+ * friends or online rooms.
+ */
+async function bootPortal(): Promise<void> {
+  document.documentElement.classList.add('portal');
+  ui.init();
+  nav.register('portal', () => new PortalScreen());
+  nav.register('create', (p) => new CreateScreen(p));
+  nav.register('editor', (p) => new EditorScreen(p));
+  nav.register('menu', () => new PortalScreen());
+  await Promise.all([store.load(), levels.load()]);
+  applyAccessibility(store.settings);
+  store.on('settings', applyAccessibility);
+  const game = new GameController(document.getElementById('game') as HTMLCanvasElement);
+  nav.setPlayHandler((req) => game.play(req));
+  nav.setSceneHandler((scene) => game.setScene(scene));
+  ui.sfx = (name) => audio.play(name);
+  const unlock = () => {
+    audio.unlock();
+    window.removeEventListener('pointerdown', unlock, true);
+  };
+  window.addEventListener('pointerdown', unlock, true);
+  window.addEventListener('pagehide', () => {
+    void store.flush();
+    void levels.flush();
+  });
+  const signedIn = await cloud.refresh();
+  cloud.start();
+  nav.go(signedIn ? 'create' : 'portal');
+  game.startAttract();
+  document.getElementById('boot')?.classList.add('hide');
+  setTimeout(() => document.getElementById('boot')?.remove(), 600);
+}
+
 async function boot(): Promise<void> {
+  if (IS_PORTAL) return bootPortal();
   // A live update downloaded last time but not switched to yet (the app was closed): use it now.
   if (await updates.applyPending()) return;
   ui.init();
@@ -121,6 +161,8 @@ async function boot(): Promise<void> {
   window.addEventListener('pointerdown', unlock, true);
   void myMusic.load();
   initFriendInvites();
+  initWebTests();
+  cloud.start();
   friends.on('notice', (msg) => ui.toast(msg, 'info', 4500));
   friends.start();
   watchBadges();

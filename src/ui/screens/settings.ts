@@ -128,10 +128,10 @@ export function openAccessibility(): void {
     [
       h('h2', null, 'Accessibility'),
       h(
-        'div.col.body-scroll',
+        'div.col.body-scroll.a11y-list',
         { style: 'text-align:left;gap:0.8rem' },
         h('h3', null, 'Seeing'),
-        row('eye', 'High contrast', 'Bold black-and-white outlines on spikes, saws and monsters, a darker background behind the track and brighter menu text. Helps with colour blindness and low vision.', toggle(s.highContrast, set('highContrast'), 'High contrast')),
+        row('eye', 'High contrast', 'Black-and-white outlines on spikes, saws and monsters, a darker background and brighter menu text. Helps with colour blindness and low vision.', toggle(s.highContrast, set('highContrast'), 'High contrast')),
         row('info', 'Bigger text', 'Larger small print in menus.', toggle(s.bigText, set('bigText'), 'Bigger text')),
         row('edit', 'Easy-read font', 'A plain, wider-spaced font instead of the rounded game font.', toggle(s.easyFont, set('easyFont'), 'Easy-read font')),
         h('h3', null, 'Motion'),

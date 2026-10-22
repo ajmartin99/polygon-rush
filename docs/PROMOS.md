@@ -4,7 +4,7 @@ Make codes for posts, events, giveaways and making things right for a player.
 
 ## Making a code
 
-1. Open `<your server URL>/promos/admin` (for example `https://polygon-rush-server.onrender.com/promos/admin`).
+1. Open `https://polygon-rush.softgamebros.com/promos/admin` (the game server, `/promos/admin`).
 2. Sign in with the admin token (`ADMIN_TOKEN` in the Render dashboard → Environment).
 3. Fill in the code and what it gives:
    - **Code:** 4-20 letters and numbers. Case, spaces and dashes don't matter, so `SPOOKY-500` and `spooky500` are the same code.

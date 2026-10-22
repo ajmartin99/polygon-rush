@@ -98,8 +98,11 @@ export function createApp(d: AppDeps): express.Express {
   app.get('/promos/admin.js', (_req, res) => res.type('application/javascript').send(PROMO_ADMIN_JS));
   // The web editor: the game itself, built into WEB_DIR (see server/Dockerfile).
   if (cfg.webDir && existsSync(path.join(cfg.webDir, 'index.html'))) {
-    app.get('/build', (_req, res) => res.redirect(301, '/build/'));
-    app.use('/build', express.static(cfg.webDir, { index: 'index.html', maxAge: '1h' }));
+    app.use(
+      '/build',
+      (req, res, next) => (req.originalUrl === '/build' ? res.redirect(301, '/build/') : next()),
+      express.static(cfg.webDir, { index: 'index.html', maxAge: '1h' }),
+    );
   }
   app.get('/healthz', (_req, res) => res.json({ ok: true }));
 

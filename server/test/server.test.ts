@@ -753,14 +753,14 @@ describe('web editor', () => {
   test('link a browser, levels on both sides, test on the phone', async () => {
     await reg(key('a'), 'Builder Bee');
     assert.equal((await api('POST', '/api/cloud/pair', { key: key('a') })).status, 403, 'needs the Builder Pack');
-    const pair = await api('POST', '/api/cloud/pair', { key: key('a'), builder: true, birthYear: YEAR - 20 });
+    const pair = await api('POST', '/api/cloud/pair', { key: key('a'), builder: true, band: 'adult' });
     assert.equal(pair.status, 200, JSON.stringify(pair.json));
     assert.match(pair.json.code, /^[A-Z2-9]{6}$/);
     assert.equal((await api('POST', '/api/cloud/link', { code: 'ZZZZZZ' })).status, 404);
     const link = await api('POST', '/api/cloud/link', { code: pair.json.code.toLowerCase() });
     assert.equal(link.status, 200, JSON.stringify(link.json));
     assert.equal(link.json.name, 'Builder Bee');
-    assert.equal(link.json.birthYear, YEAR - 20);
+    assert.equal(link.json.band, 'adult');
     const web = link.json.token as string;
     // A code works once.
     assert.equal((await api('POST', '/api/cloud/link', { code: pair.json.code })).status, 404);

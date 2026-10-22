@@ -21,6 +21,12 @@ export class RateLimiter {
     return h.n <= this.limit;
   }
 
+  /** Still under the limit (without counting a hit). */
+  peek(key: string, now = Date.now()): boolean {
+    const h = this.hits.get(key);
+    return !h || h.until <= now || h.n < this.limit;
+  }
+
   sweep(now = Date.now()): void {
     for (const [k, h] of this.hits) if (h.until <= now) this.hits.delete(k);
   }

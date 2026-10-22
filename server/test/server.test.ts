@@ -696,3 +696,116 @@ describe('beta tester sign-ups', () => {
     assert.equal((await api('GET', '/api/admin/testers', undefined, ADMIN)).json.testers.length, 0);
   });
 });
+
+describe('promo codes', () => {
+  const key = (c: string) => `promo${c}`.repeat(4);
+  const reg = (k: string, name: string) => api('POST', '/api/players/register', { key: k, name });
+
+  test('admin makes a code, each player redeems it once, limits and switches hold', async () => {
+    await reg(key('a'), 'Builder Bee');
+    await reg(key('b'), 'Racing Rhino');
+    await reg(key('c'), 'Turbo Toad');
+    assert.equal((await api('POST', '/api/admin/promos', { code: 'NOPE', reward: { gems: 5 } })).status, 401);
+    assert.equal((await api('POST', '/api/admin/promos', { code: 'EMPTY1', reward: {} }, ADMIN)).status, 400);
+    const made = await api('POST', '/api/admin/promos', { code: 'spooky-500', reward: { gems: 500, skins: ['golden', 'Bad Id!'], bogus: 1 }, maxUses: 2, note: 'Happy Halloween!' }, ADMIN);
+    assert.equal(made.status, 200, JSON.stringify(made.json));
+    assert.equal(made.json.promo.code, 'SPOOKY500');
+    assert.deepEqual(made.json.promo.reward, { gems: 500, skins: ['golden'] });
+    assert.equal((await api('POST', '/api/admin/promos', { code: 'SPOOKY500', reward: { gems: 1 } }, ADMIN)).status, 409);
+
+    // Typed loosely: case, spaces and dashes don't matter.
+    const r = await api('POST', '/api/promos/redeem', { key: key('a'), code: ' spooky 500 ' });
+    assert.equal(r.status, 200, JSON.stringify(r.json));
+    assert.deepEqual(r.json, { code: 'SPOOKY500', reward: { gems: 500, skins: ['golden'] }, note: 'Happy Halloween!' });
+    assert.equal((await api('POST', '/api/promos/redeem', { key: key('a'), code: 'SPOOKY500' })).json.error, 'used');
+    assert.equal((await api('POST', '/api/promos/redeem', { key: key('b'), code: 'SPOOKY500' })).status, 200);
+    assert.equal((await api('POST', '/api/promos/redeem', { key: key('c'), code: 'SPOOKY500' })).json.error, 'used_up');
+    assert.equal((await api('POST', '/api/promos/redeem', { key: key('c'), code: 'NOTACODE' })).json.error, 'bad_code');
+
+    await api('POST', '/api/admin/promos', { code: 'GEMS100', reward: { gems: 100 } }, ADMIN);
+    assert.equal((await api('POST', '/api/admin/promos/GEMS100', { disabled: true }, ADMIN)).json.ok, true);
+    assert.equal((await api('POST', '/api/promos/redeem', { key: key('c'), code: 'GEMS100' })).json.error, 'bad_code');
+    await api('POST', '/api/admin/promos/GEMS100', { disabled: false }, ADMIN);
+    assert.equal((await api('POST', '/api/promos/redeem', { key: key('c'), code: 'GEMS100' })).json.reward.gems, 100);
+    const list = (await api('GET', '/api/admin/promos', undefined, ADMIN)).json.promos;
+    assert.equal(list.find((p: any) => p.code === 'SPOOKY500').uses, 2);
+  });
+
+  test('guessing codes is slowed down', async () => {
+    await reg(key('d'), 'Lucky Llama');
+    let last = 0;
+    for (let i = 0; i < 12; i++) last = (await api('POST', '/api/promos/redeem', { key: key('d'), code: `GUESS${i}X` })).status;
+    assert.equal(last, 429);
+  });
+});
+
+describe('web editor', () => {
+  const key = (c: string) => `cloud${c}`.repeat(4);
+  const reg = (k: string, name: string) => api('POST', '/api/players/register', { key: k, name });
+  const code = (spikes: number): string => {
+    const out = [2, 1, 0, (1 << 4) | 1, 100, 0, 3, 4, 0, 0, spikes];
+    for (let i = 0; i < spikes; i++) out.push(i === 0 ? 10 : 3, 2 << 4);
+    const c = levelChecksum(out);
+    out.push(c >> 8, c & 0xff);
+    return 'PR1-' + Buffer.from(out).toString('base64url');
+  };
+
+  test('link a browser, levels on both sides, test on the phone', async () => {
+    await reg(key('a'), 'Builder Bee');
+    assert.equal((await api('POST', '/api/cloud/pair', { key: key('a') })).status, 403, 'needs the Builder Pack');
+    const pair = await api('POST', '/api/cloud/pair', { key: key('a'), builder: true, birthYear: YEAR - 20 });
+    assert.equal(pair.status, 200, JSON.stringify(pair.json));
+    assert.match(pair.json.code, /^[A-Z2-9]{6}$/);
+    assert.equal((await api('POST', '/api/cloud/link', { code: 'ZZZZZZ' })).status, 404);
+    const link = await api('POST', '/api/cloud/link', { code: pair.json.code.toLowerCase() });
+    assert.equal(link.status, 200, JSON.stringify(link.json));
+    assert.equal(link.json.name, 'Builder Bee');
+    assert.equal(link.json.birthYear, YEAR - 20);
+    const web = link.json.token as string;
+    // A code works once.
+    assert.equal((await api('POST', '/api/cloud/link', { code: pair.json.code })).status, 404);
+    assert.equal((await api('POST', '/api/cloud/me', {}, web)).json.name, 'Builder Bee');
+    assert.deepEqual((await api('POST', '/api/cloud/status', { key: key('a') })).json, { browsers: 1, webActive: true });
+
+    // Built on the web, seen on the phone with its tag.
+    assert.equal((await api('POST', '/api/cloud/levels/put', { id: 'webbuilt01', code: code(6), updated: 1000 }, web)).status, 200);
+    assert.equal((await api('POST', '/api/cloud/levels/put', { id: 'webbuilt01', code: 'junk', updated: 2000 }, web)).status, 400);
+    let phone = (await api('POST', '/api/cloud/levels', { key: key('a') })).json.levels;
+    assert.deepEqual(phone, [{ id: 'webbuilt01', code: code(6), madeOn: 'web', verified: false, updated: 1000, deleted: false }]);
+    // The phone edits it: newer wins, the tag stays "web"; an older edit is ignored.
+    await api('POST', '/api/cloud/levels/put', { key: key('a'), id: 'webbuilt01', code: code(7), updated: 3000, madeOn: 'mobile', verified: true });
+    assert.equal((await api('POST', '/api/cloud/levels/put', { id: 'webbuilt01', code: code(5), updated: 2500 }, web)).json.stored, false);
+    const [l] = (await api('POST', '/api/cloud/levels', {}, web)).json.levels;
+    assert.equal(l.code, code(7));
+    assert.equal(l.madeOn, 'web');
+    assert.equal(l.verified, true);
+    // Deleting leaves a marker for the other side.
+    await api('POST', '/api/cloud/levels/delete', { key: key('a'), id: 'webbuilt01', updated: 4000 });
+    phone = (await api('POST', '/api/cloud/levels', {}, web)).json.levels;
+    assert.equal(phone[0].deleted, true);
+
+    // Test on the phone: handed over once, the result comes back to the browser.
+    const sent = await api('POST', '/api/cloud/test', { id: 'webbuilt02', code: code(6) }, web);
+    assert.equal(sent.status, 200);
+    const inbox = await api('POST', '/api/cloud/inbox', { key: key('a') });
+    assert.equal(inbox.json.test.code, code(6));
+    assert.equal((await api('POST', '/api/cloud/inbox', { key: key('a') })).json.test, null);
+    assert.equal((await api('POST', '/api/cloud/test/status', {}, web)).json.test.delivered, true);
+    await api('POST', '/api/cloud/test/result', { key: key('a'), sent: inbox.json.test.sent, progress: 0.64, completed: false });
+    assert.deepEqual((await api('POST', '/api/cloud/test/status', {}, web)).json.test.result, { progress: 0.64, completed: false });
+
+    // Signing out every browser from the phone.
+    await api('POST', '/api/cloud/unlink', { key: key('a') });
+    assert.equal((await api('POST', '/api/cloud/me', {}, web)).status, 401);
+    assert.equal((await api('POST', '/api/cloud/levels', {}, 'not-a-token')).status, 401);
+  });
+
+  test('another player can’t see your levels', async () => {
+    await reg(key('b'), 'Racing Rhino');
+    await api('POST', '/api/cloud/levels/put', { key: key('b'), id: 'rhinolevel', code: code(6) });
+    const pair = await api('POST', '/api/cloud/pair', { key: key('b'), builder: true });
+    const web = (await api('POST', '/api/cloud/link', { code: pair.json.code })).json.token;
+    const mine = (await api('POST', '/api/cloud/levels', {}, web)).json.levels.map((x: any) => x.id);
+    assert.deepEqual(mine, ['rhinolevel']);
+  });
+});

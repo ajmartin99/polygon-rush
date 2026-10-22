@@ -4,12 +4,16 @@ import type { ChatHub } from './chat.ts';
 import type { Config } from './config.ts';
 import type { Db } from './db.ts';
 import type { Mailer } from './mailer.ts';
-import { BETA_ADMIN_JS, BETA_JS, betaAdminPage, betaPage, DELETE_JS, deletePage, landingPage } from './pages.ts';
+import { existsSync } from 'node:fs';
+import path from 'node:path';
+import { BETA_ADMIN_JS, BETA_JS, betaAdminPage, betaPage, DELETE_JS, deletePage, landingPage, PROMO_ADMIN_JS, promoAdminPage } from './pages.ts';
 import type { RoomDirectory } from './rooms.ts';
 import type { NameRegistry } from './names.ts';
 import type { PlayerService } from './players.ts';
 import type { LevelService } from './levels.ts';
 import type { TesterService } from './testers.ts';
+import type { PromoService } from './promos.ts';
+import type { CloudService } from './cloud.ts';
 import { hmac, safeEqual } from './util.ts';
 
 export interface AppDeps {
@@ -22,6 +26,8 @@ export interface AppDeps {
   players: PlayerService;
   levels: LevelService;
   testers: TesterService;
+  promos: PromoService;
+  cloud: CloudService;
   mailer: Mailer;
   version: string;
 }
@@ -50,7 +56,7 @@ export function ipKeyFor(cfg: Config, ip: string | undefined): string {
 }
 
 export function createApp(d: AppDeps): express.Express {
-  const { cfg, db, accounts, rooms, hub, names, players, levels, testers } = d;
+  const { cfg, db, accounts, rooms, hub, names, players, levels, testers, promos, cloud } = d;
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', cfg.trustProxy ? 1 : false);
@@ -88,6 +94,13 @@ export function createApp(d: AppDeps): express.Express {
   app.get('/beta.js', (_req, res) => res.type('application/javascript').send(BETA_JS));
   app.get('/beta/admin', (_req, res) => html(res, betaAdminPage()));
   app.get('/beta/admin.js', (_req, res) => res.type('application/javascript').send(BETA_ADMIN_JS));
+  app.get('/promos/admin', (_req, res) => html(res, promoAdminPage()));
+  app.get('/promos/admin.js', (_req, res) => res.type('application/javascript').send(PROMO_ADMIN_JS));
+  // The web editor: the game itself, built into WEB_DIR (see server/Dockerfile).
+  if (cfg.webDir && existsSync(path.join(cfg.webDir, 'index.html'))) {
+    app.get('/build', (_req, res) => res.redirect(301, '/build/'));
+    app.use('/build', express.static(cfg.webDir, { index: 'index.html', maxAge: '1h' }));
+  }
   app.get('/healthz', (_req, res) => res.json({ ok: true }));
 
   // ------------------------------------------------------------ public API
@@ -173,6 +186,54 @@ export function createApp(d: AppDeps): express.Express {
     '/api/levels/:id/unpublish',
     route((req) => {
       levels.unpublish(req.params.id, req.body ?? {});
+      return { ok: true };
+    }),
+  );
+  // Promo codes (Settings → Redeem a code).
+  app.post('/api/promos/redeem', route((req) => promos.redeem(req.body ?? {})));
+
+  // Web editor (Builder Pack): link a browser, levels on both, test on the phone.
+  app.post('/api/cloud/pair', route((req) => cloud.pair(req.body ?? {})));
+  app.post('/api/cloud/link', route((req) => cloud.link(req.body ?? {}, ipKey(req))));
+  app.post('/api/cloud/me', route((req) => cloud.webMe(bearer(req))));
+  app.post(
+    '/api/cloud/logout',
+    route((req) => {
+      cloud.logout(bearer(req));
+      return { ok: true };
+    }),
+  );
+  app.post('/api/cloud/status', route((req) => cloud.status(req.body ?? {})));
+  app.post(
+    '/api/cloud/unlink',
+    route((req) => {
+      cloud.unlink(req.body ?? {});
+      return { ok: true };
+    }),
+  );
+  const who = (req: Request) => cloud.who(bearer(req), req.body ?? {});
+  app.post('/api/cloud/levels', route((req) => ({ levels: cloud.list(who(req).id) })));
+  app.post(
+    '/api/cloud/levels/put',
+    route((req) => {
+      const w = who(req);
+      return cloud.put(w.id, w.web, req.body ?? {});
+    }),
+  );
+  app.post(
+    '/api/cloud/levels/delete',
+    route((req) => {
+      cloud.remove(who(req).id, req.body ?? {});
+      return { ok: true };
+    }),
+  );
+  app.post('/api/cloud/test', route((req) => cloud.sendTest(who(req).id, req.body ?? {})));
+  app.post('/api/cloud/test/status', route((req) => ({ test: cloud.testStatus(who(req).id) })));
+  app.post('/api/cloud/inbox', route((req) => cloud.inbox(req.body ?? {})));
+  app.post(
+    '/api/cloud/test/result',
+    route((req) => {
+      cloud.testResult(req.body ?? {});
       return { ok: true };
     }),
   );
@@ -376,6 +437,24 @@ export function createApp(d: AppDeps): express.Express {
       names.unban(req.params.name);
       db.audit(actor, 'unban_name', req.params.name, null, Date.now());
       return { ok: true };
+    }),
+  );
+  admin.get('/promos', route(() => ({ promos: promos.list() })));
+  admin.post(
+    '/promos',
+    route((req) => {
+      const p = promos.create(req.body ?? {});
+      db.audit(actor, 'create_promo', p.code, JSON.stringify(p.reward), Date.now());
+      return { promo: p };
+    }),
+  );
+  admin.post('/promos/:code', route((req) => ({ ok: promos.setDisabled(req.params.code, (req.body ?? {}).disabled === true) })));
+  admin.delete(
+    '/promos/:code',
+    route((req) => {
+      const ok = promos.remove(req.params.code);
+      db.audit(actor, 'delete_promo', req.params.code, null, Date.now());
+      return { ok };
     }),
   );
   admin.get('/audit', route((req) => ({ audit: db.auditLog(Math.min(1000, Number(req.query.limit) || 200)) })));

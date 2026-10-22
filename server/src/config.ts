@@ -31,6 +31,8 @@ export interface Config {
   ipLimitPerHour: number;
   /** Email a note here for each beta tester sign-up (needs SMTP_URL). */
   testerNotify: string;
+  /** The web editor's files (the game built with vite); served at /build when set. */
+  webDir: string;
 }
 
 const DEFAULT_ORIGINS = ['https://localhost', 'http://localhost', 'capacitor://localhost', 'http://localhost:5173', 'http://localhost:5174', 'http://localhost:4173'];
@@ -68,5 +70,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     supportEmail: env.SUPPORT_EMAIL || '',
     ipLimitPerHour: int(env.IP_LIMIT_PER_HOUR, 8),
     testerNotify: env.TESTER_NOTIFY || '',
+    webDir: env.WEB_DIR || '',
   };
 }

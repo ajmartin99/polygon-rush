@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { World } from '../src/game/world';
+import { sawX, sawY, World } from '../src/game/world';
 import { BotBrain } from '../src/game/bot';
 import { createBody, newEvents, stepBody } from '../src/game/physics';
 import { buildWorld, levelSpeed } from '../src/game/level';
@@ -54,6 +54,26 @@ describe('Haunted Run', () => {
       }
     });
   }
+
+  it('zombies walk and ghosts swoop at you, landing in their spot before you get there', () => {
+    const mobs = (['hard', 'easy'] as const).flatMap((d) => buildWorld(hauntedCourse(d, 7)).objs.filter((o): o is Extract<typeof o, { kind: 'saw' }> => o.kind === 'saw' && !!o.mob));
+    expect(mobs.some((m) => m.mob === 'zombie')).toBe(true);
+    expect(mobs.some((m) => m.mob === 'ghost')).toBe(true);
+    for (const m of mobs) {
+      // Far off they're somewhere else; from a couple of tiles away they hold still in their spot.
+      expect(sawX(m, m.x - 30)).toBeGreaterThan(m.x + 3);
+      for (const d of [2, 1, 0]) {
+        expect(sawX(m, m.x - d)).toBeCloseTo(m.x, 5);
+        expect(sawY(m, m.x - d)).toBeCloseTo(m.y, 5);
+      }
+      // Always inside its own bounds (so it's never missed by collisions or drawing).
+      for (let x = m.x - 30; x <= m.x; x += 0.5) {
+        expect(sawX(m, x)).toBeLessThanOrEqual(m.x1);
+        expect(sawY(m, x)).toBeGreaterThanOrEqual(m.y0);
+        expect(sawY(m, x)).toBeLessThanOrEqual(m.y1);
+      }
+    }
+  });
 
   it('two attempts per 24 hours; Heart Regen refills them', () => {
     const h = emptyHaunted();

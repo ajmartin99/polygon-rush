@@ -1,11 +1,23 @@
 # Polygon Rush community server.
 # Build from the repository root (it shares the chat filter and name list with the app):
 #   docker build -f server/Dockerfile -t polygon-rush-server .
+
+# The web editor (/build): the game itself, built for a desktop browser.
+FROM node:22-slim AS web
+WORKDIR /src
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts --no-audit --no-fund
+COPY index.html vite.config.ts tsconfig.json ./
+COPY src src
+COPY public public
+RUN npx vite build --outDir /web
+
 FROM node:22-slim
 
 ENV NODE_ENV=production \
     DATA_DIR=/data \
-    PORT=8080
+    PORT=8080 \
+    WEB_DIR=/app/web
 
 WORKDIR /app
 RUN echo '{"type":"module","private":true}' > package.json \
@@ -17,6 +29,7 @@ RUN cd server && npm ci --omit=dev && npm cache clean --force
 COPY server/src server/src
 COPY src/shared src/shared
 COPY src/meta/names.ts src/meta/names.ts
+COPY --from=web /web web
 
 USER node
 WORKDIR /app/server

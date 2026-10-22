@@ -711,10 +711,14 @@ export class GameController {
       const best = this.req.level.best;
       if (best > 0.05 && best < 1) markers.push({ x: START_X + best * (s.finishX - START_X), label: 'BEST', color: '#ffd23f' });
     }
+    this.renderer.highContrast = store.settings.highContrast;
+    this.renderer.beatPulse = store.settings.beatPulse && this.kind !== 'attract';
+    if (store.settings.beatBuzz && this.phase === 'running' && this.kind !== 'attract') this.buzzBeat(audio.beatPhase());
     this.renderer.render(s, views, fxDt, this.time, {
       palette: (x) => this.paletteFor(x),
       beat: audio.beatPhase(),
       dim: this.kind === 'attract',
+      noRacers: this.phase === 'results',
       markers,
       haunted: this.paletteFor(this.session?.racers[0]?.x ?? 0) === SPOOKY,
       secretsFound: store.data.secrets.found,
@@ -733,6 +737,13 @@ export class GameController {
         drawRaceHud(ctx, v.rect, s, v.racer, this.renderer.dpr, v.label, v.labelColor);
       }
     }
+  }
+
+  private lastBeat = 1;
+  /** "Feel the beat": a light buzz when the beat comes round. */
+  private buzzBeat(phase: number): void {
+    if (phase < this.lastBeat - 0.5) haptics.light();
+    this.lastBeat = phase;
   }
 
   private paletteFor(x: number): Palette {

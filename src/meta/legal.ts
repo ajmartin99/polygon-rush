@@ -45,6 +45,14 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
     body: 'When you share a level to Community, our server stores its level code (the level, its name and the racer names of its builders) linked to your player, plus how many players played, beat and liked it. Anyone using Community can play it, sees your racer name without your #number and can open your game profile card. We also store which community levels you played, beat, liked or reported, so counts stay fair and Suggested shows levels you haven’t played. There is no text besides level names, which for players 13+ pass the same filter as racer names. Players can report a level; several reports hide it until our safety team looks. You can unshare a level any time in Create > Community > My Shared. Parents can turn Community levels off in Settings > Parental Controls.',
   },
   {
+    title: 'Web Editor (Builder Pack)',
+    body: 'If you have the Builder Pack and link a computer’s browser (Create > Web Editor), our server stores the levels you build in the app or the browser (their level codes, the same as a share code) linked to your player, so they show up on both, plus whether each was made in the app or on the web. Each linked browser gets a sign-in token that we store only as a one-way hash. Your age group (under 13, 13–17 or 18+) is sent once so the browser offers the same options as the game; your birth year never is. A level you send from the browser to test on your phone is kept for up to a day. Browsers not used for 30 days are signed out, and you can sign them all out any time in Create > Web Editor. Deleting your friends data also deletes these levels.',
+  },
+  {
+    title: 'Promo codes',
+    body: 'When you redeem a promo code (Settings > Redeem a code), our server records that your player used it, so each code works once per player. The reward is added to your game on your device.',
+  },
+  {
     title: 'Public rooms and Quick Match (13+)',
     body: 'A host aged 13+ can list a race or build room publicly, and Quick Match joins one at random. The list shows the room code, a generated room name and colours, the host’s racer name and the number of players. Race rooms leave the list when the race starts. If someone reports a public build room, a snapshot of the level is sent to our safety team.',
   },

@@ -1,4 +1,6 @@
 import { audio } from '../../core/audio';
+import { IS_PORTAL } from '../../core/portal';
+import { testOnPhone } from '../web-editor';
 import { music } from '../../core/music';
 import { SONGS } from '../../core/songs';
 import { isRegularTrack, musicInfo, TRACK_BASE, TRACKS } from '../../core/tracks';
@@ -183,6 +185,7 @@ export class EditorScreen extends BaseScreen {
       button({ icon: 'info', cls: 'icon ghost', aria: 'How to build', onClick: () => openEditorGuide() }),
       button({ icon: 'flag', cls: 'icon cyan', aria: 'Test from here', onClick: () => this.test(true) }),
       button({ label: 'Test', icon: 'play', cls: 'mint', onClick: () => this.test(false) }),
+      IS_PORTAL && !room ? button({ label: 'On phone', icon: 'play', cls: 'cyan', onClick: () => this.testOnPhone() }) : null,
       room?.isHost ? button({ label: 'Race!', icon: 'users', cls: 'yellow', onClick: () => this.race() }) : null,
       coopClient
         ? button({ icon: 'copy', cls: 'icon ghost', aria: 'Save a copy', onClick: () => this.saveCopy() })
@@ -339,6 +342,14 @@ export class EditorScreen extends BaseScreen {
       exit: () => nav.go('editor'),
       onResult: (r) => s.recordRun(r.completed, r.fromStart, r.progress),
     });
+  }
+
+  /** Web editor: play it on the linked phone. */
+  private testOnPhone(): void {
+    const s = this.session;
+    if (s.doc.count === 0) return void this.hint('Add some pieces first! Try spikes, blocks and gems.', 2600);
+    s.save();
+    void testOnPhone(s.level());
   }
 
   private race(): void {

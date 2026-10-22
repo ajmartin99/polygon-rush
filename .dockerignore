@@ -1,10 +1,10 @@
-# Only the community server is built with Docker (see server/Dockerfile).
+# Only the community server is built with Docker (see server/Dockerfile);
+# it also builds the web editor from src/ and public/.
 **/node_modules
 android
 dist
 docs
 store
-public
 tools
 scripts
 tests

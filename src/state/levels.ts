@@ -1,12 +1,15 @@
 import { Preferences } from '@capacitor/preferences';
 import { Emitter } from '../core/emitter';
 import { sanitizeLevel, type LevelData } from '../game/level';
+import { IS_PORTAL } from '../core/portal';
 
 const KEY = 'polygon-rush.levels.v1';
 export const MAX_LEVELS = 60;
 
 interface LevelEvents extends Record<string, unknown> {
   change: LevelData[];
+  /** A level was deleted (the web editor deletes it on the other side too). */
+  removed: LevelData;
 }
 
 /**
@@ -64,6 +67,8 @@ class LevelStore extends Emitter<LevelEvents> {
 
   /** Insert or replace. Returns false when the device already holds MAX_LEVELS. */
   put(level: LevelData): boolean {
+    // Your own levels remember where they were made (shown as a Mobile / Web tag).
+    if (level.origin === 'mine' && !level.madeOn) level = { ...level, madeOn: IS_PORTAL ? 'web' : 'mobile' };
     const i = this.levels.findIndex((l) => l.id === level.id);
     if (i >= 0) this.levels[i] = level;
     else if (this.full) return false;
@@ -81,8 +86,10 @@ class LevelStore extends Emitter<LevelEvents> {
   }
 
   remove(id: string): void {
+    const gone = this.get(id);
     this.levels = this.levels.filter((l) => l.id !== id);
     this.changed();
+    if (gone) this.emit('removed', gone);
   }
 
   private changed(): void {

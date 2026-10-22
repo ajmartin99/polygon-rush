@@ -44,6 +44,7 @@ Shape **portals** switch modes mid-run. The first time a player meets a shape, t
 * **Duel:** 2 players, one device, split screen (top half / bottom half taps). 650 m.
 * **Levels:** Endless is cut into levels of 500 m (one world each, cycling). Reaching a level's start on a difficulty unlocks it there (up to 40). A run can start from any unlocked level, at that point's speed and pattern difficulty, with distance counted from 0 m, so records and missions still add up. The run gets a fresh runway, no tutorial, and that world's song. Bot tests cover starts at levels 4, 6 and 9.
 * **Endless variants** (Home → Modes): **Daily Run** (one seeded course per day for everyone, Medium, no revive, 100 gems once for reaching 500 m), **One Heart** (one heart, no heart pickups, no revive), **Gem Rush** (60 s, extra gems, bumps stun and drop 5 gems, scores gems and pays out half). Each keeps its own record.
+  *(Daily Run and Rhythm Rush were retired in 1.0.13: their code stays dormant, and the two Daily Run badges are kept by players who earned them.)*
 * **Online:** **Quick Match** joins a random open public race (fullest first) or hosts one; public rooms start on their own 20 s after a second racer joins. Rooms can be private (code only) or public (13+, parent toggle). Up to 4 players via a 4-character room code. Peer-to-peer (PeerJS/WebRTC) with the host relaying state at 15 Hz; remote racers are interpolated 100 ms in the past. Quick Chat in the lobby; public rooms can be reported.
 
 ## Create mode (level maker)

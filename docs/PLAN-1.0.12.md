@@ -5,7 +5,7 @@ Everything here needs a native build (a live update can't do it).
 
 ## Seasonal app icons
 
-The home-screen icon follows the same season calendar as the Daily Run.
+The home-screen icon follows the game's season calendar (meta/events).
 
 **How it works**
 - Android `activity-alias` entries in `AndroidManifest.xml`, one per icon:

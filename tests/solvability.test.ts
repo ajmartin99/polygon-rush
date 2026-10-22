@@ -179,6 +179,18 @@ describe('beat-synced endless levels', () => {
     }
   });
 
+  it('Easy and Normal mix in pads, ledges and (Normal) orb doubles', () => {
+    for (const diff of ['easy', 'medium'] as Difficulty[]) {
+      const w = new World();
+      new LevelGen(w, { seed: 77, kind: 'endless', diff, levels: timeline(diff) }).ensure(3000);
+      const count = (k: string) => w.objs.filter((o) => o.kind === k).length;
+      expect(count('pad'), diff).toBeGreaterThan(5);
+      expect(w.objs.filter((o) => o.kind === 'solid' && o.role === 'block').length, diff).toBeGreaterThan(5);
+      if (diff === 'medium') expect(count('orb'), diff).toBeGreaterThan(2);
+      else expect(count('orb'), diff).toBe(0);
+    }
+  });
+
   it('every 2nd level opens with a few easy seconds (no taps)', () => {
     for (const diff of ['easy', 'medium', 'hard'] as Difficulty[]) {
       const levels = timeline(diff);

@@ -17,6 +17,9 @@ import { thumb } from '../level-thumb';
 import { removeBan } from '../../services/room-bans';
 import { communitySection, shareToCommunity } from '../community-levels';
 import { canUseSharedLevels } from '../../meta/community';
+import { IS_PORTAL } from '../../core/portal';
+import { madeOnTag, openWebLink, testOnPhone } from '../web-editor';
+import { cloud } from '../../services/cloud';
 
 type Tab = 'mine' | 'community' | 'featured' | 'together';
 
@@ -111,21 +114,31 @@ export class CreateScreen extends BaseScreen {
     );
     this.render();
     this.own(levels.on('change', () => this.tab === 'mine' && this.render()));
+    if (IS_PORTAL) {
+      this.own(cloud.on('signedOut', (why) => (why && ui.toast(why, 'lock', 4000), nav.go('portal'))));
+      void cloud.sync();
+    }
   }
 
   override back(): boolean {
-    nav.go('menu');
+    nav.go(IS_PORTAL ? 'portal' : 'menu');
     return true;
   }
 
   private render(): void {
     clear(this.tabsEl);
-    const tabs: [Tab, string][] = [
-      ['mine', 'My Levels'],
-      ['community', 'Community'],
-      ['featured', 'Featured'],
-      ['together', 'Build Together'],
-    ];
+    // The web editor builds and tests; sharing and building together stay in the app.
+    const tabs: [Tab, string][] = IS_PORTAL
+      ? [
+          ['mine', 'My Levels'],
+          ['featured', 'Featured'],
+        ]
+      : [
+          ['mine', 'My Levels'],
+          ['community', 'Community'],
+          ['featured', 'Featured'],
+          ['together', 'Build Together'],
+        ];
     for (const [id, label] of tabs) {
       const b = h(`button.tab${this.tab === id ? '.active' : ''}`, null, label);
       b.addEventListener('click', () => {
@@ -155,10 +168,23 @@ export class CreateScreen extends BaseScreen {
       ),
     );
     for (const l of list) grid.appendChild(this.card(l, () => this.levelMenu(l)));
+    if (!IS_PORTAL) this.body.append(this.webBanner());
     this.body.append(grid);
     if (!list.length) {
       this.body.append(h('p.muted', { style: 'text-align:center;margin-top:0.8rem' }, 'Build your own level, test it, then share the code with friends. Need ideas? Remix a Featured level!'));
     }
+  }
+
+  /** Builder Pack: build on a computer too. */
+  private webBanner(): HTMLElement {
+    const linked = store.data.web.linked && store.data.purchases.builder;
+    return h(
+      'button.web-banner',
+      { onclick: () => void openWebLink() },
+      ic('build'),
+      h('span', null, h('b', null, 'Web Editor'), h('span.muted.small', null, linked ? ' · Linked: levels sync with your computer' : ' · Build on a computer with a big screen')),
+      h('span.web-go', null, linked ? 'Manage' : 'Open'),
+    );
   }
 
   private card(l: LevelContent & Partial<LevelData>, onClick: () => void, sub?: string): HTMLElement {
@@ -166,6 +192,7 @@ export class CreateScreen extends BaseScreen {
     return h(
       'button.level-card',
       { onclick: onClick, style: `--a:${BIOMES[l.theme % BIOMES.length].accent}` },
+      l.origin ? madeOnTag(l as LevelData) : null,
       thumb(l),
       h('b', null, levelName(l), l.verified ? h('span.ed-verified', { title: 'Beaten by its builder' }, ic('verified')) : null),
       h('span.muted.small', null, sub ?? (l.authors.length ? `by ${l.authors.join(', ')}` : 'by you')),
@@ -210,7 +237,10 @@ export class CreateScreen extends BaseScreen {
             },
           }),
         ),
-        mine && canUseSharedLevels(store.data)
+        IS_PORTAL
+          ? h('div.actions', null, button({ label: 'Test on phone', icon: 'play', cls: 'cyan', onClick: () => (m.close(), void testOnPhone(l)) }))
+          : null,
+        mine && !IS_PORTAL && canUseSharedLevels(store.data)
           ? h(
               'div.actions',
               null,
@@ -226,7 +256,7 @@ export class CreateScreen extends BaseScreen {
         h(
           'div.actions',
           null,
-          editable ? button({ label: 'Build with friends', icon: 'users', cls: 'violet sm', onClick: () => (m.close(), void hostBuildRoom(l)) }) : null,
+          editable && !IS_PORTAL ? button({ label: 'Build with friends', icon: 'users', cls: 'violet sm', onClick: () => (m.close(), void hostBuildRoom(l)) }) : null,
           !editable ? null : button({
             label: 'Copy',
             icon: 'copy',

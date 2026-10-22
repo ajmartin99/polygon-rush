@@ -158,3 +158,85 @@ export const BETA_ADMIN_JS = `(() => {
   });
   if (token) load().catch(() => { sessionStorage.removeItem('prAdmin'); $('login').hidden = false; });
 })();`;
+
+export function promoAdminPage(): string {
+  return page(
+    'Promo codes',
+    `<h1>Promo codes</h1>
+<form id="login"><input id="token" type="password" autocomplete="off" placeholder="Admin token (ADMIN_TOKEN on Render)"><button class="go" type="submit">Open</button></form>
+<div id="out" hidden>
+<h2>New code</h2>
+<form id="make">
+<p><input id="code" required maxlength="24" placeholder="Code, e.g. SPOOKY500 (letters and numbers)"></p>
+<p><input id="gems" type="number" min="0" max="50000" placeholder="Gems"> <input id="regens" type="number" min="0" max="20" placeholder="Heart Regens"></p>
+<p><input id="skins" placeholder="Skin ids, comma separated (optional)"></p>
+<p><input id="trails" placeholder="Trail ids, comma separated (optional)"></p>
+<p><input id="emotes" placeholder="Emote ids, comma separated (optional)"></p>
+<p><input id="uses" type="number" min="0" placeholder="Max uses (empty = no limit)"> Ends <input id="ends" type="date"></p>
+<p><input id="note" maxlength="80" placeholder="Message players see, e.g. Happy Halloween!"></p>
+<button class="go" type="submit">Create code</button>
+</form>
+<p class="muted">Each player can use a code once. Item ids are listed in docs/PROMOS.md.</p>
+<h2>Codes</h2>
+<table><thead><tr><th>Code</th><th>Gives</th><th>Used</th><th>Ends</th><th>Note</th><th></th><th></th></tr></thead><tbody id="rows"></tbody></table>
+</div>
+<p id="msg" role="status"></p>
+<script src="/promos/admin.js"></script>`,
+  );
+}
+
+export const PROMO_ADMIN_JS = `(() => {
+  const $ = (id) => document.getElementById(id);
+  let token = sessionStorage.getItem('prAdmin') || '';
+  const api = async (method, url, body) => {
+    const r = await fetch(url, { method, headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    const j = await r.json().catch(() => ({}));
+    if (r.status === 401) throw new Error('Wrong admin token.');
+    if (!r.ok) throw new Error(j.message || 'Something went wrong.');
+    return j;
+  };
+  const say = (t) => { $('msg').textContent = t; };
+  const ids = (v) => v.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  const gives = (r) => [r.gems ? r.gems + ' gems' : '', r.regens ? r.regens + ' Heart Regens' : '', ...(r.skins || []).map((s) => 'skin ' + s), ...(r.trails || []).map((s) => 'trail ' + s), ...(r.emotes || []).map((s) => 'emote ' + s)].filter(Boolean).join(', ');
+  const cell = (tr, text) => { const td = document.createElement('td'); td.textContent = text; tr.appendChild(td); return td; };
+  const load = async () => {
+    const list = (await api('GET', '/api/admin/promos')).promos;
+    sessionStorage.setItem('prAdmin', token);
+    $('login').hidden = true; $('out').hidden = false;
+    const rows = $('rows'); rows.textContent = '';
+    for (const p of list) {
+      const tr = document.createElement('tr');
+      cell(tr, p.code + (p.disabled ? ' (off)' : ''));
+      cell(tr, gives(p.reward));
+      cell(tr, p.uses + (p.maxUses ? ' / ' + p.maxUses : ''));
+      cell(tr, p.expiresAt ? new Date(p.expiresAt).toLocaleDateString() : '-');
+      cell(tr, p.note);
+      const off = document.createElement('button'); off.textContent = p.disabled ? 'Turn on' : 'Turn off';
+      off.addEventListener('click', () => api('POST', '/api/admin/promos/' + p.code, { disabled: !p.disabled }).then(load).catch((e) => say(e.message)));
+      cell(tr, '').appendChild(off);
+      const del = document.createElement('button'); del.textContent = 'Delete';
+      del.addEventListener('click', async () => { if (confirm('Delete ' + p.code + '? Players who used it keep what they got.')) { await api('DELETE', '/api/admin/promos/' + p.code); load(); } });
+      cell(tr, '').appendChild(del);
+      rows.appendChild(tr);
+    }
+  };
+  $('login').addEventListener('submit', (e) => { e.preventDefault(); token = $('token').value.trim(); load().catch((err) => say(err.message)); });
+  $('make').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const num = (id) => Number($(id).value) || 0;
+    const ends = $('ends').value ? new Date($('ends').value + 'T23:59:59').getTime() : 0;
+    try {
+      const { promo } = await api('POST', '/api/admin/promos', {
+        code: $('code').value,
+        reward: { gems: num('gems'), regens: num('regens'), skins: ids($('skins').value), trails: ids($('trails').value), emotes: ids($('emotes').value) },
+        maxUses: num('uses'),
+        expiresAt: ends,
+        note: $('note').value,
+      });
+      say('Created ' + promo.code + '.');
+      $('make').reset();
+      load();
+    } catch (err) { say(err.message); }
+  });
+  if (token) load().catch(() => { sessionStorage.removeItem('prAdmin'); $('login').hidden = false; });
+})();`;

@@ -457,6 +457,14 @@ export class PlayerService {
   }
 
   /** Moderation: who holds this name (all tags). */
+  /** A player by id (403 when a moderator banned their name since). */
+  byId(id: string, now = Date.now()): PlayerRow {
+    const row = this.q<PlayerRow>('SELECT * FROM players WHERE id = ?', id);
+    if (!row) throw new ApiError(401, 'signed_out', 'Link this browser again with a code from the game.');
+    if (!this.names.allowed(row.name, now)) throw new ApiError(403, 'name_banned', 'Your racer name was reset by our safety team.');
+    return row;
+  }
+
   byName(name: string): (PublicPlayer & { last_seen: number })[] {
     return this.qa<PlayerRow>('SELECT * FROM players WHERE name_lc = ? ORDER BY tag', name.toLowerCase()).map((p) => ({ ...this.pub(p), last_seen: p.last_seen }));
   }

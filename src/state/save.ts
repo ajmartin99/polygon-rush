@@ -19,6 +19,16 @@ export interface Settings {
   sfx: number; // 0..1
   haptics: boolean;
   reducedMotion: boolean;
+  /** Accessibility: larger secondary text. */
+  bigText: boolean;
+  /** Accessibility: bold outlines on hazards, darker backgrounds, brighter UI text. */
+  highContrast: boolean;
+  /** Accessibility: a plain, wider-spaced font instead of the rounded game font. */
+  easyFont: boolean;
+  /** Accessibility: the screen edge pulses on every beat (play without sound). */
+  beatPulse: boolean;
+  /** Accessibility: a light buzz on every beat during runs. */
+  beatBuzz: boolean;
   /** Kid Mode: slower speed and extra hearts in Endless. */
   kidMode: boolean;
   graphics: GraphicsQuality;
@@ -167,6 +177,8 @@ export interface SaveData {
     freeGemsCount: number;
   };
   tutorial: Record<string, boolean>;
+  /** Web editor (Builder Pack): a browser was linked, so levels sync and tests arrive. */
+  web: { linked: boolean };
   settings: Settings;
   /** Free Chat account on the community server (empty when not verified). */
   account: ChatAccount;
@@ -194,6 +206,11 @@ export const DEFAULT_SETTINGS: Settings = {
   sfx: 0.9,
   haptics: true,
   reducedMotion: false,
+  bigText: false,
+  highContrast: false,
+  easyFont: false,
+  beatPulse: false,
+  beatBuzz: false,
   kidMode: false,
   graphics: 'auto',
   onlineAllowed: true,
@@ -260,6 +277,7 @@ export function createSave(now = Date.now()): SaveData {
     purchases: { noAds: false, starter: false, legend: false, spotlight: false, builder: false, gemPacks: 0, tx: [] },
     ads: { runsSinceInterstitial: 0, lastInterstitialAt: 0, freeGemsDay: '', freeGemsCount: 0 },
     tutorial: {},
+    web: { linked: false },
     settings: { ...DEFAULT_SETTINGS },
     account: emptyAccount(),
   };

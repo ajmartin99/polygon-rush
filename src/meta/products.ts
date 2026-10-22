@@ -31,7 +31,7 @@ export const PRODUCTS: ProductDef[] = [
   { id: P.legendPack, kind: 'nonconsumable', name: 'Legend Pack', desc: '3 legendary skins + 2 legendary trails', fallbackPrice: '$3.99' },
   { id: P.gemsSmall, kind: 'consumable', name: 'Gem Pouch', desc: '600 gems', fallbackPrice: '$0.99', gems: 600 },
   { id: P.creatorSpotlight, kind: 'nonconsumable', name: 'Creator Spotlight', desc: 'Your top-rated level on your profile card: anyone who taps you can play it', fallbackPrice: '$0.99', gemPay: true },
-  { id: P.builderPack, kind: 'nonconsumable', name: 'Builder Pack', desc: 'Creator Stats on your card + a gold Pro Builder tag on your card and Community levels', fallbackPrice: '$2.99', gemPay: true },
+  { id: P.builderPack, kind: 'nonconsumable', name: 'Builder Pack', desc: 'The Web Editor (build on a computer), Creator Stats on your card + a gold Pro Builder tag on your card and Community levels', fallbackPrice: '$2.99', gemPay: true },
   { id: P.hauntedRegen1, kind: 'consumable', name: 'Heart Regen', desc: 'Limited-time runs: 2 fresh attempts now', fallbackPrice: '$0.99', gemPay: true },
   { id: P.hauntedRegen4, kind: 'consumable', name: '4 Heart Regens', desc: 'Limited-time runs: 4 refills, use them any time', fallbackPrice: '$2.99', gemPay: true },
   { id: P.gemsMedium, kind: 'consumable', name: 'Gem Chest', desc: '2,000 gems', fallbackPrice: '$2.99', gems: 2000, ribbon: 'Popular' },

@@ -287,7 +287,11 @@ class AudioEngine {
   playTrack(id: number, url: string, bpm = 120, offset = 0, gainDb = 0): void {
     this.unlock();
     if (!this.ctx || typeof Audio === 'undefined') return;
-    if (this.trackId === id && this.trackEl) return;
+    if (this.trackId === id && this.trackEl) {
+      // Same song again (a retry): it may have been paused while the app was in the background.
+      if (this.trackEl.paused) void this.trackEl.play().catch(() => {});
+      return;
+    }
     const ctx = this.ctx as AudioContext;
     // A track asked for earlier that never started: drop it silently.
     if (this.trackEl && this.trackEl !== this.audible?.el && this.trackGain) this.release(this.trackEl, this.trackGain, 0.05);
@@ -347,6 +351,21 @@ class AudioEngine {
   }
 
   private lastSync = 0;
+
+  /**
+   * Keep the music going: a track can be left paused after the app comes
+   * back from the background (another app took over the sound, or Android
+   * refused to restart it without a tap). Called regularly while the game is
+   * on screen; does nothing when the music is already playing.
+   */
+  keepAlive(): void {
+    if (!this.ctx || typeof document === 'undefined' || document.hidden) return;
+    const ctx = this.ctx as AudioContext;
+    if (ctx.state === 'suspended' && 'resume' in ctx) void ctx.resume().catch(() => {});
+    const el = this.trackEl;
+    if (el && el.paused && el.src) void el.play().catch(() => {});
+    if (this.playing && !this.timer) this.timer = window.setInterval(() => this.schedule(this.ctx!.currentTime + 0.12), 25);
+  }
 
   /**
    * Beat-synced levels: keep the recorded track at the song time the runner's

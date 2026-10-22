@@ -44,13 +44,42 @@ export interface Saw extends Base {
     bx: number;
     from: number;
     to: number;
-    /** Also comes in from this x (Haunted Run monsters walk and swoop at you), ending at `x`. */
-    fromX?: number;
+    /**
+     * Haunted Run monsters: wander back and forth between `l` and `r` (a
+     * zombie turns at walls, spikes and drops; a ghost drifts through
+     * anything) until the runner reaches `ax` and they notice you, then
+     * come at you and settle on `x` by `bx`. Driven by the runner's
+     * position like everything else, so physics, bot and screen agree.
+     */
+    patrol?: { l: number; r: number; rate: number; off: number; bob?: number };
     /** Swoops up and down this much on the way in (settles by `bx`). */
     wave?: number;
   };
   /** Haunted Run: drawn as a zombie (on the ground) or a ghost (in the air) instead of a saw. */
   mob?: 'zombie' | 'ghost';
+}
+
+const smooth = (t: number) => t * t * (3 - 2 * t);
+
+/** Where a wandering monster is (and which way it faces) before it notices you. */
+function wander(p: NonNullable<NonNullable<Saw['move']>['patrol']>, runnerX: number): { x: number; dir: 1 | -1 } {
+  const len = Math.max(0.001, p.r - p.l);
+  const u = (((runnerX * p.rate + p.off) % (2 * len)) + 2 * len) % (2 * len);
+  return u < len ? { x: p.l + u, dir: 1 } : { x: p.l + 2 * len - u, dir: -1 };
+}
+
+/** 0 = still wandering, 0..1 = coming at you, 1 = settled on its spot. */
+export function mobAlert(s: Saw, runnerX: number): number {
+  const m = s.move;
+  if (!m?.patrol) return 1;
+  return Math.min(1, Math.max(0, (runnerX - m.ax) / (m.bx - m.ax)));
+}
+
+/** Which way a monster faces: 1 = right (away from you), -1 = left (at you). */
+export function mobFacing(s: Saw, runnerX: number): 1 | -1 {
+  const m = s.move;
+  if (!m?.patrol || runnerX >= m.ax) return -1;
+  return wander(m.patrol, runnerX).dir;
 }
 
 /** Where a (possibly moving) saw is when the runner is at `runnerX`. */
@@ -59,15 +88,25 @@ export function sawY(s: Saw, runnerX: number): number {
   if (!m) return s.y;
   const t = Math.min(1, Math.max(0, (runnerX - m.ax) / (m.bx - m.ax)));
   const wave = m.wave ? m.wave * Math.sin(t * Math.PI * 3) * (1 - t) : 0;
-  return m.from + (m.to - m.from) * t * t * (3 - 2 * t) + wave;
+  if (m.patrol?.bob) {
+    // A ghost bobs while it drifts about, then swoops down onto its spot.
+    const bobAt = (x: number) => m.from + m.patrol!.bob! * Math.sin(x * m.patrol!.rate * 1.7 + m.patrol!.off);
+    if (t <= 0) return bobAt(runnerX);
+    const start = bobAt(m.ax);
+    return start + (m.to - start) * smooth(t) + wave;
+  }
+  return m.from + (m.to - m.from) * smooth(t) + wave;
 }
 
 /** Where a (possibly moving) saw is across, when the runner is at `runnerX`. */
 export function sawX(s: Saw, runnerX: number): number {
-  const m = s.move;
-  if (m?.fromX === undefined) return s.x;
-  const t = Math.min(1, Math.max(0, (runnerX - m.ax) / (m.bx - m.ax)));
-  return m.fromX + (s.x - m.fromX) * t * t * (3 - 2 * t);
+  const p = s.move?.patrol;
+  if (!p) return s.x;
+  const m = s.move!;
+  if (runnerX <= m.ax) return wander(p, runnerX).x;
+  const start = wander(p, m.ax).x;
+  const t = Math.min(1, (runnerX - m.ax) / (m.bx - m.ax));
+  return start + (s.x - start) * smooth(t);
 }
 
 export interface Gem extends Base {

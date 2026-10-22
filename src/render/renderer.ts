@@ -3,7 +3,7 @@ import { CEIL, VIEW_BOTTOM, VIEW_H, VIEW_TOP } from '../game/constants';
 import type { GameSession } from '../game/session';
 import type { Racer } from '../game/racer';
 import { SHAPE_INFO, type ShapeMode } from '../game/shapes';
-import { sawX, sawY, type World, type WorldObj } from '../game/world';
+import { mobAlert, mobFacing, sawX, sawY, type World, type WorldObj } from '../game/world';
 import { skinById } from '../meta/catalog';
 import { darken, lighten, rgba, type Palette } from './biomes';
 import { drawCharacter } from './character';
@@ -274,7 +274,7 @@ export class Renderer {
           this.drawSpike(pal, sx(o.x), sy(o.y), o.size * s, o.dir);
           break;
         case 'saw':
-          if (o.mob) this.drawMob(o.mob, sx(sawX(o, this.runnerX)), sy(sawY(o, this.runnerX)), s, time + o.x);
+          if (o.mob) this.drawMob(o.mob, sx(sawX(o, this.runnerX)), sy(sawY(o, this.runnerX)), s, time + o.x, mobFacing(o, this.runnerX), mobAlert(o, this.runnerX));
           else if (this.haunted) drawPumpkin(this.ctx, sx(o.x), sy(sawY(o, this.runnerX)), o.r * s, time + o.x);
           else this.drawSaw(pal, sx(o.x), sy(sawY(o, this.runnerX)), o.r * s, time);
           if (this.highContrast) this.hazardRing(sx(sawX(o, this.runnerX)), sy(sawY(o, this.runnerX)), o.r * s);
@@ -1036,24 +1036,38 @@ export class Renderer {
   }
 
   /** Haunted Run monsters standing (or floating) in the way, facing the runner. */
-  private drawMob(kind: 'zombie' | 'ghost', px: number, py: number, s: number, time: number): void {
+  /** A Haunted Run monster, facing the way it's going; a "!" pops up when it notices you. */
+  private drawMob(kind: 'zombie' | 'ghost', px: number, py: number, s: number, time: number, facing: 1 | -1 = -1, alert = 1): void {
     const ctx = this.ctx;
+    // A startled hop the moment it spots you.
+    const hop = alert > 0 && alert < 0.35 ? Math.sin((alert / 0.35) * Math.PI) * s * 0.35 : 0;
     ctx.save();
     if (kind === 'ghost') {
-      // Face left, toward the runner coming at it.
-      ctx.translate(px, py);
-      ctx.scale(-1.15, 1.15);
+      ctx.translate(px, py - hop);
+      ctx.scale(1.15 * facing, 1.15);
       drawGhost(this.ctx, 0, 0, s, time);
     } else {
-      // Feet on the floor (the hit circle sits 0.6 up), reaching left.
-      ctx.translate(px, py + s * 0.6);
-      ctx.scale(-1.05, 1.05);
+      // Feet on the floor (the hit circle sits 0.6 up), arms out the way it walks.
+      ctx.translate(px, py + s * 0.6 - hop);
+      ctx.scale(1.05 * facing, 1.05);
       drawZombie(this.ctx, s, time);
     }
     ctx.restore();
+    if (alert > 0 && alert < 0.6) {
+      const a = alert < 0.45 ? 1 : 1 - (alert - 0.45) / 0.15;
+      const y = py - s * (kind === 'ghost' ? 1.5 : 1.3) - hop;
+      ctx.save();
+      ctx.globalAlpha = a;
+      ctx.font = `800 ${Math.round(s * 0.8)}px Fredoka, system-ui, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.lineWidth = Math.max(2, s * 0.12);
+      ctx.strokeStyle = '#1b1140';
+      ctx.strokeText('!', px, y);
+      ctx.fillStyle = '#ffd23f';
+      ctx.fillText('!', px, y);
+      ctx.restore();
+    }
   }
-
-
 
   private drawGem(px: number, py: number, s: number, big: boolean, t: number): void {
     const ctx = this.ctx;

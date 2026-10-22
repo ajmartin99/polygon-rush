@@ -112,6 +112,7 @@ export class GameController {
   private roomOff: (() => void)[] = [];
   private onlineResults: { id: string; time: number | null }[] | null = null;
   private frameTimes: number[] = [];
+  private aliveTick = 0;
   private lowPerfStrikes = 0;
   private songBiome = -1;
   private syncTick = 0;
@@ -615,6 +616,8 @@ export class GameController {
     const raw = Math.min(0.1, (now - (this.last || now)) / 1000);
     this.last = now;
     this.trackPerf(raw);
+    // About once a second: restart music left paused (back from the background, another app's audio).
+    if (++this.aliveTick % 60 === 0 && this.phase !== 'paused') audio.keepAlive();
     if (this.scene) {
       this.time += raw;
       this.scene.frame(this.renderer, raw, this.time);

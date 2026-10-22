@@ -45,9 +45,36 @@ export interface Piece {
 /** Saw variants only the game's own courses use (not in the editor): Haunted Run monsters. */
 export const SAW_ZOMBIE = 2;
 export const SAW_GHOST = 3;
-/** How far ahead a Haunted Run zombie starts walking from, and a ghost swoops in from. */
-export const ZOMBIE_WALK = 5;
-export const GHOST_SWOOP = 7;
+/**
+ * Haunted Run monsters wander until you're this close (tiles), then come at
+ * you and settle on their spot by the second number (you still jump or fly
+ * around them on the beat).
+ */
+export const ZOMBIE_NOTICE = [7, 2.5] as const;
+export const GHOST_NOTICE = [8, 2] as const;
+
+/**
+ * How far a zombie at (x, y) can wander each way before something stops it
+ * (a wall, spike, saw or drop): it turns around there, like a goomba.
+ */
+export function zombieRoom(pieces: readonly Piece[], x: number, y: number, maxL = 2, maxR = 4): { l: number; r: number } {
+  const solid = new Set<string>();
+  const pits = new Set<number>();
+  for (const p of pieces) {
+    if (p.t === 'pit') pits.add(p.x);
+    else if (p.t === 'block' || p.t === 'platform') solid.add(`${p.x}:${p.y}`);
+    if (p.t === 'block' || p.t === 'spike' || p.t === 'saw' || p.t === 'pad') solid.add(`blocked:${p.x}:${p.y}`);
+  }
+  const open = (tx: number) => !solid.has(`blocked:${tx}:${y}`) && (y === 0 ? !pits.has(tx) : solid.has(`${tx}:${y - 1}`));
+  let l = 0;
+  while (l < maxL && open(x - l - 1)) l++;
+  let r = 0;
+  while (r < maxR && open(x + r + 1)) r++;
+  return { l, r };
+}
+
+/** A small stable number per tile, so each monster wanders out of step with its neighbours. */
+const mobPhase = (x: number) => ((x * 7919) % 97) / 9.7;
 
 /** How many variants each piece cycles through when tapped again. */
 export const VARIANTS: Record<PieceType, number> = {
@@ -307,18 +334,24 @@ export function buildWorld(level: LevelContent, world = new World()): World {
       }
       case 'saw': {
         if (p.v === SAW_ZOMBIE) {
-          // A zombie shambling toward you along the ground; it reaches its spot just before
-          // you do, so you still jump it on the beat.
+          // A zombie shambles back and forth (turning at walls, spikes and drops) until it
+          // notices you, then lurches onto its spot just before you get there: jump it on the beat.
           const zy = p.y + 0.6;
-          const from = cx + ZOMBIE_WALK;
-          out.push({ id: id(), kind: 'saw', x: cx, y: zy, r: 0.6, mob: 'zombie', move: { ax: cx - 14, bx: cx - 3, from: zy, to: zy, fromX: from }, x0: cx - 0.6, x1: from + 0.6, y0: zy - 0.6, y1: zy + 0.6 });
+          const room = zombieRoom(level.pieces, p.x, p.y);
+          const l = cx - room.l * 0.9;
+          const rr = cx + room.r * 0.9;
+          const patrol = { l, r: Math.max(rr, l + 0.5), rate: 0.15, off: mobPhase(p.x) };
+          out.push({ id: id(), kind: 'saw', x: cx, y: zy, r: 0.6, mob: 'zombie', move: { ax: cx - ZOMBIE_NOTICE[0], bx: cx - ZOMBIE_NOTICE[1], from: zy, to: zy, patrol }, x0: patrol.l - 0.6, x1: patrol.r + 0.6, y0: zy - 0.6, y1: zy + 0.6 });
           break;
         }
         if (p.v === SAW_GHOST) {
-          // A ghost swooping in at you from ahead and settling into its spot (fly around it).
+          // A ghost drifts about above its spot (straight through walls), bobbing, until it
+          // notices you, then swoops down onto its spot (fly around it).
           const r = 0.8;
-          const from = cx + GHOST_SWOOP;
-          out.push({ id: id(), kind: 'saw', x: cx, y: cy, r, mob: 'ghost', move: { ax: cx - 14, bx: cx - 2, from: cy + 2, to: cy, fromX: from, wave: 0.9 }, x0: cx - r, x1: from + r, y0: cy - 0.9 - r, y1: cy + 2.9 + r });
+          const bob = 0.7;
+          const from = Math.min(cy + 1.2, 7.4 - bob);
+          const patrol = { l: cx - 1, r: cx + 4, rate: 0.25, off: mobPhase(p.x), bob };
+          out.push({ id: id(), kind: 'saw', x: cx, y: cy, r, mob: 'ghost', move: { ax: cx - GHOST_NOTICE[0], bx: cx - GHOST_NOTICE[1], from, to: cy, patrol, wave: 0.6 }, x0: patrol.l - r, x1: patrol.r + r, y0: Math.min(cy, from - bob) - 0.6 - r, y1: Math.max(cy, from + bob) + 0.6 + r });
           break;
         }
         const r = p.v ? 1.1 : 0.6;

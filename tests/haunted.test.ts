@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sawX, sawY, World } from '../src/game/world';
+import { mobFacing, sawX, sawY, World } from '../src/game/world';
 import { BotBrain } from '../src/game/bot';
 import { createBody, newEvents, stepBody } from '../src/game/physics';
 import { buildWorld, levelSpeed } from '../src/game/level';
@@ -55,24 +55,40 @@ describe('Haunted Run', () => {
     });
   }
 
-  it('zombies walk and ghosts swoop at you, landing in their spot before you get there', () => {
+  it('monsters wander back and forth until they notice you, then settle in their spot before you get there', () => {
     const mobs = (['hard', 'easy'] as const).flatMap((d) => buildWorld(hauntedCourse(d, 7)).objs.filter((o): o is Extract<typeof o, { kind: 'saw' }> => o.kind === 'saw' && !!o.mob));
     expect(mobs.some((m) => m.mob === 'zombie')).toBe(true);
     expect(mobs.some((m) => m.mob === 'ghost')).toBe(true);
+    let turned = 0;
     for (const m of mobs) {
-      // Far off they're somewhere else; from a couple of tiles away they hold still in their spot.
-      expect(sawX(m, m.x - 30)).toBeGreaterThan(m.x + 3);
+      // Far off they wander: they move, and turn around.
+      const xs = new Set<number>();
+      const dirs = new Set<number>();
+      for (let x = m.x - 40; x < m.x - 12; x += 1) {
+        xs.add(Math.round(sawX(m, x) * 10));
+        dirs.add(mobFacing(m, x));
+      }
+      if (m.move?.patrol && m.move.patrol.r - m.move.patrol.l > 0.6) {
+        expect(xs.size).toBeGreaterThan(3);
+        if (dirs.size === 2) turned++;
+      }
+      // From a couple of tiles away they hold still in their spot, facing you.
       for (const d of [2, 1, 0]) {
         expect(sawX(m, m.x - d)).toBeCloseTo(m.x, 5);
         expect(sawY(m, m.x - d)).toBeCloseTo(m.y, 5);
+        expect(mobFacing(m, m.x - d)).toBe(-1);
       }
-      // Always inside its own bounds (so it's never missed by collisions or drawing).
-      for (let x = m.x - 30; x <= m.x; x += 0.5) {
+      for (let x = m.x - 40; x <= m.x; x += 0.25) {
+        // Always inside its own bounds (so it's never missed by collisions or drawing)...
+        expect(sawX(m, x)).toBeGreaterThanOrEqual(m.x0);
         expect(sawX(m, x)).toBeLessThanOrEqual(m.x1);
         expect(sawY(m, x)).toBeGreaterThanOrEqual(m.y0);
         expect(sawY(m, x)).toBeLessThanOrEqual(m.y1);
+        // ...and never on top of you before it settles.
+        if (x < m.x - 2.5) expect(sawX(m, x) - x).toBeGreaterThan(1.5);
       }
     }
+    expect(turned).toBeGreaterThan(mobs.length / 3);
   });
 
   it('two attempts per 24 hours; Heart Regen refills them', () => {

@@ -25,7 +25,7 @@ export const ICONS = {
   back: svg(`<path d="M15 4 7 12l8 8" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>`),
   next: svg(`<path d="M9 4l8 8-8 8" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>`),
   gear: svg(
-    `<path d="M12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zm8.4 5.1-1.7 1 .1 2-1.9 1.9-2-.1-1 1.7h-2.8l-1-1.7-2 .1-1.9-1.9.1-2-1.7-1v-2.8l1.7-1-.1-2L6.1 4l2 .1 1-1.7h2.8l1 1.7 2-.1L16.8 6l-.1 2 1.7 1z" fill="currentColor" fill-rule="evenodd"/>`,
+    `<path d="M19.25 9.71 L21.96 9.81 L21.96 14.19 L19.25 14.29 L18.74 15.50 L20.59 17.50 L17.50 20.59 L15.50 18.74 L14.29 19.25 L14.19 21.96 L9.81 21.96 L9.71 19.25 L8.50 18.74 L6.50 20.59 L3.41 17.50 L5.26 15.50 L4.75 14.29 L2.04 14.19 L2.04 9.81 L4.75 9.71 L5.26 8.50 L3.41 6.50 L6.50 3.41 L8.50 5.26 L9.71 4.75 L9.81 2.04 L14.19 2.04 L14.29 4.75 L15.50 5.26 L17.50 3.41 L20.59 6.50 L18.74 8.50ZM15.40 12a3.4 3.4 0 1 0 -6.80 0a3.4 3.4 0 1 0 6.80 0z" fill="currentColor" fill-rule="evenodd" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/>`,
   ),
   cart: svg(
     `<path d="M2.5 3.5h3l2.4 11.2a1.5 1.5 0 0 0 1.5 1.2h8.4a1.5 1.5 0 0 0 1.5-1.1L21 7.5H6.4" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9.5" cy="19.6" r="1.8" fill="currentColor"/><circle cx="17.5" cy="19.6" r="1.8" fill="currentColor"/>`,

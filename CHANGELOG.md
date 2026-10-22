@@ -7,6 +7,7 @@ All notable changes to Polygon Rush are documented here.
 ## [1.0.13] - 2026-10-22
 
 ### Fixed
+- The Settings cogwheel is a proper, even 8-tooth gear (its outline was lopsided).
 - Race results fit the screen again: the Home and Race again buttons were pushed off by the emote row; emotes now sit in one row you can swipe, and the runners behind the results screen are hidden (they showed under the podium).
 
 ### Changed

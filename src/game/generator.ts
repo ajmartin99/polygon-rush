@@ -1,5 +1,5 @@
 import { Rng } from '../core/rng';
-import { CEIL, ENDLESS_TUNING, JUMP_TIME, RACE_SPEED, endlessDifficultyAt, endlessHeatAt, endlessSpeedAt, type Difficulty } from './constants';
+import { CEIL, ENDLESS_TUNING, JUMP_TIME, PHYS, PLAYER_HALF, RACE_SPEED, endlessDifficultyAt, endlessHeatAt, endlessSpeedAt, type Difficulty } from './constants';
 import type { LevelSpan, LevelTimeline } from './levels';
 import type { ShapeMode } from './shapes';
 import type { PickupType, SolidRole, World, WorldObj } from './world';
@@ -316,6 +316,8 @@ export class LevelGen {
   private chartLevel = -1;
   private chartBeat = -Infinity;
   private chartLow = true;
+  /** The last special Easy/Normal beat ('pad', 'ledge'): never twice in a row. */
+  private chartFlavour = '';
   /** The shape the last tap was charted for (a new shape gets time to settle). */
   private chartMode: ShapeMode | null = null;
   /** Where each charted tap is (for tests). */
@@ -323,8 +325,13 @@ export class LevelGen {
 
   /** Seconds between taps: [run start, fully ramped]. */
   private chartGap(): number {
-    const [a, b] = CHART_GAP[this.opts.kid ? 'easy' : this.opts.diff ?? 'medium'];
-    return Math.max(0.4, a + (b - a) * Math.min(1, this.d) - 0.12 * this.heat);
+    const diff = this.opts.kid ? 'easy' : this.opts.diff ?? 'medium';
+    const [a, b] = CHART_GAP[diff];
+    const gap = Math.max(0.4, a + (b - a) * Math.min(1, this.d) - 0.12 * this.heat);
+    if (diff === 'hard') return gap;
+    // Easy and Normal breathe with the music: livelier and calmer stretches take turns every 16 beats.
+    const phrase = Number.isFinite(this.chartBeat) ? Math.floor(this.chartBeat / 16) % 2 : 1;
+    return gap * (phrase ? 1.12 : 0.88);
   }
 
   /** Place the next charted tap. False when this level's beat is unknown (patterns are used instead). */
@@ -380,6 +387,46 @@ export class LevelGen {
       case 'square': {
         // Jump on the beat: the hazard sits where the jump peaks.
         const c = xAt(0.25);
+        const flavour = hard ? 1 : this.rng.range(0, 1);
+        const sq = PHYS.square;
+        if (flavour < 0.13 && this.chartFlavour !== 'pad') {
+          // A pad on the beat: it launches you high along a gem arc, no tap (Normal: over spikes,
+          // under the high middle of the flight, well clear of the landing).
+          this.chartFlavour = 'pad';
+          const air = (2 * sq.pad) / sq.gravity;
+          this.pad(xT);
+          this.gemArc(xT, v * air, 0.9, 4.2, 6);
+          if (!easy && this.rng.chance(0.6)) this.spikeRow(xAt(air * 0.38), Math.max(1, Math.min(3, Math.floor(v * air * 0.22))));
+          end = xT + v * (air + 0.12);
+          break;
+        }
+        if (flavour < 0.27 && this.chartFlavour !== 'ledge') {
+          this.chartFlavour = 'ledge';
+          // Jump up onto a ledge on the beat, run along it, drop off.
+          const x0 = xAt(0.3);
+          const w = Math.max(3, Math.min(7, v * 0.7));
+          this.block(x0, 0, w, 1);
+          this.gemLine(x0 + 1, x0 + w - 0.5, 1.9, 1.3);
+          end = x0 + w + v * 0.2;
+          break;
+        }
+        this.chartFlavour = '';
+        if (!easy && flavour < 0.37 && unit >= 0.28 && unit <= 0.45) {
+          // Jump on the beat, tap the orb on the next one: a quick one-two over a wide pit.
+          const yAt = (t: number) => PLAYER_HALF + sq.jump * t - 0.5 * sq.gravity * t * t;
+          const orbX = xAt(unit);
+          const orbY = yAt(unit);
+          this.orb(orbX, orbY);
+          const fall = (sq.orb + Math.sqrt(sq.orb * sq.orb + 2 * sq.gravity * (orbY - PLAYER_HALF))) / sq.gravity;
+          const land = orbX + v * fall;
+          const p0 = xAt(0.12);
+          this.pit(p0, land - 1.2 - p0);
+          this.gemArc(orbX, v * fall, orbY, 1.5, 4);
+          this.taps.push(orbX);
+          this.chartBeat = b + 1;
+          end = land + 0.5;
+          break;
+        }
         if (r < 0.35) {
           const n = easy ? 1 : hard && r < 0.2 ? 3 : 2;
           this.spikeRow(c - n / 2, n);

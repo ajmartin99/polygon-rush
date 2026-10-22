@@ -715,6 +715,7 @@ export class GameController {
       palette: (x) => this.paletteFor(x),
       beat: audio.beatPhase(),
       dim: this.kind === 'attract',
+      noRacers: this.phase === 'results',
       markers,
       haunted: this.paletteFor(this.session?.racers[0]?.x ?? 0) === SPOOKY,
       secretsFound: store.data.secrets.found,

@@ -45,6 +45,8 @@ export interface RenderOptions {
   beat: number;
   /** Menu background: dim the scene behind the UI. */
   dim?: boolean;
+  /** Don't draw the runners (the results screen shows them on its podium). */
+  noRacers?: boolean;
   /** Vertical marker flags on the track (e.g. your best distance). */
   markers?: { x: number; label: string; color: string }[];
   /** Halloween dressing: moon and bats, ground fog, saws as jack-o'-lanterns. */
@@ -221,12 +223,12 @@ export class Renderer {
 
     this.fx.draw(ctx, sx, sy, s, true, x0, x1);
     for (const other of session.racers) {
-      if (other === me || other.dead) continue;
+      if (other === me || other.dead || opts.noRacers) continue;
       // Hide name tags of rivals overlapping you so they never cover your racer.
       const near = Math.abs(other.x - me.x) < 1.4 && Math.abs(other.body.y - me.body.y) < 1.6;
       this.drawRacer(other, sx, sy, s, time, 0.6, pal, !near);
     }
-    if (!me.dead) this.drawRacer(me, sx, sy, s, time, 1, pal);
+    if (!me.dead && !opts.noRacers) this.drawRacer(me, sx, sy, s, time, 1, pal);
     this.fx.draw(ctx, sx, sy, s, false, x0, x1);
     if (opts.boss) this.drawBoss(opts.boss, r, me, sx, sy, s, time);
     if (opts.lightsOut !== undefined) this.drawDarkness(r, sx(me.x), sy(me.body.y), s, opts.lightsOut, me.body.gdir, time);

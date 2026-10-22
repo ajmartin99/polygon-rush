@@ -4,7 +4,11 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+### Fixed
+- Race results fit the screen again: the Home and Race again buttons were pushed off by the emote row; emotes now sit in one row you can swipe, and the runners behind the results screen are hidden (they showed under the podium).
+
 ### Changed
+- **Easy and Normal Endless are livelier.** New beats mixed in: a bounce pad that launches you high along a gem arc right on the beat (no tap; on Normal sometimes over spikes), a ledge to jump up onto and run along, and on Normal an orb one-two (jump on a beat, tap the floating orb on the next) over a wide pit. The pace also swings between livelier and calmer 16-beat stretches, so a level has highs and lows. Extreme is unchanged.
 - **Haunted Run monsters come at you.** Zombies shamble toward you along the ground and ghosts swoop in from ahead on a wavy path, instead of standing still or sinking straight down like pillars. Each one reaches its spot just before you do, so you still jump or fly around it on the beat.
 - The menu banner ad sits in a tray that matches the game, instead of the game showing at its sides.
 

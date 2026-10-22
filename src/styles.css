@@ -3600,6 +3600,38 @@ button.player-slot {
   margin-top: 1.4rem;
 }
 
+/* Race results: the panel always fits (buttons stay on screen); emotes in one row that scrolls. */
+.results > .panel {
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.results .podium {
+  gap: 0.3rem;
+}
+
+.results .podium .place {
+  padding: 0.2rem 0.6rem;
+}
+
+.results .podium .place canvas {
+  height: 2rem;
+}
+
+.results .emote-bar {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  overflow-x: auto;
+  padding-bottom: 0.15rem;
+  scrollbar-width: none;
+  touch-action: pan-x;
+}
+
+.results .emote-bar .emote-btn {
+  flex: none;
+}
+
 /* ------------------------------------------------------------------ typed names */
 .name-type {
   width: 100%;

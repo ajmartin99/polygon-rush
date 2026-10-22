@@ -2,7 +2,7 @@ import { BOSSES } from '../../meta/bosses';
 import { openBosses } from '../bosses';
 import { DIFFICULTY_NAMES } from '../../state/save';
 import { store } from '../../state/store';
-import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, MAX_START_LEVEL, dailyRewardKey, dailySeed, dailyTwist, unlockedLevels, variantBestKey, VARIANT_INFO, type EndlessVariant } from '../../meta/modes';
+import { GEM_RUSH_SECONDS, MAX_START_LEVEL, unlockedLevels, variantBestKey, VARIANT_INFO, type EndlessVariant } from '../../meta/modes';
 import { leagueFor } from '../../meta/economy';
 import { activeEvent } from '../../meta/events';
 import { attemptsLeft, HAUNTED_RULES } from '../../meta/haunted';
@@ -31,7 +31,6 @@ export class ModesScreen extends BaseScreen {
     const d = store.data;
     const best = (v: EndlessVariant) => d.best[variantBestKey(v, d.settings)] ?? 0;
     const endless = (v: EndlessVariant) => () => nav.play({ mode: 'endless', variant: v });
-    const dailyDone = Boolean(d.best[dailyRewardKey()]);
     const unlocked = unlockedLevels(d.levels[variantBestKey('classic', d.settings)] ?? 1);
     const haunted = activeEvent()?.id === 'halloween';
     const hs = d.haunted;
@@ -73,16 +72,6 @@ export class ModesScreen extends BaseScreen {
         go: () => nav.go('levels'),
       },
       {
-        id: 'daily',
-        name: VARIANT_INFO.daily.name,
-        blurb: `${VARIANT_INFO.daily.blurb} Today: ${dailyTwist(dailySeed(), false).labels.join(' · ')}.`,
-        icon: 'gift',
-        color: 'mint',
-        tag: dailyDone ? 'Done today ✓' : `Reach ${DAILY_TARGET} m: +${DAILY_REWARD}`,
-        stat: best('daily') ? `Today ${fmt(best('daily'))} m` : 'New course today',
-        go: endless('daily'),
-      },
-      {
         id: 'oneheart',
         name: VARIANT_INFO.oneheart.name,
         blurb: VARIANT_INFO.oneheart.blurb,
@@ -101,16 +90,6 @@ export class ModesScreen extends BaseScreen {
         tag: `${bossesBeaten} of ${BOSSES.length} beaten`,
         stat: bossesBeaten < BOSSES.length ? `Next: ${BOSSES.find((b) => !d.bosses[b.id]?.wins)!.name}` : 'All beaten!',
         go: () => openBosses(),
-      },
-      {
-        id: 'rhythm',
-        name: VARIANT_INFO.rhythm.name,
-        blurb: VARIANT_INFO.rhythm.blurb,
-        icon: 'music',
-        color: 'pink',
-        tag: DIFFICULTY_NAMES[d.settings.difficulty],
-        stat: best('rhythm') ? `Best ${fmt(best('rhythm'))}` : 'New!',
-        go: endless('rhythm'),
       },
       {
         id: 'lightsout',

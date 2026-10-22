@@ -20,8 +20,8 @@ FEATURES
 • Race mode: dash against 3 CPU rivals, grab ? boxes for boosts, shields and snowballs, and climb from Bronze to Polygon Legend
 • 2-Player Duel: split-screen racing on one device. Perfect for siblings and friends
 • Play Online: Quick Match with random racers (13+), or private rooms with a 4-letter code
-• Game Modes: Daily Run, Rhythm Rush, Lights Out, One Heart, Gem Rush and Boss Battles against giant polygon bosses
-• Seasonal events: the Daily Run changes its look with the seasons, and Spooky Season (Oct 1 – Nov 7) brings Halloween skins, trails and the Haunted Run
+• Game Modes: Lights Out, One Heart, Gem Rush and Boss Battles against giant polygon bosses
+• Seasonal events: Spooky Season (Oct 1 – Nov 7) brings Halloween skins, trails and the Haunted Run
 • CREATE: build your own levels with spikes, saws, pads, portals and gems, pick a world and a song, test them, then share them with a level code or to Community
 • Community levels: play levels made by other players, browse Trending, Highest Rated and Newest, and give thumbs up
 • Build Together: up to 4 friends edit the same level live, then race it

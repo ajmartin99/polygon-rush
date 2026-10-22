@@ -11,7 +11,7 @@ import { BETA_DAY_SECONDS, BETA_REWARD, BETA_SKIN_DAYS, BETA_TRAIL_DAYS, isBetaB
 import { gemPriceOf, isOwned, productById } from '../meta/products';
 import { iap } from '../services/iap';
 import { buyProduct, buyWithGems } from './screens/shop';
-import { BADGE_GROUPS, BADGES, BANNER_LEVELS, type BadgeGroup, BANNERS, badgeById, DEFAULT_TITLE, earnedBadges, MAX_SHOWCASE, myCard, addOns, safeCard, titleFor, type BadgeCtx, type ProfileCard } from '../meta/profile';
+import { ACTIVE_BADGES, BADGE_GROUPS, BADGES, BANNER_LEVELS, type BadgeGroup, BANNERS, badgeById, DEFAULT_TITLE, earnedBadges, MAX_SHOWCASE, myCard, addOns, safeCard, titleFor, type BadgeCtx, type ProfileCard } from '../meta/profile';
 import type { NetPlayer } from '../services/net';
 import { BaseScreen, button, confirm, titleBar } from './components';
 import { playShared, proTag } from './community-levels';
@@ -141,7 +141,7 @@ export function profileCard(name: string, skin: string, card: ProfileCard, o: Ca
       h('div', null, ic('flag'), h('b', null, `${fmt(card.best)} m`), h('span', null, 'Best run')),
       h('div', null, ic('trophy'), h('b', null, fmt(card.trophies)), h('span', null, 'Trophies')),
       h('div', null, ic('crown'), h('b', null, fmt(card.wins)), h('span', null, 'Race wins')),
-      h('div', null, ic('star'), h('b', null, `${card.badges}/${BADGES.length}`), h('span', null, 'Badges')),
+      h('div', null, ic('star'), h('b', null, `${Math.min(card.badges, ACTIVE_BADGES.length)}/${ACTIVE_BADGES.length}`), h('span', null, 'Badges')),
       h('div', null, ic('egg'), h('b', null, `${card.eggs}/${SECRET_LEVELS}`), h('span', null, 'Golden Shapes')),
     ),
     card.show.length ? h('div.pc-show', null, card.show.map((id) => h('div.pc-badge', null, badgeIcon(id), h('span', null, badgeById(id)?.name ?? '')))) : null,
@@ -383,7 +383,7 @@ export class ProfileScreen extends BaseScreen {
       'div.col',
       { style: 'gap:0.7rem' },
       (Object.keys(BADGE_GROUPS) as BadgeGroup[]).map((g) => {
-        const list = BADGES.filter((b) => b.group === g);
+        const list = BADGES.filter((b) => b.group === g && (!b.retired || earned.has(b.id)));
         const got = list.filter((b) => earned.has(b.id)).length;
         return h('div.col', { style: 'gap:0.35rem' }, h('h4.badge-group', null, BADGE_GROUPS[g], h('span.muted.small', null, ` ${got}/${list.length}`)), h('div.badge-grid', null, list.map(tile)));
       }),
@@ -422,7 +422,7 @@ export class ProfileScreen extends BaseScreen {
               }),
             ),
           ),
-          h('h3', null, `Badges · ${earned.size}/${BADGES.length}`, h('span.muted.small', null, `  Pin up to ${MAX_SHOWCASE}`)),
+          h('h3', null, `Badges · ${[...earned].filter((id) => !badgeById(id)?.retired).length}/${ACTIVE_BADGES.length}`, h('span.muted.small', null, `  Pin up to ${MAX_SHOWCASE}`)),
           grid,
         ),
       ),

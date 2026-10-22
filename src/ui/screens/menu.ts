@@ -101,7 +101,7 @@ export class MenuScreen extends BaseScreen {
           h(
             'div.mode-grid',
             null,
-            button({ label: 'Modes', icon: 'shapes', cls: 'pink stack', sub: '9 ways to play', onClick: () => nav.go('modes') }),
+            button({ label: 'Modes', icon: 'shapes', cls: 'pink stack', sub: 'More ways to play', onClick: () => nav.go('modes') }),
             button({ label: 'Race', icon: 'flag', cls: 'cyan stack', sub: league.name, onClick: () => nav.go('race') }),
             button({
               label: 'Online',

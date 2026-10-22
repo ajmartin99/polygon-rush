@@ -43,6 +43,8 @@ export interface Badge {
   /** Where the player is and what they need. */
   progress: (c: BadgeCtx) => [number, number];
   earned: (c: BadgeCtx) => boolean;
+  /** Its mode was retired: only shown to players who earned it, and not in the totals. */
+  retired?: boolean;
 }
 
 type BadgeDef = Omit<Badge, 'earned' | 'progress'> & { value: (c: BadgeCtx) => number; target: number };
@@ -66,8 +68,8 @@ export const BADGES: Badge[] = [
   badge({ id: 'rush10k', name: 'Beyond the Map', title: 'Map Breaker', how: 'Reach 10,000 m in Endless', icon: 'crown', color: '#ffd23f', group: 'run', value: best, target: 10000 }),
   badge({ id: 'hard2k', name: 'Daredevil', title: 'Daredevil', how: 'Reach 2,000 m on Extreme', icon: 'bolt', color: '#ff4f5e', group: 'run', value: extreme, target: 2000 }),
   badge({ id: 'extreme5k', name: 'Chaos Tamer', title: 'Chaos Tamer', how: 'Reach 5,000 m on Extreme, where the saws start moving', icon: 'bolt', color: '#ff2f6d', group: 'run', value: extreme, target: 5000 }),
-  badge({ id: 'daily7', name: 'Daily Rusher', title: 'Daily Rusher', how: 'Play 7 Daily Runs', icon: 'target', color: '#3ad7ff', group: 'run', value: (c) => c.save.stats.dailyRuns, target: 7 }),
-  badge({ id: 'daily30', name: 'Every Day', title: 'Never Misses a Day', how: 'Reach the Daily Run target on 30 days', icon: 'target', color: '#3ee6b0', group: 'run', value: (c) => c.save.stats.dailyTargets, target: 30 }),
+  badge({ id: 'daily7', name: 'Daily Rusher', title: 'Daily Rusher', how: 'Play 7 Daily Runs', icon: 'target', color: '#3ad7ff', group: 'run', value: (c) => c.save.stats.dailyRuns, target: 7, retired: true }),
+  badge({ id: 'daily30', name: 'Every Day', title: 'Never Misses a Day', how: 'Reach the Daily Run target on 30 days', icon: 'target', color: '#3ee6b0', group: 'run', value: (c) => c.save.stats.dailyTargets, target: 30, retired: true }),
   badge({ id: 'haunted', name: 'Ghost Runner', title: 'Ghost Runner', how: 'Finish the Haunted Run (Halloween)', icon: 'sparkle', color: '#ff7a2f', group: 'run', value: (c) => c.save.haunted.clears.hard + c.save.haunted.clears.easy, target: 1 }),
   badge({ id: 'nightmare', name: 'Nightmare Slayer', title: 'Nightmare Slayer', how: 'Finish the Haunted Run on Hard', icon: 'crown', color: '#8b2fd0', group: 'run', value: (c) => c.save.haunted.clears.hard, target: 1 }),
   badge({ id: 'boss1', name: 'Boss Slayer', title: 'Boss Slayer', how: 'Beat a boss in Boss Battles', icon: 'crown', color: '#ff9f2f', group: 'run', value: (c) => Object.values(c.save.bosses).filter((b) => (b?.wins ?? 0) > 0).length, target: 1 }),
@@ -121,6 +123,9 @@ export const BANNERS: [string, string][] = [
   ['#ff7a2f', '#2a0f4f'],
 ];
 export const BANNER_LEVELS = [1, 3, 6, 10, 15, 20, 25, 30, 5];
+
+/** Badges still in the game (what the totals count). */
+export const ACTIVE_BADGES = BADGES.filter((b) => !b.retired);
 
 export function badgeById(id: string): Badge | undefined {
   return BADGES.find((b) => b.id === id);

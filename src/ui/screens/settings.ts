@@ -16,6 +16,7 @@ import { musicCredits, openSoundtrack } from '../soundtrack';
 import { canOfferFreeChat, freeChatPath, serverAvailable } from '../../meta/community';
 import { BackupError, makeBackup, restoreBackup } from '../../services/backup';
 import { friends } from '../../services/friends';
+import { openRedeem } from '../redeem';
 
 function row(iconName: IconName, title: string, sub: string, control: Child): HTMLElement {
   return h('div.setting', null, h('span', { class: 'ico', style: 'display:contents' }, ic(iconName)), h('div.lbl', null, h('b', null, title), h('span', null, sub)), control);
@@ -144,6 +145,7 @@ export class SettingsScreen extends BaseScreen {
           ui.toast(n > 0 ? `Restored ${n} purchase${n > 1 ? 's' : ''}!` : 'Everything is already up to date.', 'restore');
         },
       }),
+      button({ label: 'Redeem a code', icon: 'gift', cls: 'mint sm', onClick: () => openRedeem() }),
       button({ label: 'Move to a new phone', icon: 'share', cls: 'ghost sm', onClick: () => openBackup() }),
       button({ label: 'Parental controls', icon: 'child', cls: 'ghost sm', onClick: () => void openParentalControls() }),
       button({ label: 'Chat & Community', icon: 'chat', cls: 'ghost sm', onClick: () => openChatSettings() }),

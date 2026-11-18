@@ -66,6 +66,9 @@ export const KRAMPUS_LAIR: Palette = pal({
   stars: 0,
 });
 
+/** The Christmas look for the home screen's backdrop run. */
+export const WONDERLAND: Palette = pal({ name: 'Christmas Wonderland', skyTop: '#0b1a3e', skyBottom: '#5a7ac8', far: '#ffe8b0', mid: '#2a4a7a', block: '#e8304a', blockDark: '#a01028', blockEdge: '#ffffff', hazard: '#2fbf71', hazardDark: '#126a3a', hazardEdge: '#ffffff', stars: 0.9 });
+
 /** The palette for a Holiday Run chapter (the lair depends on the villain). */
 export function holidayPalette(chapter: number, krampus: boolean): Palette {
   return chapter >= 4 && krampus ? KRAMPUS_LAIR : HOLIDAY_PALETTES[Math.min(chapter, HOLIDAY_PALETTES.length - 1)];

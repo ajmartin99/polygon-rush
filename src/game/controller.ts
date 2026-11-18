@@ -24,7 +24,7 @@ import { SECRET_LEVELS } from './generator';
 import { DIFFICULTY_GEM_RATE, DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED } from './constants';
 import { activeEvent, SPOOKY } from '../meta/events';
 import { STORY_PALETTES, type StoryView } from '../render/haunted-scenery';
-import { holidayPalette, type HolidayView } from '../render/holiday-scenery';
+import { holidayPalette, WONDERLAND, type HolidayView } from '../render/holiday-scenery';
 import { holidayChapters, holidayPayout, VILLAINS } from '../meta/holiday';
 import { grantHolidayHero } from '../meta/wonderland';
 import { MAX_START_LEVEL, clampStartLevel, levelStart, levelWorld } from '../meta/modes';
@@ -750,6 +750,7 @@ export class GameController {
       boss: this.kind === 'custom' && this.phase !== 'results' ? this.boss : null,
       story: this.storyView(),
       holiday: this.holidayView(),
+      christmas: activeEvent()?.id === 'christmas',
       lightsOut: this.kind === 'endless' && this.variant === 'lightsout' ? candleAt(audio.beatPhase(), performance.now() / 1000, store.settings.reducedMotion) : undefined,
     });
     if (this.kind === 'attract' || this.phase === 'results') return;
@@ -777,6 +778,7 @@ export class GameController {
     const s = this.session;
     // Spooky Season: the menu backdrop and the Haunted Run are haunted.
     if (this.kind === 'attract' && activeEvent()?.id === 'halloween') return SPOOKY;
+    if (this.kind === 'attract' && activeEvent()?.id === 'christmas') return WONDERLAND;
     if (this.kind === 'custom' && this.req?.mode === 'custom' && this.req.holiday && this.req.chapters) {
       return holidayPalette(chapterAt(this.req.chapters, x), this.req.holiday.villain === 'krampus');
     }

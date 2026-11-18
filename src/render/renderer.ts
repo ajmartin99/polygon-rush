@@ -1,6 +1,6 @@
 import { drawGhost, drawPumpkin, drawWitch, drawZombie } from './spooky';
 import { drawStoryScenery, type StoryView } from './haunted-scenery';
-import { drawJackFrost, drawKrampus, drawPresentOrb, drawWonderMob } from './wonderland';
+import { drawChristmasTree, drawJackFrost, drawKrampus, drawPresentOrb, drawSnowfall, drawWonderMob } from './wonderland';
 import { drawHolidayScenery, drawSleigh, type HolidayView } from './holiday-scenery';
 import type { MobKind } from '../game/world';
 import { CEIL, VIEW_BOTTOM, VIEW_H, VIEW_TOP } from '../game/constants';
@@ -66,6 +66,8 @@ export interface RenderOptions {
   story?: StoryView;
   /** Holiday Run: its chapter's scenery (snowy, festive), the sleigh in Candy Cane Peaks. */
   holiday?: HolidayView;
+  /** Christmas Wonderland: snow falls in every mode; the menu gets a decorated tree. */
+  christmas?: boolean;
 }
 
 /** What the renderer needs to draw a boss fight. */
@@ -241,6 +243,8 @@ export class Renderer {
     }
     // Spooky Season on the home screen: ghosts drift through the sky and a zombie shambles by.
     if (this.haunted && opts.dim) this.drawHauntedMenu(r, sy, s, time);
+    // Christmas on the home screen: a tree with lights twinkling to the music.
+    if (opts.christmas && opts.dim) drawChristmasTree(ctx, r.x + r.w * 0.42, sy(0), s * 3.6, time, opts.beat);
     if (opts.markers) for (const m of opts.markers) if (m.x > x0 && m.x < x1) this.drawMarker(sx(m.x), sy, s, m.label, m.color, time);
 
     const me = view.racer;
@@ -270,6 +274,7 @@ export class Renderer {
       ctx.fillStyle = g;
       ctx.fillRect(r.x, r.y, r.w, r.h);
     }
+    if (opts.christmas && !opts.holiday) drawSnowfall(ctx, r, time, opts.dim ? 0.9 : 0.4, this.fx.reducedMotion);
     if (this.beatPulse && !opts.dim) this.drawBeatPulse(r, opts.beat);
     if (opts.dim) {
       const g = ctx.createLinearGradient(0, r.y, 0, r.y + r.h);

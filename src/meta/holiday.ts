@@ -1,6 +1,8 @@
 import { TRACK_BASE, TRACKS } from '../core/tracks';
 import { Rng } from '../core/rng';
-import { LEVEL_SPEEDS, SAW_ICICLE, SAW_JACKBOX, SAW_PENGUIN, SAW_SNOWBALL, SAW_SNOWFLAKE, SAW_SNOWMAN, SAW_SOLDIER, type LevelContent, type LevelData, type Piece } from '../game/level';
+import { beatIndexAt, beatMapFor, beatTime } from '../core/beatmaps';
+import { courseBuilder } from './course';
+import { LEVEL_SPEEDS, SAW_ICICLE, SAW_JACKBOX, SAW_PENGUIN, SAW_SNOWBALL, SAW_SNOWFLAKE, SAW_SNOWMAN, SAW_SOLDIER, type LevelContent, type LevelData } from '../game/level';
 import type { HauntedDiff } from './haunted';
 
 /**
@@ -79,9 +81,8 @@ export const HOLIDAY_RULES = {
 
 /** Each villain's song, and how the course is charted to it. */
 interface SongChart {
-  /** Seconds per chart beat, and the first beat's time. */
-  beat: number;
-  offset: number;
+  /** Chart beats are every `stride`-th beat of the song's beat map. */
+  stride: number;
   /** The course ends here (s), before the song fades. */
   end: number;
   /** Beats per phrase (the course changes on phrase lines). */
@@ -96,10 +97,10 @@ function chartFor(v: Villain): SongChart {
   const t = TRACKS.find((x) => x.file === VILLAINS[v].song)!;
   if (v === 'frost') {
     // Merry X-mas runs at 168 BPM: chart on every other beat (84 per minute).
-    return { beat: 120 / t.bpm, offset: t.offset, end: t.duration - 3, phrase: 16, step: { hard: 1, easy: 2 }, glide: { hard: 1, easy: 1 }, roll: { hard: 1, easy: 2 } };
+    return { stride: 2, end: t.duration - 3, phrase: 16, step: { hard: 1, easy: 2 }, glide: { hard: 1, easy: 1 }, roll: { hard: 1, easy: 2 } };
   }
   // Carol of the Bells at 140 BPM, looped three times; it fades over the last four seconds.
-  return { beat: 60 / t.bpm, offset: t.offset, end: t.duration - 4.5, phrase: 32, step: { hard: 2, easy: 4 }, glide: { hard: 1, easy: 2 }, roll: { hard: 2, easy: 4 } };
+  return { stride: 1, end: t.duration - 4.5, phrase: 32, step: { hard: 2, easy: 4 }, glide: { hard: 1, easy: 2 }, roll: { hard: 2, easy: 4 } };
 }
 
 /** The villain's song as a music id. */
@@ -118,6 +119,8 @@ export interface HolidayPlan {
   level: LevelContent;
   /** Where each chapter starts (tile x); the last is the boss fight. */
   chapters: number[];
+  /** Where each press the music asks for happens (tile x; the Glider is held, not listed). */
+  taps: number[];
 }
 
 /** Build the day's course. Deterministic for (difficulty, villain, seed). */
@@ -126,17 +129,19 @@ export function holidayPlan(diff: HolidayDiff, villain: Villain, seed: number): 
   const v = LEVEL_SPEEDS[HOLIDAY_RULES.speed[diff]];
   const song = chartFor(villain);
   const rng = new Rng((seed ^ (hard ? 0x5a17 : 0x2c09) ^ (villain === 'krampus' ? 0x4b00 : 0)) >>> 0);
-  const pieces = new Map<string, Piece>();
-  const put = (t: Piece['t'], x: number, y = 0, pv = 0) => {
-    if (x < 6 || y < 0 || y > 7) return;
-    const key = t === 'pit' || t === 'portal' ? `${t}:${x}` : `${x}:${y}`;
-    if (!pieces.has(key)) pieces.set(key, { t, x, y, v: pv });
-  };
-  const col = (t: number) => Math.floor(X0 + v * t);
-  const beatAt = (k: number) => song.offset + k * song.beat;
+  const course = courseBuilder();
+  const { pieces, put } = course;
+  /** Where each press the music asks for happens (tile x): for the press-on-the-beat tests. */
+  const taps: number[] = [];
+  /** Where a runner's centre is at song time t (fractional: obstacles sit exactly on the beat). */
+  const col = (t: number) => X0 + v * t;
+  // The song's real beats (its beat map), counted from a bar line.
+  const map = beatMapFor(VILLAINS[villain].song)!;
+  const k0 = map.downbeat;
+  const beatAt = (k: number) => beatTime(map, k * song.stride + k0);
   const gem = (t: number, y: number, big = false) => put('gem', col(t), y, big ? BIG : 0);
 
-  const totalBeats = Math.floor((song.end - song.offset) / song.beat);
+  const totalBeats = Math.floor((beatIndexAt(map, song.end) - k0) / song.stride);
   const firstBeat = song.phrase / 4;
   const phrases = Math.ceil((totalBeats - firstBeat) / song.phrase);
   // Chapters: the boss gets the last quarter, the other four share the rest.
@@ -174,15 +179,16 @@ export function holidayPlan(diff: HolidayDiff, villain: Villain, seed: number): 
   function chartJump(chapter: number, m: Mode, ta: number, k: number): void {
     const apex = m === 'diamond' ? 0.29 : 0.25;
     const c = col(ta + apex);
+    taps.push(col(ta));
     const r = rng.range(0, 1);
     if (chapter === 1) {
       // The Frozen Lake (Hopper): penguins, icicles and ice spikes.
       if (r < 0.35) put('saw', c, 0, SAW_PENGUIN);
       else if (r < 0.6) put('saw', c, 0, SAW_ICICLE);
-      else {
-        put('spike', c);
-        if (hard && r > 0.8) put('spike', c + 1);
-      }
+      else if (hard && r > 0.8) {
+        put('spike', c - 0.5);
+        put('spike', c + 0.5);
+      } else put('spike', c);
       gem(ta + apex, 2);
       return;
     }
@@ -190,13 +196,10 @@ export function holidayPlan(diff: HolidayDiff, villain: Villain, seed: number): 
       // The lair: icicles and snowballs he throws, and a present on top of every jump.
       if (r < 0.3) put('saw', c, 0, SAW_ICICLE);
       else if (r < 0.55) put('saw', c, 0, SAW_SNOWBALL);
-      else if (r < 0.75) {
-        put('pit', c - 1);
-        put('pit', c);
-        if (hard) put('pit', c + 1);
-      } else {
-        put('spike', c);
-        put('spike', c + 1);
+      else if (r < 0.75) course.pits(c, hard ? 3 : 2, hard ? 0.15 : 0.35);
+      else {
+        put('spike', c - 0.5);
+        put('spike', c + 0.5);
       }
       gem(ta + apex, 2, true);
       return;
@@ -205,13 +208,10 @@ export function holidayPlan(diff: HolidayDiff, villain: Villain, seed: number): 
       // Santa's Workshop: toy soldiers, jack-in-the-boxes and stacked toy blocks.
       if (r < 0.3) put('saw', c, 0, SAW_SOLDIER);
       else if (r < 0.55) put('saw', c, 0, SAW_JACKBOX);
-      else if (r < 0.8) {
-        put('block', c);
-        put('block', c + 1);
-        if (hard) put('spike', c + 2);
-      } else {
-        put('spike', c);
-        put('spike', c + 1);
+      else if (r < 0.8) course.blocks(c, hard ? 3 : 2, hard ? 0.5 : 0);
+      else {
+        put('spike', c - 0.5);
+        put('spike', c + 0.5);
       }
       gem(ta + apex, k % 8 === 0 ? 3 : 2);
       return;
@@ -219,20 +219,13 @@ export function holidayPlan(diff: HolidayDiff, villain: Villain, seed: number): 
     // Snowy Pine Forest: snowmen, lobbed snowballs, drifts and frozen spikes.
     if (r < 0.32) {
       put('saw', c, 0, SAW_SNOWMAN);
-      if (hard && r < 0.1) put('spike', c + 2);
     } else if (r < 0.47) put('saw', c, 0, SAW_SNOWBALL);
-    else if (r < 0.65) {
-      put('pit', c - 1);
-      put('pit', c);
-      if (hard) put('pit', c + 1);
-    } else if (r < 0.85 || !hard) {
-      put('block', c);
-      put('block', c + 1);
-      if (hard) put('spike', c + 2);
-    } else {
+    else if (r < 0.65) course.pits(c, hard ? 3 : 2, hard ? 0.15 : 0.35);
+    else if (r < 0.85 || !hard) course.blocks(c, hard ? 3 : 2, hard ? 0.5 : 0);
+    else {
+      put('spike', c - 1);
       put('spike', c);
       put('spike', c + 1);
-      put('spike', c + 2);
     }
     gem(ta + apex, k % 8 === 0 ? 3 : 2);
   }
@@ -260,18 +253,20 @@ export function holidayPlan(diff: HolidayDiff, villain: Villain, seed: number): 
     let onCeil = false;
     for (let k = k0 + 1; k + every <= end; k += every) {
       onCeil = !onCeil;
+      taps.push(col(beatAt(k)));
       const from = col(beatAt(k) + 0.55);
       const to = col(beatAt(k + every) - 0.1);
       const len = Math.min(to - from, hard ? 5 : 3);
       const mid = Math.floor((from + to) / 2) - Math.floor(len / 2);
-      for (let i = 0; i < len; i++) put('spike', mid + i, onCeil ? 0 : 7, onCeil ? 0 : 1);
+      for (let i = 0; i < len; i++) put('spike', mid + i + 0.5, onCeil ? 0 : 7, onCeil ? 0 : 1);
       gem(beatAt(k) + 0.3, 4);
     }
   }
 
-  const chapters = [0, 1, 2, 3, 4].map((c) => (c === 0 ? 0 : col(beatAt(firstBeat + firstPhrase(c) * song.phrase))));
+  const chapters = [0, 1, 2, 3, 4].map((c) => (c === 0 ? 0 : Math.floor(col(beatAt(firstBeat + firstPhrase(c) * song.phrase)))));
   return {
     chapters,
+    taps,
     level: {
       name: [0, 0],
       title: 'Holiday Run',
@@ -280,7 +275,7 @@ export function holidayPlan(diff: HolidayDiff, villain: Villain, seed: number): 
       music: holidayTrack(villain),
       speed: HOLIDAY_RULES.speed[diff],
       hearts: HOLIDAY_RULES.hearts[diff],
-      length: col(song.end) + 2,
+      length: Math.floor(col(song.end)) + 2,
       pieces: [...pieces.values()],
     },
   };

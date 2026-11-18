@@ -7,6 +7,7 @@ import { myMusic } from '../services/mymusic';
 import { activeEvent } from '../meta/events';
 import { Emitter } from './emitter';
 import { Rng } from './rng';
+import { beatMapFor } from './beatmaps';
 
 /**
  * What plays where:
@@ -149,7 +150,11 @@ class MusicDirector extends Emitter<{ song: number }> {
   levelSong(level: number): LevelSong {
     const id = this.planned(level);
     const t = trackOf(id);
-    if (t) return { id, seconds: t.duration - 0.15, grid: { bpm: t.bpm, offset: t.offset } };
+    if (t) {
+      // The course follows the song's real beats (its beat map) when it has one.
+      const map = beatMapFor(t.file);
+      return { id, seconds: t.duration - 0.15, grid: map ? { bpm: map.bpm, offset: map.beats[0], map } : { bpm: t.bpm, offset: t.offset } };
+    }
     if (id >= 0 && id < SONGS.length) return { id, seconds: synthSongSeconds(SONGS[id].bpm), grid: { bpm: SONGS[id].bpm, offset: 0 } };
     return { id, seconds: 120, grid: null };
   }

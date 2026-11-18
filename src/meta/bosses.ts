@@ -1,6 +1,8 @@
 import { TRACK_BASE, TRACKS } from '../core/tracks';
 import { Rng } from '../core/rng';
-import { LEVEL_SPEEDS, type LevelContent, type LevelData, type Piece } from '../game/level';
+import { beatIndexAt, beatMapFor, beatTime } from '../core/beatmaps';
+import { courseBuilder } from './course';
+import { LEVEL_SPEEDS, type LevelContent, type LevelData } from '../game/level';
 
 /**
  * Boss Battles: one song against a giant polygon boss. The boss floats
@@ -103,40 +105,44 @@ const ORB = 1;
  * (just run through it) and some float above an attack (jump on the beat).
  */
 export function bossCourse(b: BossDef): LevelContent {
+  return bossPlan(b).level;
+}
+
+/** The fight and where each press the music asks for happens (tile x). */
+export function bossPlan(b: BossDef): { level: LevelContent; taps: number[] } {
   const t = TRACKS.find((x) => x.file === b.song)!;
   const beat = 60 / t.bpm;
   const v = LEVEL_SPEEDS[b.speed];
   const rng = new Rng(b.id.split('').reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7));
-  const pieces = new Map<string, Piece>();
-  const put = (k: Piece['t'], x: number, y = 0, pv = 0) => {
-    if (x < 6 || y < 0 || y > 7) return;
-    const key = k === 'pit' ? `pit:${x}` : `${x}:${y}`;
-    if (!pieces.has(key)) pieces.set(key, { t: k, x, y, v: pv });
-  };
-  const col = (s: number) => Math.floor(X0 + v * s);
-  const beatAt = (k: number) => t.offset + k * beat;
+  const course = courseBuilder();
+  const { pieces, put } = course;
+  const taps: number[] = [];
+  /** Where a runner's centre is at song time s (fractional: attacks sit exactly on the beat). */
+  const col = (s: number) => X0 + v * s;
+  // The song's real beats (its beat map), counted from a bar line; a fixed grid if it has none.
+  const map = beatMapFor(b.song);
+  const k0 = map?.downbeat ?? 0;
+  const beatAt = (k: number) => (map ? beatTime(map, k + k0) : t.offset + k * beat);
   // Ends a couple of seconds before the song does.
-  const total = Math.floor((t.duration - 2 - t.offset) / beat);
+  const total = map ? Math.floor(beatIndexAt(map, t.duration - 2)) - k0 : Math.floor((t.duration - 2 - t.offset) / beat);
   let k = 8; // two bars to get ready
   let i = 0;
   while (k < total - 4) {
     const ta = beatAt(k);
     const apex = ta + 0.25;
     const c = col(apex);
+    taps.push(col(ta));
     const attack = b.attacks[Math.floor(rng.range(0, 1) * b.attacks.length)];
     if (attack === 'stomp') {
-      put('spike', c);
-      put('spike', c + 1);
+      put('spike', c - 0.5);
+      put('spike', c + 0.5);
     } else if (attack === 'saw') {
       put('saw', c, 0, 0);
     } else if (attack === 'pit') {
-      put('pit', c - 1);
-      put('pit', c);
-      put('pit', c + 1);
+      course.pits(c, 3, 0.25);
     } else {
-      put('block', c);
-      put('block', c + 1);
-      put('spike', c + 2);
+      course.blocks(c, 2, 0.35);
+      put('spike', c + 2.15);
     }
     // An orb over every other attack (jump on the beat to grab it)...
     if (i % 2 === 0) put('gem', c, 2, ORB);
@@ -147,7 +153,7 @@ export function bossCourse(b: BossDef): LevelContent {
     k += gap;
     i++;
   }
-  return {
+  const level: LevelContent = {
     name: [0, 0],
     title: b.name,
     authors: [],
@@ -155,9 +161,10 @@ export function bossCourse(b: BossDef): LevelContent {
     music: bossTrack(b),
     speed: b.speed,
     hearts: b.hearts,
-    length: col(beatAt(total)) + 2,
+    length: Math.floor(col(beatAt(total))) + 2,
     pieces: [...pieces.values()],
-  };
+  };  return { level, taps };
+
 }
 
 /** The fight as a playable (not saved) level. */

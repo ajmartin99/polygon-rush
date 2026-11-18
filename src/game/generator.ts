@@ -1,3 +1,4 @@
+import { beatIndexAt, beatTime, bestTick, energyAt, type BeatMap } from '../core/beatmaps';
 import { Rng } from '../core/rng';
 import { CEIL, ENDLESS_TUNING, JUMP_TIME, PHYS, PLAYER_HALF, RACE_SPEED, endlessDifficultyAt, endlessHeatAt, endlessSpeedAt, type Difficulty } from './constants';
 import type { LevelSpan, LevelTimeline } from './levels';
@@ -66,6 +67,8 @@ export interface BeatGrid {
   bpm: number;
   /** Seconds from the song's start to its first beat. */
   offset: number;
+  /** Recorded songs: the real beats and drum hits (see core/beatmaps). Charts tap on its strongest ticks. */
+  map?: BeatMap | null;
 }
 
 
@@ -315,6 +318,8 @@ export class LevelGen {
   /** The level being charted, and the beat of its last tap. */
   private chartLevel = -1;
   private chartBeat = -Infinity;
+  /** Song time (s) of the last charted tap in this level. */
+  private chartT = -Infinity;
   private chartLow = true;
   /** The last special Easy/Normal beat ('pad', 'ledge'): never twice in a row. */
   private chartFlavour = '';
@@ -340,25 +345,53 @@ export class LevelGen {
     const grid = at.grid;
     if (!grid || !(grid.bpm > 30)) return false;
     // Very fast songs count every other beat.
-    let unit = 60 / grid.bpm;
-    while (unit < 0.3) unit *= 2;
+    let stride = 1;
+    while ((60 / grid.bpm) * stride < 0.3) stride *= 2;
+    const unit = (60 / grid.bpm) * stride;
     const fresh = at.level !== this.chartLevel;
     if (fresh) {
       this.chartLevel = at.level;
       this.chartBeat = -Infinity;
+      this.chartT = -Infinity;
     }
     const mode = this.mode;
     const newShape = mode !== this.chartMode;
     this.chartMode = mode;
     const v = this.v;
     const k = Math.max(Math.ceil(CHART_MIN_GAP[mode] / unit - 1e-6), Math.round(this.chartGap() / unit));
-    // The first beat far enough ahead of the cursor, k beats after the last tap (two beats in at a new song).
-    // Just through a portal: about a second to settle into the new shape first.
-    let b = Math.ceil((at.t + (newShape ? 0.9 : 0.05) - grid.offset) / unit - 1e-6);
     // Every few levels the new song opens with a few easy seconds to rest the fingers.
     const rest = fresh && isBreatherLevel(at.level);
-    b = Math.max(b, this.chartBeat + k, fresh ? 2 : -Infinity, rest ? Math.ceil((BREATHER_SECONDS - grid.offset) / unit) : -Infinity);
-    const t = grid.offset + b * unit;
+    const easyTaps = this.opts.diff === 'easy' || !!this.opts.kid;
+    let b: number;
+    let t: number;
+    let quiet = false;
+    const map = grid.map;
+    const pick = map
+      ? (() => {
+          // The song's own beat map: tap on the hardest drum hit near where the next tap is due
+          // (kids get the main beats; harder levels also use strong half-beats).
+          const from = Math.max(
+            at.t + (newShape ? 0.9 : 0.05),
+            this.chartT + Math.max(CHART_MIN_GAP[mode], 0.8 * k * unit),
+            fresh ? beatTime(map, 2 * stride) : -Infinity,
+            rest ? BREATHER_SECONDS : -Infinity,
+          );
+          const target = Math.max(from, this.chartT + k * unit);
+          return bestTick(map, from, target + 0.6 * unit, target, { beatBonus: easyTaps ? 0.6 : 0.25 });
+        })()
+      : null;
+    if (map && pick) {
+      t = pick.t;
+      b = Math.round(beatIndexAt(map, t) / stride);
+      // A quiet stretch of the song (a breakdown): gems to collect instead of an obstacle.
+      quiet = pick.score < 0.15 && energyAt(map, t) < 0.2;
+    } else {
+      // The first beat far enough ahead of the cursor, k beats after the last tap (two beats in at a new song).
+      // Just through a portal: about a second to settle into the new shape first.
+      b = Math.ceil((at.t + (newShape ? 0.9 : 0.05) - grid.offset) / unit - 1e-6);
+      b = Math.max(b, this.chartBeat + k, fresh ? 2 : -Infinity, rest ? Math.ceil((BREATHER_SECONDS - grid.offset) / unit) : -Infinity);
+      t = grid.offset + b * unit;
+    }
     const xT = this.x + (t - at.t) * v;
     const span = this.opts.levels!.at(Math.max(0, this.x - this.origin));
     const levelEnd = this.origin + span.end;
@@ -370,6 +403,12 @@ export class LevelGen {
     }
     if (rest) this.gemLine(this.x + 2, xT - v * 0.8, mode === 'square' || mode === 'diamond' ? 1.1 : MID, 1.6);
     this.chartBeat = b;
+    this.chartT = t;
+    if (quiet) {
+      this.gemArc(xT - v * 0.2, v * 0.6, 1.1, 2.6, 3);
+      this.x = Math.max(this.x + 0.5, xT + v * 0.4);
+      return true;
+    }
     this.taps.push(xT);
     const xAt = (s: number) => xT + s * v;
     const hard = this.opts.diff === 'hard' && !this.opts.kid;
@@ -411,19 +450,24 @@ export class LevelGen {
           break;
         }
         this.chartFlavour = '';
-        if (!easy && flavour < 0.37 && unit >= 0.28 && unit <= 0.45) {
+        // The orb's beat: the next strong hit a beat later (on the map), else one beat later.
+        const nextHit = map ? bestTick(map, t + 0.8 * unit, t + 1.2 * unit, t + unit, { beatBonus: 0.4 }) : null;
+        const dt = nextHit ? nextHit.t - t : unit;
+        if (!easy && flavour < 0.37 && dt >= 0.28 && dt <= 0.45) {
           // Jump on the beat, tap the orb on the next one: a quick one-two over a wide pit.
           const yAt = (t: number) => PLAYER_HALF + sq.jump * t - 0.5 * sq.gravity * t * t;
-          const orbX = xAt(unit);
-          const orbY = yAt(unit);
+          const orbX = xAt(dt);
+          const orbY = yAt(dt);
           this.orb(orbX, orbY);
           const fall = (sq.orb + Math.sqrt(sq.orb * sq.orb + 2 * sq.gravity * (orbY - PLAYER_HALF))) / sq.gravity;
           const land = orbX + v * fall;
-          const p0 = xAt(0.12);
+          // The pit starts a little after take-off, so a slightly late jump doesn't step into it.
+          const p0 = xAt(0.2);
           this.pit(p0, land - 1.2 - p0);
           this.gemArc(orbX, v * fall, orbY, 1.5, 4);
           this.taps.push(orbX);
           this.chartBeat = b + 1;
+          this.chartT = t + dt;
           end = land + 0.5;
           break;
         }
@@ -433,17 +477,23 @@ export class LevelGen {
           end = c + n / 2;
         } else if (r < 0.55) {
           // Hot runs: the saw drops in from above as you come.
-          if (this.heat > 0.15 && (hard || this.rng.chance(this.heat))) this.movingSaw(c, 6.5, 0.7, 0.62, c - 14, c - 4);
-          else this.saw(c, 0.7, 0.62);
-          end = c + 0.7;
+          // A round saw clears best a touch after the peak too.
+          const sc = c + 0.15;
+          if (this.heat > 0.15 && (hard || this.rng.chance(this.heat))) this.movingSaw(sc, 6.5, 0.7, 0.62, sc - 14, sc - 4);
+          else this.saw(sc, 0.7, 0.62);
+          end = sc + 0.7;
         } else if (r < 0.8) {
-          const w = easy ? 2 : 3;
-          this.pit(c - w / 2, w);
-          end = c + w / 2;
+          // Pits and blocks sit a touch after the jump's peak: a jump has to be up before it
+          // reaches them, so this centres the window of presses that clear them on the beat.
+          const w = easy ? 2 : hard ? 3 : 2.5;
+          const p0 = c - w / 2 + (hard ? 0.15 : easy ? 0.35 : 0.45);
+          this.pit(p0, w);
+          end = p0 + w;
         } else {
-          this.block(c - 1, 0, 2, 1);
-          if (hard) this.spike(c + 1.5);
-          end = c + (hard ? 2 : 1);
+          // Extreme: a taller step to jump onto (no spike behind it, so the timing window stays fair).
+          const b0 = c - (hard ? 0.5 : 0.35);
+          this.block(b0, 0, hard ? 3 : 2, 1);
+          end = b0 + (hard ? 3 : 2);
         }
         reward(c, 2.6);
         break;
@@ -474,7 +524,10 @@ export class LevelGen {
       case 'hexagon': {
         // Flip on the beat: the surface you leave fills with spikes until the next tap.
         const from = xAt(0.55);
-        const to = xAt(k * unit - 0.1);
+        // Spikes end before the earliest next flip can bring you back (with a beat map the next tap
+        // can come a little sooner than k beats, on a strong hit).
+        const nextTap = map ? Math.max(CHART_MIN_GAP[mode], 0.8 * k * unit) : k * unit;
+        const to = xAt(nextTap - 0.1);
         const n = Math.max(1, Math.floor(Math.min(to - from, hard ? 6 : easy ? 3 : 4)));
         const x0 = (from + to) / 2 - n / 2;
         if (this.side < 0) this.spikeRow(x0, n, 1);
@@ -530,6 +583,12 @@ export class LevelGen {
     else if (unit < 0.3) unit *= 2; // very fast: every other beat
     const v = this.speedAt(minX);
     const planned = at.t + (len - (minX - this.x)) / v;
+    const map = at.grid.map;
+    const hit = map ? bestTick(map, Math.max(at.t, planned - unit / 2), planned + unit / 2, planned) : null;
+    if (hit) {
+      this.beatsHit++;
+      return minX - this.x + Math.max(0, hit.t - at.t) * v;
+    }
     let k = Math.round((planned - at.grid.offset) / unit);
     if (at.grid.offset + k * unit < at.t - 1e-6) k = Math.ceil((at.t - at.grid.offset) / unit - 1e-6);
     const target = at.grid.offset + k * unit;

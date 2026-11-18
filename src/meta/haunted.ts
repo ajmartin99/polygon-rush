@@ -1,6 +1,8 @@
 import { TRACK_BASE, TRACKS } from '../core/tracks';
 import { Rng } from '../core/rng';
-import { LEVEL_SPEEDS, SAW_GHOST, SAW_ZOMBIE, type LevelContent, type LevelData, type Piece } from '../game/level';
+import { beatIndexAt, beatMapFor, beatTime } from '../core/beatmaps';
+import { courseBuilder } from './course';
+import { LEVEL_SPEEDS, SAW_GHOST, SAW_ZOMBIE, type LevelContent, type LevelData } from '../game/level';
 
 /**
  * Haunted Run (Spooky Season): a fixed course charted to Swing Along. Every
@@ -14,12 +16,9 @@ export type HauntedDiff = 'hard' | 'easy';
 const SONG_FILE = 'swing-along.mp3';
 /** Swing Along's track id (TRACK_BASE + index). */
 export const HAUNTED_TRACK = TRACK_BASE + TRACKS.findIndex((t) => t.file === SONG_FILE);
-const SONG = TRACKS.find((t) => t.file === SONG_FILE)!;
 /** Song length (s) and where the course ends (just before the last notes fade). */
 export const SONG_SECONDS = 134.9;
 const END_AT = SONG_SECONDS - 2;
-const BEAT = 60 / (SONG.bpm ?? 130.7);
-const OFFSET = SONG.offset ?? 0.07;
 /** Runners start at this x (LEVEL_START_X + half a tile). */
 const X0 = 2.5;
 
@@ -86,22 +85,24 @@ export function witchHealth(level: LevelContent, fromX: number): { orbs: number;
   return { orbs, hp: Math.max(1, Math.ceil(orbs * 0.6)) };
 }
 
-function hauntedPlan(diff: HauntedDiff, seed: number): { level: LevelContent; chapters: number[] } {
+/** The course, its chapter starts and where each press the music asks for happens. */
+export function hauntedPlan(diff: HauntedDiff, seed: number): { level: LevelContent; chapters: number[]; taps: number[] } {
   const hard = diff === 'hard';
   const v = LEVEL_SPEEDS[HAUNTED_RULES.speed[diff]];
   const rng = new Rng((seed ^ (hard ? 0x7a11 : 0x3e5d)) >>> 0);
-  const pieces = new Map<string, Piece>();
-  const put = (t: Piece['t'], x: number, y = 0, pv = 0) => {
-    if (x < 6 || y < 0 || y > 7) return;
-    const key = t === 'pit' || t === 'portal' ? `${t}:${x}` : `${x}:${y}`;
-    if (!pieces.has(key)) pieces.set(key, { t, x, y, v: pv });
-  };
-  /** Column a runner's centre reaches at song time t. */
-  const col = (t: number) => Math.floor(X0 + v * t);
-  const beatAt = (k: number) => OFFSET + k * BEAT;
+  const course = courseBuilder();
+  const { pieces, put } = course;
+  /** Where each press the music asks for happens (tile x): for the press-on-the-beat tests. */
+  const taps: number[] = [];
+  /** Where a runner's centre is at song time t (fractional: obstacles sit exactly on the beat). */
+  const col = (t: number) => X0 + v * t;
+  // The song's real beats (its beat map), counted from a bar line.
+  const map = beatMapFor(SONG_FILE)!;
+  const k0 = map.downbeat;
+  const beatAt = (k: number) => beatTime(map, k + k0);
   const gem = (t: number, y: number, big = false) => put('gem', col(t), y, big ? 1 : 0);
 
-  const totalBeats = Math.floor((END_AT - OFFSET) / BEAT);
+  const totalBeats = Math.floor(beatIndexAt(map, END_AT)) - k0;
   // 8 beats of runway (the song's first two bars), then 32-beat phrases.
   const firstBeat = 8;
   const order: Mode[] = ['square'];
@@ -116,7 +117,7 @@ function hauntedPlan(diff: HauntedDiff, seed: number): { level: LevelContent; ch
   // The witch fight is on foot (Jumper): jump her attacks, grab the orbs at the top of each jump.
   const witchFrom = Math.max(1, phrases - WITCH_PHRASES);
   for (let i = witchFrom; i < phrases; i++) order[i] = 'square';
-  const witchX = col(beatAt(firstBeat + witchFrom * 32));
+  const witchX = Math.floor(col(beatAt(firstBeat + witchFrom * 32)));
   let witch = false;
 
   for (let k = 0; k < firstBeat; k += 2) gem(beatAt(k) + 0.1, 0);
@@ -144,34 +145,33 @@ function hauntedPlan(diff: HauntedDiff, seed: number): { level: LevelContent; ch
     // Press on the beat: the obstacle sits where the jump peaks.
     const apex = m === 'diamond' ? 0.29 : 0.25;
     const c = col(ta + apex);
+    taps.push(col(ta));
     const r = rng.range(0, 1);
     if (m === 'diamond') {
       // Zombies shamble in the Hopper's way too.
       if (r < 0.4) put('saw', c, 0, SAW_ZOMBIE);
-      else put('spike', c);
-      if (hardOn && r >= 0.4 && r < 0.7) put('spike', c + 1);
+      else if (hardOn && r < 0.7) {
+        put('spike', c - 0.5);
+        put('spike', c + 0.5);
+      } else put('spike', c);
       gem(ta + apex, 2);
       return;
     }
     if (r < 0.35) {
       // A zombie in the way: jump it on the beat.
       put('saw', c, 0, SAW_ZOMBIE);
-      if (hardOn && r < 0.15) put('spike', c + 2);
     } else if (r < 0.5) {
       put('saw', c, 0, 0);
     } else if (r < 0.7) {
-      put('pit', c - 1);
-      put('pit', c);
-      if (hardOn) put('pit', c + 1);
+      // Pits and blocks sit a touch after the peak, centring the window of presses that clear them on the beat.
+      course.pits(c, hardOn ? 3 : 2, hardOn ? 0.15 : 0.35);
     } else if (r < 0.85 || !hardOn) {
-      put('block', c);
-      put('block', c + 1);
-      if (hardOn) put('spike', c + 2);
+      course.blocks(c, hardOn ? 3 : 2, hardOn ? 0.5 : 0);
     } else {
-      // Spike, then a ring right above it for a second jump on the off-beat.
+      // A row of three spikes centred on the peak.
+      put('spike', c - 1);
       put('spike', c);
       put('spike', c + 1);
-      put('spike', c + 2);
     }
     // On the rooftop every jump carries a glowing orb (it fires back at the witch).
     if (witch) gem(ta + apex, 2, true);
@@ -204,23 +204,25 @@ function hauntedPlan(diff: HauntedDiff, seed: number): { level: LevelContent; ch
     let onCeil = false;
     for (let k = k0 + 1; k + every <= end; k += every) {
       onCeil = !onCeil;
+      taps.push(col(beatAt(k)));
       // Flip at beat k: you arrive about a beat later; spikes cover the surface you left until the next flip.
       const from = col(beatAt(k) + 0.55);
       const to = col(beatAt(k + every) - 0.1);
       const len = Math.min(to - from, hardOn ? 5 : 3);
       const mid = Math.floor((from + to) / 2) - Math.floor(len / 2);
-      for (let i = 0; i < len; i++) put('spike', mid + i, onCeil ? 0 : 7, onCeil ? 0 : 1);
+      for (let i = 0; i < len; i++) put('spike', mid + i + 0.5, onCeil ? 0 : 7, onCeil ? 0 : 1);
       gem(beatAt(k) + 0.3, 4);
     }
   }
 
-  const length = col(END_AT) + 2;
+  const length = Math.floor(col(END_AT)) + 2;
   // Fields and graveyard share the first half, the house the phrases before the finale.
   const houseFrom = Math.max(1, witchFrom - 2);
   const graveFrom = Math.max(1, Math.min(houseFrom - 1, Math.round(houseFrom / 2)));
-  const chapters = [0, col(beatAt(firstBeat + graveFrom * 32)), col(beatAt(firstBeat + houseFrom * 32)), witchX];
+  const chapters = [0, Math.floor(col(beatAt(firstBeat + graveFrom * 32))), Math.floor(col(beatAt(firstBeat + houseFrom * 32))), witchX];
   return {
     chapters,
+    taps,
     level: {
       name: [55, 61],
       title: 'Haunted Run',

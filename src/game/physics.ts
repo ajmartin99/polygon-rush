@@ -92,6 +92,8 @@ const bottomUp = (s: Solid, gdir: number) => (gdir < 0 ? s.y0 : -s.y1);
 const H = PLAYER_HALF;
 /** Seconds between mid-air Roller flips. */
 export const FLIP_COOLDOWN = 0.22;
+/** A tap a moment late still catches an orb you've just passed (tiles behind it), like coyote time. */
+const ORB_LATE = 1.3;
 /** How much faster than a normal fall a slam drops. */
 export const SLAM_BOOST = 1.35;
 const scratchNear: WorldObj[] = [];
@@ -130,7 +132,7 @@ export function stepBody(b: Body, held: boolean, world: World, o: StepOpts, ev: 
         ev.jumped = true;
       } else if (buffered && !b.grounded) {
         for (const obj of near) {
-          if (obj.kind === 'orb' && obj.id !== b.usedOrb && Math.abs(obj.x - b.x) < 0.85 && Math.abs(obj.y - b.y) < 0.85) {
+          if (obj.kind === 'orb' && obj.id !== b.usedOrb && obj.x - b.x < 0.85 && b.x - obj.x < ORB_LATE && Math.abs(obj.y - b.y) < 0.85) {
             b.vy = P.orb * up;
             b.usedOrb = obj.id;
             b.pressUsed = b.t;
@@ -302,6 +304,9 @@ export function stepBody(b: Body, held: boolean, world: World, o: StepOpts, ev: 
           b.mode = obj.mode;
           b.gdir = -1;
           b.grounded = false;
+          // A press made in the old shape (holding the Glider through the portal) doesn't carry over:
+          // the Roller would flip straight to the ceiling the course doesn't expect.
+          b.pressUsed = b.t;
           if (obj.mode === 'triangle') b.vy = Math.max(-5, Math.min(5, b.vy));
           else if (obj.mode === 'diamond') b.vy = Math.max(-6, Math.min(8, b.vy));
           ev.portal = obj.mode;

@@ -40,6 +40,12 @@ export interface Piece {
   y: number;
   /** Variant: flipped spike/pad, big saw/gem, pickup type, portal mode. */
   v: number;
+  /**
+   * The game's own beat-charted courses only (never in level codes): nudge a
+   * spike, saw, monster or gem this far across its tile (-0.5..0.5) so it sits
+   * exactly on the song's beat rather than on the tile grid.
+   */
+  dx?: number;
 }
 
 /** Saw variants only the game's own courses use (not in the editor): Haunted Run monsters. */
@@ -327,7 +333,7 @@ export function buildWorld(level: LevelContent, world = new World()): World {
   };
 
   for (const p of level.pieces) {
-    const cx = p.x + 0.5;
+    const cx = p.x + 0.5 + (p.t === 'spike' || p.t === 'saw' || p.t === 'gem' ? Math.max(-0.5, Math.min(0.5, p.dx ?? 0)) : 0);
     const cy = p.y + 0.5;
     switch (p.t) {
       case 'pit':

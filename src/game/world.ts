@@ -55,9 +55,17 @@ export interface Saw extends Base {
     /** Swoops up and down this much on the way in (settles by `bx`). */
     wave?: number;
   };
-  /** Haunted Run: drawn as a zombie (on the ground) or a ghost (in the air) instead of a saw. */
-  mob?: 'zombie' | 'ghost';
+  /** Seasonal runs: drawn as a monster instead of a saw (same round hitbox). */
+  mob?: MobKind;
 }
+
+/**
+ * Haunted Run: zombies and ghosts. Holiday Run: snowmen, sliding penguins,
+ * marching toy soldiers and drifting snowflakes (they wander like zombies
+ * and ghosts), plus icicles that drop, jack-in-the-boxes that pop up and
+ * snowballs lobbed in, each landing on its spot just before you get there.
+ */
+export type MobKind = 'zombie' | 'ghost' | 'snowman' | 'penguin' | 'soldier' | 'snowflake' | 'icicle' | 'jackbox' | 'snowball';
 
 const smooth = (t: number) => t * t * (3 - 2 * t);
 

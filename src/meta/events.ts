@@ -5,7 +5,7 @@ import type { Palette } from '../render/biomes';
  * and Daily Run get its look and music, and there's a free gift to claim.
  * Anything bought or claimed stays owned for good.
  */
-export type EventId = 'halloween';
+export type EventId = 'halloween' | 'christmas';
 
 export interface SeasonEvent {
   id: EventId;
@@ -17,7 +17,18 @@ export interface SeasonEvent {
   gift: { kind: 'skin' | 'trail'; id: string };
 }
 
-export const EVENTS: SeasonEvent[] = [{ id: 'halloween', name: 'Spooky Season', from: [10, 1], to: [11, 7], gift: { kind: 'skin', id: 'witch' } }];
+export const EVENTS: SeasonEvent[] = [
+  { id: 'halloween', name: 'Spooky Season', from: [10, 1], to: [11, 7], gift: { kind: 'skin', id: 'witch' } },
+  // Runs over New Year (to is earlier in the year than from).
+  { id: 'christmas', name: 'Christmas Wonderland', from: [12, 1], to: [1, 6], gift: { kind: 'skin', id: 'snowman' } },
+];
+
+/** Is month-day `md` (month * 100 + day) inside the event, including one that wraps over New Year? */
+function inRange(e: SeasonEvent, md: number): boolean {
+  const a = e.from[0] * 100 + e.from[1];
+  const b = e.to[0] * 100 + e.to[1];
+  return a <= b ? md >= a && md <= b : md >= a || md <= b;
+}
 
 /** Query-string override for testing (?event=halloween / ?event=none). */
 function forced(): EventId | 'none' | null {
@@ -31,7 +42,7 @@ export function activeEvent(now = new Date()): SeasonEvent | null {
   if (f === 'none') return null;
   if (f) return EVENTS.find((e) => e.id === f) ?? null;
   const md = (now.getMonth() + 1) * 100 + now.getDate();
-  return EVENTS.find((e) => md >= e.from[0] * 100 + e.from[1] && md <= e.to[0] * 100 + e.to[1]) ?? null;
+  return EVENTS.find((e) => inRange(e, md)) ?? null;
 }
 
 export function isEventOn(id: EventId, now = new Date()): boolean {
@@ -46,7 +57,10 @@ export function eventEndLabel(e: SeasonEvent): string {
 
 /** Key in save.tutorial marking this year's gift as claimed. */
 export function giftKey(e: SeasonEvent, now = new Date()): string {
-  return `gift_${e.id}_${now.getFullYear()}`;
+  // An event over New Year counts as the year it started in.
+  const wraps = e.from[0] > e.to[0];
+  const year = wraps && now.getMonth() + 1 <= e.to[0] ? now.getFullYear() - 1 : now.getFullYear();
+  return `gift_${e.id}_${year}`;
 }
 
 /** Haunted Hollow: the Halloween look for the menu and the Daily Run. */

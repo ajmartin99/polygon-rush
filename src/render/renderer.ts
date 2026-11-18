@@ -1,5 +1,7 @@
 import { drawGhost, drawPumpkin, drawWitch, drawZombie } from './spooky';
 import { drawStoryScenery, type StoryView } from './haunted-scenery';
+import { drawWonderMob } from './wonderland';
+import type { MobKind } from '../game/world';
 import { CEIL, VIEW_BOTTOM, VIEW_H, VIEW_TOP } from '../game/constants';
 import type { GameSession } from '../game/session';
 import type { Racer } from '../game/racer';
@@ -1075,8 +1077,16 @@ export class Renderer {
 
   /** Haunted Run monsters standing (or floating) in the way, facing the runner. */
   /** A Haunted Run monster, facing the way it's going; a "!" pops up when it notices you. */
-  private drawMob(kind: 'zombie' | 'ghost', px: number, py: number, s: number, time: number, facing: 1 | -1 = -1, alert = 1): void {
+  private drawMob(kind: MobKind, px: number, py: number, s: number, time: number, facing: 1 | -1 = -1, alert = 1): void {
     const ctx = this.ctx;
+    if (kind !== 'zombie' && kind !== 'ghost') {
+      // A lobbed snowball only shows once it's thrown.
+      if (kind === 'snowball' && alert <= 0) return;
+      drawWonderMob(ctx, kind, px, py, s, time, facing, alert);
+      const walker = kind === 'snowman' || kind === 'penguin' || kind === 'soldier' || kind === 'snowflake';
+      if (walker) this.drawAlert(px, py, s, alert, kind === 'snowflake' ? 1.5 : 1.4);
+      return;
+    }
     // A startled hop the moment it spots you.
     const hop = alert > 0 && alert < 0.35 ? Math.sin((alert / 0.35) * Math.PI) * s * 0.35 : 0;
     ctx.save();
@@ -1091,9 +1101,15 @@ export class Renderer {
       drawZombie(this.ctx, s, time);
     }
     ctx.restore();
+    this.drawAlert(px, py, s, alert, kind === 'ghost' ? 1.5 : 1.3, hop);
+  }
+
+  /** The "!" over a monster that just noticed you. */
+  private drawAlert(px: number, py: number, s: number, alert: number, above: number, hop = 0): void {
+    const ctx = this.ctx;
     if (alert > 0 && alert < 0.6) {
       const a = alert < 0.45 ? 1 : 1 - (alert - 0.45) / 0.15;
-      const y = py - s * (kind === 'ghost' ? 1.5 : 1.3) - hop;
+      const y = py - s * above - hop;
       ctx.save();
       ctx.globalAlpha = a;
       ctx.font = `800 ${Math.round(s * 0.8)}px Fredoka, system-ui, sans-serif`;

@@ -55,6 +55,8 @@ export interface Settings {
   classicSongs: boolean;
   /** Songs taken out of rotation in Settings → Soundtrack (indexes into SONGS). */
   musicOff: number[];
+  /** Christmas Wonderland: who stole Christmas in the Holiday Run ('' = not asked yet). */
+  villain: '' | 'frost' | 'krampus';
 }
 
 export interface MissionState {
@@ -225,6 +227,7 @@ export const DEFAULT_SETTINGS: Settings = {
   difficulty: 'medium',
   myMusic: 'mix',
   classicSongs: false,
+  villain: '',
 };
 
 export function emptyStats(): Stats {
@@ -360,6 +363,7 @@ export function migrate(raw: unknown): SaveData {
   save.settings.sfx = clamp01(save.settings.sfx);
   if (!DIFFICULTIES.includes(save.settings.difficulty)) save.settings.difficulty = 'medium';
   if (!['off', 'mix', 'only'].includes(save.settings.myMusic)) save.settings.myMusic = 'mix';
+  if (!['', 'frost', 'krampus'].includes(save.settings.villain)) save.settings.villain = '';
   save.settings.musicOff = save.settings.musicOff.filter((n) => Number.isInteger(n) && n >= 0 && n < 512).slice(0, 256);
   return save;
 }

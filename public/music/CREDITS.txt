@@ -31,3 +31,8 @@ All tracks from OpenGameArt.org. Loudness-normalised and re-encoded to MP3 (no o
 "Doll House" by Alexandr Zhelanov - CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/) - https://opengameart.org/content/doll-house
 "Dissonant Waltz" by Yubatake - CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/) - https://opengameart.org/content/dissonant-waltz
 "The 9th Circle" by Joth - CC0 (https://creativecommons.org/publicdomain/zero/1.0/) - https://opengameart.org/content/the-9th-circle
+"Jingle Bells" by christmassongs - CC0 (https://creativecommons.org/publicdomain/zero/1.0/) - https://opengameart.org/content/jingle-bells
+"Deck the Halls" by dizzy crow - CC-BY 4.0 (https://creativecommons.org/licenses/by/4.0/) - https://opengameart.org/content/deck-the-halls-christmas-song-203
+"We Three Kings" by christmassongs - CC0 (https://creativecommons.org/publicdomain/zero/1.0/) - https://opengameart.org/content/we-three-kings
+"Merry X-mas" by buffy - CC0 (https://creativecommons.org/publicdomain/zero/1.0/) - https://opengameart.org/content/merry-x-mas
+"Carol of Bells (Sinister)" by bobjt - CC0 (https://creativecommons.org/publicdomain/zero/1.0/) - https://opengameart.org/content/carol-of-bells-sinister (looped three times with a fade-out at the end)

@@ -40,7 +40,7 @@ export interface TrackDef {
   /** Seasonal: only in rotation while the event runs (and always in its Daily Run). */
   event?: EventId;
   /** Belongs to one mode (the Haunted Run): never in rotation, song pickers or player levels. */
-  exclusive?: 'haunted';
+  exclusive?: 'haunted' | 'holiday';
   /** Taken out of rotation (kept so the ids after it don't shift): never picked or offered again. */
   retired?: true;
 }
@@ -386,6 +386,13 @@ export const TRACKS: TrackDef[] = [
   { title: 'Doll House', artist: 'Alexandr Zhelanov', genre: 'Spooky Piano', license: 'CC-BY 4.0', source: 'https://opengameart.org/content/doll-house', file: 'doll-house.mp3', duration: 24.9, bpm: 100.2, offset: 0.269, role: 'run', event: 'halloween', retired: true },
   { title: 'Dissonant Waltz', artist: 'Yubatake', genre: 'Haunted Waltz', license: 'CC-BY 4.0', source: 'https://opengameart.org/content/dissonant-waltz', file: 'dissonant-waltz.mp3', duration: 170.0, bpm: 100.2, offset: 0.429, role: 'run', event: 'halloween' },
   { title: 'The 9th Circle', artist: 'Joth', genre: 'Industrial Dubstep', license: 'CC0', source: 'https://opengameart.org/content/the-9th-circle', file: 'the-9th-circle.mp3', duration: 170.8, bpm: 120.3, offset: 0.359, role: 'run', fast: true, event: 'halloween' },
+  // Christmas Wonderland. Deck the Halls and We Three Kings keep a looser tempo: menu only.
+  { title: 'Jingle Bells', artist: 'christmassongs', genre: 'Christmas Classic', license: 'CC0', source: 'https://opengameart.org/content/jingle-bells', file: 'jingle-bells.mp3', duration: 43.1, bpm: 100.0, offset: 0.066, role: 'run', event: 'christmas' },
+  { title: 'Deck the Halls', artist: 'dizzy crow', genre: 'Christmas Classic', license: 'CC-BY 4.0', source: 'https://opengameart.org/content/deck-the-halls-christmas-song-203', file: 'deck-the-halls.mp3', duration: 122.7, bpm: 89.4, offset: 0.054, role: 'menu', event: 'christmas' },
+  { title: 'We Three Kings', artist: 'christmassongs', genre: 'Christmas Classic', license: 'CC0', source: 'https://opengameart.org/content/we-three-kings', file: 'we-three-kings.mp3', duration: 65.5, bpm: 69.8, offset: 0.12, role: 'menu', event: 'christmas' },
+  // The Holiday Run's own songs: Jack Frost's (a techno Christmas medley) and Krampus's (a sinister Carol of the Bells).
+  { title: 'Merry X-mas', artist: 'buffy', genre: 'Christmas Techno', license: 'CC0', source: 'https://opengameart.org/content/merry-x-mas', file: 'merry-xmas.mp3', duration: 173.8, bpm: 168.2, offset: 0.069, role: 'run', event: 'christmas', exclusive: 'holiday' },
+  { title: 'Carol of the Bells (Sinister)', artist: 'bobjt', genre: 'Dark Christmas', license: 'CC0', source: 'https://opengameart.org/content/carol-of-bells-sinister', file: 'carol-of-the-bells.mp3', duration: 154.3, bpm: 140.0, offset: 0.069, role: 'run', event: 'christmas', exclusive: 'holiday' },
 ];
 
 export interface MusicInfo {

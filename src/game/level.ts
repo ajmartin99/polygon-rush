@@ -45,6 +45,22 @@ export interface Piece {
 /** Saw variants only the game's own courses use (not in the editor): Haunted Run monsters. */
 export const SAW_ZOMBIE = 2;
 export const SAW_GHOST = 3;
+/** Holiday Run monsters (Christmas Wonderland). */
+export const SAW_SNOWMAN = 4;
+export const SAW_PENGUIN = 5;
+export const SAW_SOLDIER = 6;
+export const SAW_SNOWFLAKE = 7;
+export const SAW_ICICLE = 8;
+export const SAW_JACKBOX = 9;
+export const SAW_SNOWBALL = 10;
+/** Ground walkers: wander, turn at obstacles, then come at you. */
+const WALKERS: Record<number, { mob: 'zombie' | 'snowman' | 'penguin' | 'soldier'; rate: number; maxL: number; maxR: number }> = {
+  [SAW_ZOMBIE]: { mob: 'zombie', rate: 0.15, maxL: 2, maxR: 4 },
+  [SAW_SNOWMAN]: { mob: 'snowman', rate: 0.12, maxL: 2, maxR: 4 },
+  // Penguins belly-slide across the ice, fast and far.
+  [SAW_PENGUIN]: { mob: 'penguin', rate: 0.34, maxL: 2, maxR: 6 },
+  [SAW_SOLDIER]: { mob: 'soldier', rate: 0.14, maxL: 2, maxR: 4 },
+};
 /**
  * Haunted Run monsters wander until you're this close (tiles), then come at
  * you and settle on their spot by the second number (you still jump or fly
@@ -333,25 +349,49 @@ export function buildWorld(level: LevelContent, world = new World()): World {
         break;
       }
       case 'saw': {
-        if (p.v === SAW_ZOMBIE) {
-          // A zombie shambles back and forth (turning at walls, spikes and drops) until it
-          // notices you, then lurches onto its spot just before you get there: jump it on the beat.
+        const walker = WALKERS[p.v];
+        if (walker) {
+          // Shambles (or rolls, slides, marches) back and forth, turning at walls, spikes and drops,
+          // until it notices you, then lurches onto its spot just before you get there: jump it on the beat.
           const zy = p.y + 0.6;
-          const room = zombieRoom(level.pieces, p.x, p.y);
+          const room = zombieRoom(level.pieces, p.x, p.y, walker.maxL, walker.maxR);
           const l = cx - room.l * 0.9;
           const rr = cx + room.r * 0.9;
-          const patrol = { l, r: Math.max(rr, l + 0.5), rate: 0.15, off: mobPhase(p.x) };
-          out.push({ id: id(), kind: 'saw', x: cx, y: zy, r: 0.6, mob: 'zombie', move: { ax: cx - ZOMBIE_NOTICE[0], bx: cx - ZOMBIE_NOTICE[1], from: zy, to: zy, patrol }, x0: patrol.l - 0.6, x1: patrol.r + 0.6, y0: zy - 0.6, y1: zy + 0.6 });
+          const patrol = { l, r: Math.max(rr, l + 0.5), rate: walker.rate, off: mobPhase(p.x) };
+          out.push({ id: id(), kind: 'saw', x: cx, y: zy, r: 0.6, mob: walker.mob, move: { ax: cx - ZOMBIE_NOTICE[0], bx: cx - ZOMBIE_NOTICE[1], from: zy, to: zy, patrol }, x0: patrol.l - 0.6, x1: patrol.r + 0.6, y0: zy - 0.6, y1: zy + 0.6 });
           break;
         }
-        if (p.v === SAW_GHOST) {
-          // A ghost drifts about above its spot (straight through walls), bobbing, until it
+        if (p.v === SAW_ICICLE) {
+          // Hangs from the roof and drops onto its spot as you come (then sticks out of the snow).
+          const r = 0.5;
+          const to = p.y + 0.55;
+          out.push({ id: id(), kind: 'saw', x: cx, y: to, r, mob: 'icicle', move: { ax: cx - 9, bx: cx - 3.5, from: 7.6, to }, x0: cx - r, x1: cx + r, y0: to - r, y1: 7.6 + r });
+          break;
+        }
+        if (p.v === SAW_JACKBOX) {
+          // Springs up out of its box just before you get there.
+          const r = 0.6;
+          const to = p.y + 0.6;
+          out.push({ id: id(), kind: 'saw', x: cx, y: to, r, mob: 'jackbox', move: { ax: cx - 6, bx: cx - 3, from: to - 1.5, to }, x0: cx - r, x1: cx + r, y0: to - 1.5 - r, y1: to + r });
+          break;
+        }
+        if (p.v === SAW_SNOWBALL) {
+          // Lobbed in from ahead, it lands and rolls into its spot.
+          const r = 0.55;
+          const to = p.y + 0.55;
+          const from = Math.min(to + 4, 7);
+          const patrol = { l: cx + 8, r: cx + 8.01, rate: 0, off: 0 };
+          out.push({ id: id(), kind: 'saw', x: cx, y: to, r, mob: 'snowball', move: { ax: cx - 11, bx: cx - 3, from, to, patrol }, x0: cx - r, x1: cx + 8.01 + r, y0: to - r, y1: from + r });
+          break;
+        }
+        if (p.v === SAW_GHOST || p.v === SAW_SNOWFLAKE) {
+          // A ghost (or a giant snowflake) drifts about above its spot (straight through walls), bobbing, until it
           // notices you, then swoops down onto its spot (fly around it).
           const r = 0.8;
           const bob = 0.7;
           const from = Math.min(cy + 1.2, 7.4 - bob);
           const patrol = { l: cx - 1, r: cx + 4, rate: 0.25, off: mobPhase(p.x), bob };
-          out.push({ id: id(), kind: 'saw', x: cx, y: cy, r, mob: 'ghost', move: { ax: cx - GHOST_NOTICE[0], bx: cx - GHOST_NOTICE[1], from, to: cy, patrol, wave: 0.6 }, x0: patrol.l - r, x1: patrol.r + r, y0: Math.min(cy, from - bob) - 0.6 - r, y1: Math.max(cy, from + bob) + 0.6 + r });
+          out.push({ id: id(), kind: 'saw', x: cx, y: cy, r, mob: p.v === SAW_GHOST ? 'ghost' : 'snowflake', move: { ax: cx - GHOST_NOTICE[0], bx: cx - GHOST_NOTICE[1], from, to: cy, patrol, wave: 0.6 }, x0: patrol.l - r, x1: patrol.r + r, y0: Math.min(cy, from - bob) - 0.6 - r, y1: Math.max(cy, from + bob) + 0.6 + r });
           break;
         }
         const r = p.v ? 1.1 : 0.6;

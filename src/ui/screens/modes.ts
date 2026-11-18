@@ -7,6 +7,8 @@ import { leagueFor } from '../../meta/economy';
 import { activeEvent } from '../../meta/events';
 import { attemptsLeft, HAUNTED_RULES } from '../../meta/haunted';
 import { openHauntedRun } from '../haunted-run';
+import { currentVillain, openHolidayRun } from '../holiday-run';
+import { HOLIDAY_RULES, VILLAINS } from '../../meta/holiday';
 import { BaseScreen, titleBar } from '../components';
 import { fmt, h, ic } from '../dom';
 import type { IconName } from '../icons';
@@ -36,7 +38,25 @@ export class ModesScreen extends BaseScreen {
     const hs = d.haunted;
     const left = haunted ? attemptsLeft(hs) : 0;
     const bossesBeaten = BOSSES.filter((b) => (d.bosses[b.id]?.wins ?? 0) > 0).length;
+    const xmas = activeEvent()?.id === 'christmas';
+    const hol = d.holiday;
+    const holLeft = xmas ? attemptsLeft(hol) : 0;
+    const villain = VILLAINS[currentVillain()];
     const cards: ModeCard[] = [
+      ...(xmas
+        ? [
+            {
+              id: 'holiday',
+              name: '🎄 Holiday Run',
+              blurb: `${villain.crime} Chase him through five snowy chapters and save Christmas!`,
+              icon: 'gift' as IconName,
+              color: 'red xmas',
+              tag: holLeft > 0 ? `${holLeft} of ${HOLIDAY_RULES.attempts} attempts` : d.haunted.regens > 0 ? `${d.haunted.regens} Heart Regen${d.haunted.regens > 1 ? 's' : ''}` : 'Out of attempts',
+              stat: hol.best.hard || hol.best.easy ? `Best ${Math.floor(Math.max(hol.best.hard, hol.best.easy) * 100)}%` : 'Christmas only',
+              go: () => openHolidayRun(),
+            },
+          ]
+        : []),
       ...(haunted
         ? [
             {

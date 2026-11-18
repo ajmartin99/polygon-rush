@@ -17,6 +17,7 @@ import { canOfferFreeChat, freeChatPath, serverAvailable } from '../../meta/comm
 import { BackupError, makeBackup, restoreBackup } from '../../services/backup';
 import { friends } from '../../services/friends';
 import { openRedeem } from '../redeem';
+import { activeEvent } from '../../meta/events';
 
 function row(iconName: IconName, title: string, sub: string, control: Child): HTMLElement {
   return h('div.setting', null, h('span', { class: 'ico', style: 'display:contents' }, ic(iconName)), h('div.lbl', null, h('b', null, title), h('span', null, sub)), control);
@@ -238,6 +239,21 @@ export class SettingsScreen extends BaseScreen {
             ),
             row('child', 'Kid Mode', 'Slower Endless with 5 hearts', toggle(s.kidMode, (v) => store.setSetting('kidMode', v), 'Kid Mode')),
             row('graphics', 'Graphics', 'Lower = smoother on older phones', gfx),
+            activeEvent()?.id === 'christmas' || s.villain
+              ? row(
+                  'gift',
+                  'Holiday villain',
+                  'Who stole Christmas in the Holiday Run',
+                  segmented<'frost' | 'krampus'>(
+                    [
+                      { value: 'frost', label: 'Jack Frost' },
+                      { value: 'krampus', label: 'Krampus' },
+                    ],
+                    s.villain === 'krampus' ? 'krampus' : 'frost',
+                    (v) => store.setSetting('villain', v),
+                  ),
+                )
+              : null,
           ),
         ),
         h('div.row', { style: 'flex-wrap:wrap;margin-top:0.9rem;gap:0.5rem' }, actions),

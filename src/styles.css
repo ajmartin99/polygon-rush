@@ -4110,3 +4110,47 @@ html:not(.fx-blur) * {
 .portal {
   font-size: clamp(11px, calc(min(100vh, 56.25vw) / 30), 22px);
 }
+
+/* ------------------------------------------------------------------ christmas wonderland */
+.mode-card.xmas {
+  background: linear-gradient(160deg, #e8304a, #126a3a);
+  box-shadow: 0 0 0 0.15rem rgba(255, 255, 255, 0.7), 0 0.3rem 0 #0a3a1e;
+}
+
+.villain-pick {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.7rem;
+  width: 100%;
+}
+
+.villain-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.8rem 0.6rem;
+  border: 0.15rem solid rgba(255, 255, 255, 0.4);
+  border-radius: var(--radius);
+  color: #fff;
+  font-family: inherit;
+  cursor: pointer;
+  text-align: center;
+}
+
+.villain-card.frost {
+  background: linear-gradient(160deg, #3d8bdc, #0a1a4a);
+}
+
+.villain-card.krampus {
+  background: linear-gradient(160deg, #7a1e10, #1a0606);
+}
+
+.villain-card b {
+  font-size: 1.2rem;
+}
+
+.villain-icon {
+  font-size: 2.4rem;
+  line-height: 1;
+}

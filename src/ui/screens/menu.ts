@@ -20,9 +20,11 @@ import { unlockedLevels } from '../../meta/modes';
 import { eventChip, giftClaimed, openEventModal } from '../event';
 import { openNoAdsOffer } from './shop';
 import { friends } from '../../services/friends';
+import { chooseVillain } from '../holiday-run';
 
 let dailyPromptShown = false;
 let eventPromptShown = false;
+let villainAsked = false;
 
 export class MenuScreen extends BaseScreen {
   constructor() {
@@ -142,6 +144,14 @@ export class MenuScreen extends BaseScreen {
 
   override enter(): void {
     void ads.showBanner();
+    // Christmas: who stole Christmas? Asked once, before anything else.
+    if (activeEvent()?.id === 'christmas' && !store.settings.villain && store.data.stats.runs > 0 && !villainAsked) {
+      villainAsked = true;
+      setTimeout(() => {
+        if (nav.route === 'menu' && !ui.hasModal) chooseVillain(() => nav.go('menu'));
+      }, 700);
+      return;
+    }
     // Spooky Season: offer the free gift once (after onboarding).
     if (!eventPromptShown && activeEvent() && !giftClaimed() && store.data.stats.runs > 0) {
       eventPromptShown = true;

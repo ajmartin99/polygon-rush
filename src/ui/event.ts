@@ -1,4 +1,5 @@
 import { openHauntedRun } from './haunted-run';
+import { openHolidayRun } from './holiday-run';
 import { activeEvent, eventEndLabel, giftKey } from '../meta/events';
 import { skinById, trailById } from '../meta/catalog';
 import { store } from '../state/store';
@@ -23,7 +24,7 @@ export function eventChip(): HTMLElement | null {
   return h(
     'button.event-chip',
     { onclick: () => openEventModal(), 'aria-label': `${ev.name} event` },
-    h('span.ev-pumpkin', null, '🎃'),
+    h('span.ev-pumpkin', null, ev.id === 'christmas' ? '🎄' : '🎃'),
     h('span', null, h('b', null, ev.name), h('small', null, giftClaimed() ? eventEndLabel(ev) : 'Free gift!')),
   );
 }
@@ -33,18 +34,25 @@ export function openEventModal(): void {
   if (!ev) return;
   const claimed = giftClaimed();
   const giftName = ev.gift.kind === 'skin' ? skinById(ev.gift.id).name : trailById(ev.gift.id).name;
+  const xmas = ev.id === 'christmas';
   const m = ui.modal(
     [
-      h('h2', null, `🎃 ${ev.name}`),
-      h('p.muted', null, `Spooky skins, trails, the Haunted Run and a Halloween tune, ${eventEndLabel(ev)}. Everything you get is yours to keep.`),
+      h('h2', null, `${xmas ? '🎄' : '🎃'} ${ev.name}`),
+      h(
+        'p.muted',
+        null,
+        xmas
+          ? `Snowy skins and trails, the Holiday Run, an Advent Calendar and Christmas classics, ${eventEndLabel(ev)}. Everything you get is yours to keep.`
+          : `Spooky skins, trails, the Haunted Run and a Halloween tune, ${eventEndLabel(ev)}. Everything you get is yours to keep.`,
+      ),
       ev.gift.kind === 'skin' ? previewCanvas({ skin: ev.gift.id, animate: true, scale: 0.6 }, 'hero-preview') : null,
-      h('p', null, claimed ? `You have the ${giftName}. Happy Halloween!` : `Your free gift: the ${giftName} skin!`),
+      h('p', null, claimed ? `You have the ${giftName}. ${xmas ? 'Merry Christmas!' : 'Happy Halloween!'}` : `Your free gift: the ${giftName} skin!`),
       h(
         'div.actions',
         null,
-        button({ label: 'Halloween shop', icon: 'cart', cls: 'ghost lg', onClick: () => (m.close(), nav.go('shop')) }),
+        button({ label: xmas ? 'Christmas shop' : 'Halloween shop', icon: 'cart', cls: 'ghost lg', onClick: () => (m.close(), nav.go('shop')) }),
         claimed
-          ? button({ label: 'Haunted Run', icon: 'play', cls: 'orange lg', onClick: () => (m.close(), openHauntedRun()) })
+          ? button({ label: xmas ? 'Holiday Run' : 'Haunted Run', icon: 'play', cls: 'orange lg', onClick: () => (m.close(), xmas ? openHolidayRun() : openHauntedRun()) })
           : button({
               label: 'Claim gift',
               icon: 'gift',

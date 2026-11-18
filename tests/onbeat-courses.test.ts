@@ -63,14 +63,16 @@ describe('seasonal runs: press on the beat and you clear it', () => {
           expect(beatPlayer(p.level, p.taps, early), `seed ${seed}`).toEqual([]);
         }
       });
-      for (const villain of ['frost', 'krampus'] as const) {
-        it(`Holiday Run (${villain}) ${diff}, ${when}`, () => {
-          for (const seed of [11, 202, 3003]) {
-            const p = holidayPlan(diff, villain, seed);
-            expect(beatPlayer(p.level, p.taps, early), `seed ${seed}`).toEqual([]);
-          }
-        });
-      }
+    }
+  }
+  for (const early of [0.06, 0, -0.06]) {
+    for (const villain of ['frost', 'krampus'] as const) {
+      it(`Holiday Run (${villain}), ${early === 0 ? 'right on' : early > 0 ? '60 ms early' : '60 ms late'}`, () => {
+        for (const seed of [11, 202, 3003]) {
+          const p = holidayPlan(villain, seed);
+          expect(beatPlayer(p.level, p.taps, early), `seed ${seed}`).toEqual([]);
+        }
+      });
     }
   }
   for (const early of [0.06, 0, -0.06]) {

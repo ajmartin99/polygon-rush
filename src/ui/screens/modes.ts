@@ -1,6 +1,5 @@
 import { BOSSES } from '../../meta/bosses';
 import { openBosses } from '../bosses';
-import { DIFFICULTY_NAMES } from '../../state/save';
 import { store } from '../../state/store';
 import { GEM_RUSH_SECONDS, MAX_START_LEVEL, unlockedLevels, variantBestKey, VARIANT_INFO, type EndlessVariant } from '../../meta/modes';
 import { leagueFor } from '../../meta/economy';
@@ -77,7 +76,7 @@ export class ModesScreen extends BaseScreen {
         blurb: VARIANT_INFO.classic.blurb,
         icon: 'play',
         color: 'yellow',
-        tag: d.settings.kidMode ? 'Kid Mode' : DIFFICULTY_NAMES[d.settings.difficulty],
+        tag: d.settings.kidMode ? 'Kid Mode' : 'Harder every level',
         stat: best('classic') ? `Best ${fmt(best('classic'))} m` : undefined,
         go: endless('classic'),
       },
@@ -97,7 +96,7 @@ export class ModesScreen extends BaseScreen {
         blurb: VARIANT_INFO.oneheart.blurb,
         icon: 'heart',
         color: 'red',
-        tag: DIFFICULTY_NAMES[d.settings.difficulty],
+        tag: 'One heart',
         stat: best('oneheart') ? `Best ${fmt(best('oneheart'))} m` : undefined,
         go: endless('oneheart'),
       },
@@ -117,7 +116,7 @@ export class ModesScreen extends BaseScreen {
         blurb: VARIANT_INFO.lightsout.blurb,
         icon: 'bolt',
         color: 'violet',
-        tag: DIFFICULTY_NAMES[d.settings.difficulty],
+        tag: 'In the dark',
         stat: best('lightsout') ? `Best ${fmt(best('lightsout'))} m` : 'New!',
         go: endless('lightsout'),
       },

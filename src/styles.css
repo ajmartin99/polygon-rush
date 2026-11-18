@@ -4296,3 +4296,28 @@ html:not(.fx-blur) * {
     opacity: 0;
   }
 }
+
+.calib-pad {
+  display: block;
+  width: 8rem;
+  height: 8rem;
+  margin: 0.4rem auto;
+  border: 0.25rem solid #fff;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe27a, #ff9f1c);
+  color: #3b2300;
+  font: 700 1.6rem var(--font);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.calib-pad.hit {
+  animation: calib-hit 0.18s ease-out;
+}
+
+@keyframes calib-hit {
+  50% {
+    transform: scale(0.9);
+    filter: brightness(1.2);
+  }
+}

@@ -21,13 +21,16 @@ The full release on Google Play.
   - **Candy Cane Peaks:** fly Santa's sleigh through candy-cane gates.
   - **The lair:** Jack Frost's Ice Palace or Krampus's Cavern. Grab the glowing presents to throw them at him.
   - Jack Frost's run is charted to a techno Christmas medley, Krampus's to a sinister Carol of the Bells.
-  - Rewards: beating him pays **500 gems on Hard, 150 on Easy**, and the first Hard win earns the **Holiday Hero** skin. Two attempts a day; Heart Regens refill them.
+  - One run that gets harder chapter by chapter, with 3 hearts. Beating him pays **400 gems** plus every gem you grab, and the first win earns the **Holiday Hero** skin. Two attempts a day; Heart Regens refill them.
 - **Advent Calendar:** a door a day from Dec 1 to 25 with gems, Heart Regens and Christmas items. A missed door opens later for 150 gems. Door 25 holds the Starlight skin and Northern Lights trail, which can't be got anywhere else.
 - **Secret Santa:** once a day, send a friend a wrapped present. There's no text, just a wrapping paper. Presents hold gems or a Christmas emote, and the giver gets 25 gems.
 - **Christmas shop:** Gingerbread, Reindeer, Christmas Jumper, Little Elf, Gift Box and Santa Claus skins; Snowfall, String Lights and Candy Canes trails; Christmas Tree, Snowman, Present, Reindeer and Jingle Bells emotes.
 - **Christmas app icon:** on Android the home-screen icon wears a Santa hat during the event. Settings → Seasonal app icon turns it off.
+- **Beat timing** in Settings: tap along to a click to line the game up with your phone or Bluetooth headphones.
 
 ### Changed
+- **One mode.** Easy, Normal and Extreme are gone. Endless has one difficulty that rises level by level: the first levels are gentle, the middle ones pick up, and from Level 6 the saws move and the timing is tight. Your best distance and levels from any old difficulty carry over (the best of them counts). The Daredevil and Chaos Tamer badges are now for reaching Level 4 and Level 6. Kid Mode stays as the gentle option.
+- **Every song is charted to its real beat.** Each track now has a beat map made from the recording's drum hits, so jumps land on the kick and snare all the way through, even where a song's tempo drifts. The game also allows for your phone's audio delay.
 - The beta has ended:
   - The beta deal is over. No Ads, the Starter Pack and the Legend Pack are bought with money again; Heart Regens and the profile add-ons can still be bought with gems.
   - Beta rewards no longer progress. Testers keep everything they earned.

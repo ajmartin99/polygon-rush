@@ -1,7 +1,7 @@
 import { beatIndexAt, beatTime, bestTick, energyAt, type BeatMap } from '../core/beatmaps';
 import { Rng } from '../core/rng';
-import { CEIL, ENDLESS_TUNING, JUMP_TIME, PHYS, PLAYER_HALF, RACE_SPEED, endlessDifficultyAt, endlessHeatAt, endlessSpeedAt, type Difficulty } from './constants';
-import type { LevelSpan, LevelTimeline } from './levels';
+import { CEIL, JUMP_TIME, endlessRunwayAt, runTier, type Tuning, PHYS, PLAYER_HALF, RACE_SPEED, endlessDifficultyAt, endlessHeatAt, endlessSpeedAt, type Difficulty } from './constants';
+import { LEVEL_NOMINAL, type LevelSpan, type LevelTimeline } from './levels';
 import type { ShapeMode } from './shapes';
 import type { PickupType, SolidRole, World, WorldObj } from './world';
 import { MAX_OBJ_W } from './world';
@@ -12,8 +12,8 @@ export interface GenOptions {
   /** Race finish line distance. */
   length?: number;
   kid?: boolean;
-  /** Endless difficulty mode (speed and pattern curves). */
-  diff?: Difficulty;
+  /** Endless curve: 'run' (the game's one mode, harder level by level) or a fixed difficulty (tests, Daily). */
+  diff?: Tuning;
   /** No heart pickups (One Heart). */
   noHearts?: boolean;
   /** Chance of a gem line in each gap (Gem Rush uses more). */
@@ -158,6 +158,15 @@ export class LevelGen {
     return this.opts.kind === 'race' ? RACE_SPEED : endlessSpeedAt(Math.max(0, x), !!this.opts.kid, this.opts.diff);
   }
 
+  /** How the charts play here: a fixed difficulty, or in the one mode, by level (gentle first, Extreme from Level 6). */
+  private get tier(): Difficulty {
+    const d = this.opts.diff;
+    if (d && d !== 'run') return d;
+    if (this.opts.kind !== 'endless') return 'medium';
+    const level = this.opts.levels ? this.opts.levels.at(Math.max(0, this.x - this.origin)).index : Math.floor(Math.max(0, this.x - this.origin) / LEVEL_NOMINAL);
+    return runTier(level);
+  }
+
   difficultyAt(x: number): number {
     if (this.opts.difficulty !== undefined) return this.opts.difficulty;
     // The first-run tutorial stays gentle whatever the mode.
@@ -283,7 +292,7 @@ export class LevelGen {
     const v = this.v;
     const d = this.d;
     const tutorial = this.opts.tutorial && this.tutorialStep <= TUTORIAL.length;
-    const secs = this.rng.range(0.42, 0.75) * (1.25 - 0.45 * d) * (tutorial ? 1.6 : 1) * (this.opts.kid ? 1.25 : 1) * (this.opts.kind === 'endless' ? ENDLESS_TUNING[this.opts.diff ?? 'medium'].runway : 1);
+    const secs = this.rng.range(0.42, 0.75) * (1.25 - 0.45 * d) * (tutorial ? 1.6 : 1) * (this.opts.kid ? 1.25 : 1) * (this.opts.kind === 'endless' ? endlessRunwayAt(this.x, this.opts.diff) : 1);
     // Hot runs: shorter breathers, and sometimes patterns come back to back.
     const heat = this.heat;
     const raw = v * secs * (1 - 0.4 * heat);
@@ -330,7 +339,7 @@ export class LevelGen {
 
   /** Seconds between taps: [run start, fully ramped]. */
   private chartGap(): number {
-    const diff = this.opts.kid ? 'easy' : this.opts.diff ?? 'medium';
+    const diff = this.opts.kid ? 'easy' : this.tier;
     const [a, b] = CHART_GAP[diff];
     const gap = Math.max(0.4, a + (b - a) * Math.min(1, this.d) - 0.12 * this.heat);
     if (diff === 'hard') return gap;
@@ -361,7 +370,7 @@ export class LevelGen {
     const k = Math.max(Math.ceil(CHART_MIN_GAP[mode] / unit - 1e-6), Math.round(this.chartGap() / unit));
     // Every few levels the new song opens with a few easy seconds to rest the fingers.
     const rest = fresh && isBreatherLevel(at.level);
-    const easyTaps = this.opts.diff === 'easy' || !!this.opts.kid;
+    const easyTaps = this.tier === 'easy' || !!this.opts.kid;
     let b: number;
     let t: number;
     let quiet = false;
@@ -411,8 +420,8 @@ export class LevelGen {
     }
     this.taps.push(xT);
     const xAt = (s: number) => xT + s * v;
-    const hard = this.opts.diff === 'hard' && !this.opts.kid;
-    const easy = this.opts.diff === 'easy' || !!this.opts.kid;
+    const hard = this.tier === 'hard' && !this.opts.kid;
+    const easy = this.tier === 'easy' || !!this.opts.kid;
     const r = this.rng.range(0, 1);
     const reward = (x: number, y: number) => {
       if (x >= this.nextPickup) {

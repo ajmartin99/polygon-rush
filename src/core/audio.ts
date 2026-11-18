@@ -1,3 +1,4 @@
+import { beatIndexAt, beatLength, beatMapFor, beatPhaseAt, type BeatMap } from './beatmaps';
 import { store } from '../state/store';
 import { lane, parseMelody, SCALES, SONGS, type BassTone, type Kit, type NoteEvent, type SongDef } from './songs';
 
@@ -220,6 +221,8 @@ class AudioEngine {
   private trackGain: GainNode | null = null;
   private trackId = -1;
   private trackOffset = 0;
+  /** The playing track's beat map (its real beats), when it has one. */
+  private trackMap: BeatMap | null = null;
   /** The track you can actually hear (the old one keeps playing while the next loads). */
   private audible: { el: HTMLAudioElement; g: GainNode } | null = null;
   /** Tracks loaded ahead of time so the next song starts instantly. */
@@ -340,6 +343,7 @@ class AudioEngine {
     this.trackId = id;
     this.trackOffset = offset;
     this.beatLength = 60 / Math.max(40, bpm);
+    this.trackMap = beatMapFor(url.split('/').pop() ?? '');
     void el.play().catch(() => {});
     // Very slow connection: don't keep the old song going forever.
     setTimeout(() => {
@@ -477,22 +481,63 @@ class AudioEngine {
     const ctx = this.ctx as (AudioContext & { outputLatency?: number }) | null;
     if (!ctx || !(this.beatLength > 0)) return null;
     const lat = ctx.outputLatency || ctx.baseLatency || 0;
-    let t: number;
-    if (this.trackEl) t = this.trackEl.currentTime - this.trackOffset - lat;
-    else if (this.playing) t = ctx.currentTime - this.lastBeatTime - lat;
+    let ph: number;
+    if (this.trackEl && this.trackMap) ph = beatPhaseAt(this.trackMap, this.trackEl.currentTime - lat);
+    else if (this.trackEl) ph = ((((this.trackEl.currentTime - this.trackOffset - lat) / this.beatLength) % 1) + 1) % 1;
+    else if (this.playing) ph = ((((ctx.currentTime - this.lastBeatTime - lat) / this.beatLength) % 1) + 1) % 1;
     else return null;
-    const ph = (((t / this.beatLength) % 1) + 1) % 1;
-    return (ph < 0.5 ? ph : ph - 1) * this.beatLength;
+    const len = this.trackEl && this.trackMap ? beatLength(this.trackMap, beatIndexAt(this.trackMap, this.trackEl.currentTime)) : this.beatLength;
+    return (ph < 0.5 ? ph : ph - 1) * len;
   }
 
+  /** 0 on a beat you hear → 1 just before the next (for visual pulsing). Follows the song's real beats when it has a beat map. */
   beatPhase(): number {
     if (this.trackEl) {
-      const t = this.trackEl.currentTime - this.trackOffset;
+      const ctx = this.ctx as (AudioContext & { outputLatency?: number }) | null;
+      const heard = this.trackEl.currentTime - (ctx ? ctx.outputLatency || ctx.baseLatency || 0 : 0);
+      if (this.trackMap) return heard < 0 ? 0 : beatPhaseAt(this.trackMap, heard);
+      const t = heard - this.trackOffset;
       return t < 0 ? 0 : (t / this.beatLength) % 1;
     }
     if (!this.ctx || !this.playing) return 0;
     const t = this.ctx.currentTime - this.lastBeatTime;
     return Math.max(0, Math.min(1, t / this.beatLength));
+  }
+
+  /** A short metronome click at context time `at` (Beat timing calibration). */
+  clickAt(at: number, accent = false): void {
+    if (!this.ctx) return;
+    const c = this.ctx;
+    const o = c.createOscillator();
+    const g = c.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(accent ? 1760 : 1320, at);
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(0.9, at + 0.003);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + 0.08);
+    o.connect(g).connect(this.sfxBus);
+    o.start(at);
+    o.stop(at + 0.1);
+  }
+
+  /** When a sound scheduled at context time `at` is actually heard, in performance.now() time. */
+  heardAt(at: number): number {
+    const ctx = this.ctx as (AudioContext & { outputLatency?: number; getOutputTimestamp?: () => AudioTimestamp }) | null;
+    if (!ctx) return 0;
+    const ts = ctx.getOutputTimestamp?.();
+    if (ts && ts.performanceTime && ts.contextTime !== undefined) return ts.performanceTime + (at - ts.contextTime) * 1000;
+    return performance.now() + (at - ctx.currentTime + (ctx.outputLatency || ctx.baseLatency || 0)) * 1000;
+  }
+
+  /**
+   * How far ahead the music should run of the course (s): the phone's sound
+   * output delay plus the player's own timing setting (Settings → Beat timing).
+   * With it, the beat you hear arrives just as you reach the obstacle.
+   */
+  get latency(): number {
+    const ctx = this.ctx as (AudioContext & { outputLatency?: number }) | null;
+    const out = ctx ? ctx.outputLatency || ctx.baseLatency || 0 : 0;
+    return Math.min(0.4, Math.max(-0.2, out + (store.settings.audioOffset ?? 0) / 1000));
   }
 
   /** Schedule every 16th note that starts before `until` (context time). */

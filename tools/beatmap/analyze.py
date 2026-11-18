@@ -147,12 +147,13 @@ def analyze(path: Path, bpm_hint: float):
     onset = norm(np.array([at(env, t) for t in ticks]))
     kk = norm(np.array([at(kick, t) for t in ticks]))
     energy = norm(np.array([at(rms, t, 0.15) for t in ticks]))
-    score = np.clip(0.55 * kk + 0.45 * onset, 0, 1)
+    # Sharp drum attacks are what you hear (and jump to); a deep bass thump with no attack counts less.
+    score = np.clip(0.65 * onset + 0.35 * kk, 0, 1)
     onbeat = np.isin(ticks, beats)
 
-    # Bar lines: the beat (mod 4) where kicks land hardest.
-    bk = np.array([at(kick, t) for t in beats])
-    phase = int(np.argmax([bk[p::4].mean() for p in range(4)]))
+    # Bar lines: the beat (mod 4) with the strongest hits you hear (sharp attacks first, then kick).
+    bs = score[onbeat]
+    phase = int(np.argmax([bs[p::4].mean() for p in range(4)]))
 
     peak = np.median(env) * 2
     conf = float(np.mean([at(env, t, 0.04) > peak for t in beats]))

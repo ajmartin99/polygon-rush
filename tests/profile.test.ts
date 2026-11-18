@@ -14,7 +14,7 @@ describe('player profiles', () => {
     expect(ids).not.toContain('rush6k');
   });
 
-  it('creator, community and Extreme badges show progress', () => {
+  it('creator, community and Endless level badges show progress', () => {
     const save = createSave();
     const ctx = { save, levelsBuilt: 3, levelsVerified: 1, levelsCoop: 1 };
     const byId = (id: string) => BADGES.find((b) => b.id === id)!;
@@ -22,7 +22,7 @@ describe('player profiles', () => {
     save.creator.sharedIds = ['abc123def456'];
     save.creator.likes = 30;
     save.stats.communityClears = 4;
-    save.best.endless_hard = 5200;
+    save.levels.endless = 6;
     const ids = earnedBadges(ctx).map((b) => b.id);
     expect(ids).toEqual(expect.arrayContaining(['builder', 'cobuild', 'published', 'fans', 'hard2k', 'extreme5k']));
     expect(ids).not.toContain('hall');

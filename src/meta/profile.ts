@@ -55,7 +55,8 @@ function badge(d: BadgeDef): Badge {
 }
 
 const best = (c: BadgeCtx) => c.save.stats.bestDistance;
-const extreme = (c: BadgeCtx) => c.save.best.endless_hard ?? 0;
+/** The furthest Endless level reached (levels get harder one by one). */
+const reached = (c: BadgeCtx) => c.save.levels.endless ?? 1;
 const halloween = (c: BadgeCtx) => [...c.save.skins.owned, ...c.save.trails.owned].filter((id) => HALLOWEEN_IDS.has(id)).length;
 const creator = (c: BadgeCtx) => c.save.creator;
 
@@ -66,8 +67,8 @@ export const BADGES: Badge[] = [
   badge({ id: 'rush3k', name: 'Marathon', title: 'Marathoner', how: 'Reach 3,000 m in Endless', icon: 'flag', color: '#3ad7ff', group: 'run', value: best, target: 3000 }),
   badge({ id: 'rush6k', name: 'Unstoppable', title: 'The Unstoppable', how: 'Reach 6,000 m in Endless', icon: 'bolt', color: '#ff7af0', group: 'run', value: best, target: 6000 }),
   badge({ id: 'rush10k', name: 'Beyond the Map', title: 'Map Breaker', how: 'Reach 10,000 m in Endless', icon: 'crown', color: '#ffd23f', group: 'run', value: best, target: 10000 }),
-  badge({ id: 'hard2k', name: 'Daredevil', title: 'Daredevil', how: 'Reach 2,000 m on Extreme', icon: 'bolt', color: '#ff4f5e', group: 'run', value: extreme, target: 2000 }),
-  badge({ id: 'extreme5k', name: 'Chaos Tamer', title: 'Chaos Tamer', how: 'Reach 5,000 m on Extreme, where the saws start moving', icon: 'bolt', color: '#ff2f6d', group: 'run', value: extreme, target: 5000 }),
+  badge({ id: 'hard2k', name: 'Daredevil', title: 'Daredevil', how: 'Reach Level 4 in Endless', icon: 'bolt', color: '#ff4f5e', group: 'run', value: reached, target: 4 }),
+  badge({ id: 'extreme5k', name: 'Chaos Tamer', title: 'Chaos Tamer', how: 'Reach Level 6 in Endless, where the saws start moving', icon: 'bolt', color: '#ff2f6d', group: 'run', value: reached, target: 6 }),
   badge({ id: 'daily7', name: 'Daily Rusher', title: 'Daily Rusher', how: 'Play 7 Daily Runs', icon: 'target', color: '#3ad7ff', group: 'run', value: (c) => c.save.stats.dailyRuns, target: 7, retired: true }),
   badge({ id: 'daily30', name: 'Every Day', title: 'Never Misses a Day', how: 'Reach the Daily Run target on 30 days', icon: 'target', color: '#3ee6b0', group: 'run', value: (c) => c.save.stats.dailyTargets, target: 30, retired: true }),
   badge({ id: 'haunted', name: 'Ghost Runner', title: 'Ghost Runner', how: 'Finish the Haunted Run (Halloween)', icon: 'sparkle', color: '#ff7a2f', group: 'run', value: (c) => c.save.haunted.clears.hard + c.save.haunted.clears.easy, target: 1 }),

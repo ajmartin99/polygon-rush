@@ -37,18 +37,18 @@ export function dailySeed(key = dayKey()): number {
 }
 
 /** Where a variant's record lives in `save.best`. Gem Rush records gems, the rest metres. */
-export function variantBestKey(v: EndlessVariant, s: Pick<Settings, 'kidMode' | 'difficulty'>, now = new Date()): string {
+export function variantBestKey(v: EndlessVariant, s: Pick<Settings, 'kidMode'>, now = new Date()): string {
   switch (v) {
     case 'daily':
       return `daily_${dayKey(now)}`;
     case 'oneheart':
-      return `oneheart_${s.difficulty}`;
+      return 'oneheart';
     case 'gemrush':
       return 'gemrush';
     case 'lightsout':
-      return `lightsout_${s.difficulty}`;
+      return 'lightsout';
     case 'rhythm':
-      return `rhythm_${s.difficulty}`;
+      return 'rhythm';
     default:
       return endlessBestKey(s);
   }

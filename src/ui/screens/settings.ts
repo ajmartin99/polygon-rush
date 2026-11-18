@@ -3,8 +3,7 @@ import { ads } from '../../services/ads';
 import { iap } from '../../services/iap';
 import { CONFIG } from '../../config';
 import { PRIVACY_SECTIONS } from '../../meta/legal';
-import { DIFFICULTY_NAMES, type GraphicsQuality } from '../../state/save';
-import { DIFFICULTIES, type Difficulty } from '../../game/constants';
+import type { GraphicsQuality } from '../../state/save';
 import { BaseScreen, button, confirm, parentalGate, segmented, slider, titleBar, toggle } from '../components';
 import { h, ic, type Child } from '../dom';
 import type { IconName } from '../icons';
@@ -17,6 +16,7 @@ import { canOfferFreeChat, freeChatPath, serverAvailable } from '../../meta/comm
 import { BackupError, makeBackup, restoreBackup } from '../../services/backup';
 import { friends } from '../../services/friends';
 import { openRedeem } from '../redeem';
+import { openCalibration } from '../calibrate';
 import { activeEvent } from '../../meta/events';
 import { seasonalIconSupported } from '../../services/app-icon';
 
@@ -226,18 +226,9 @@ export class SettingsScreen extends BaseScreen {
               button({ label: 'Songs', cls: 'yellow sm', onClick: () => openSoundtrack() }),
             ),
             row('sound', 'Sound effects', 'Jumps, gems & more', slider(s.sfx, (v) => store.setSetting('sfx', v), 'Sound volume')),
+            row('target', 'Beat timing', s.audioOffset ? `${s.audioOffset} ms · tap along to set it` : 'Tap along so the beat feels right', button({ label: 'Calibrate', cls: 'yellow sm', onClick: () => openCalibration() })),
             row('vibrate', 'Vibration', 'Buzz on bumps and pickups', toggle(s.haptics, (v) => store.setSetting('haptics', v), 'Vibration')),
             row('eye', 'Accessibility', 'Text size, contrast, motion, play without sound', button({ label: 'Options', cls: 'yellow sm', onClick: () => openAccessibility() })),
-            row(
-              'target',
-              'Difficulty',
-              'Endless & CPU races',
-              segmented<Difficulty>(
-                DIFFICULTIES.map((v) => ({ value: v, label: DIFFICULTY_NAMES[v] })),
-                s.difficulty,
-                (v) => store.setSetting('difficulty', v),
-              ),
-            ),
             row('child', 'Kid Mode', 'Slower Endless with 5 hearts', toggle(s.kidMode, (v) => store.setSetting('kidMode', v), 'Kid Mode')),
             row('graphics', 'Graphics', 'Lower = smoother on older phones', gfx),
             seasonalIconSupported()

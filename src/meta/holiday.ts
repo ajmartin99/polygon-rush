@@ -68,16 +68,24 @@ export function holidayChapters(v: Villain): HolidayChapter[] {
 }
 
 export const HOLIDAY_RULES = {
-  /** Attempts per 24 hours, shared by both difficulties (Heart Regens refill them, as in the Haunted Run). */
+  /** Attempts per 24 hours (Heart Regens refill them, as in the Haunted Run). */
   attempts: 2,
   windowMs: 24 * 60 * 60 * 1000,
-  gemRate: { hard: 1, easy: 0.5 } as Record<HolidayDiff, number>,
   /** Beating the villain, and reaching the end while he gets away. */
-  villainBonus: { hard: 500, easy: 150 } as Record<HolidayDiff, number>,
-  escapeBonus: { hard: 100, easy: 50 } as Record<HolidayDiff, number>,
-  hearts: { hard: 1, easy: 3 } as Record<HolidayDiff, number>,
-  speed: { hard: 2, easy: 0 } as Record<HolidayDiff, number>,
+  villainBonus: 400,
+  escapeBonus: 75,
+  hearts: 3,
+  /** LEVEL_SPEEDS index: one speed all the way, so the course stays on the song's beat. */
+  speed: 1,
 };
+
+/**
+ * There's one Holiday Run, and it gets harder as it goes: the forest and the
+ * lake are charted gently (every other beat, small gaps), the workshop, the
+ * peaks and the lair on every beat with wider pits and taller stacks.
+ */
+const tough = (chapter: number) => chapter >= 2;
+const tier = (chapter: number): HolidayDiff => (tough(chapter) ? 'hard' : 'easy');
 
 /** Each villain's song, and how the course is charted to it. */
 interface SongChart {
@@ -123,12 +131,11 @@ export interface HolidayPlan {
   taps: number[];
 }
 
-/** Build the day's course. Deterministic for (difficulty, villain, seed). */
-export function holidayPlan(diff: HolidayDiff, villain: Villain, seed: number): HolidayPlan {
-  const hard = diff === 'hard';
-  const v = LEVEL_SPEEDS[HOLIDAY_RULES.speed[diff]];
+/** Build the day's course. Deterministic for (villain, seed). */
+export function holidayPlan(villain: Villain, seed: number): HolidayPlan {
+  const v = LEVEL_SPEEDS[HOLIDAY_RULES.speed];
   const song = chartFor(villain);
-  const rng = new Rng((seed ^ (hard ? 0x5a17 : 0x2c09) ^ (villain === 'krampus' ? 0x4b00 : 0)) >>> 0);
+  const rng = new Rng((seed ^ 0x5a17 ^ (villain === 'krampus' ? 0x4b00 : 0)) >>> 0);
   const course = courseBuilder();
   const { pieces, put } = course;
   /** Where each press the music asks for happens (tile x): for the press-on-the-beat tests. */
@@ -170,15 +177,16 @@ export function holidayPlan(diff: HolidayDiff, villain: Villain, seed: number): 
       mode = next;
       k = start + Math.max(1, song.phrase / 16);
     }
-    if (mode === 'triangle') chartGlider(k, end);
-    else if (mode === 'hexagon') chartRoller(k, end);
-    else for (; k + 1 < end; k += song.step[diff]) chartJump(chapter, mode, beatAt(k), k);
+    if (mode === 'triangle') chartGlider(k, end, chapter);
+    else if (mode === 'hexagon') chartRoller(k, end, chapter);
+    else for (; k + 1 < end; k += song.step[tier(chapter)]) chartJump(chapter, mode, beatAt(k), k);
   }
 
   /** On foot (or hopping): one obstacle per step, landing where the jump peaks. */
   function chartJump(chapter: number, m: Mode, ta: number, k: number): void {
     const apex = m === 'diamond' ? 0.29 : 0.25;
     const c = col(ta + apex);
+    const hard = tough(chapter);
     taps.push(col(ta));
     const r = rng.range(0, 1);
     if (chapter === 1) {
@@ -208,7 +216,7 @@ export function holidayPlan(diff: HolidayDiff, villain: Villain, seed: number): 
       // Santa's Workshop: toy soldiers, jack-in-the-boxes and stacked toy blocks.
       if (r < 0.3) put('saw', c, 0, SAW_SOLDIER);
       else if (r < 0.55) put('saw', c, 0, SAW_JACKBOX);
-      else if (r < 0.8) course.blocks(c, hard ? 3 : 2, hard ? 0.5 : 0);
+      else if (r < 0.8) course.blocks(c, 2, hard ? 0.25 : 0);
       else {
         put('spike', c - 0.5);
         put('spike', c + 0.5);
@@ -221,7 +229,7 @@ export function holidayPlan(diff: HolidayDiff, villain: Villain, seed: number): 
       put('saw', c, 0, SAW_SNOWMAN);
     } else if (r < 0.47) put('saw', c, 0, SAW_SNOWBALL);
     else if (r < 0.65) course.pits(c, hard ? 3 : 2, hard ? 0.15 : 0.35);
-    else if (r < 0.85 || !hard) course.blocks(c, hard ? 3 : 2, hard ? 0.5 : 0);
+    else if (r < 0.85 || !hard) course.blocks(c, 2, hard ? 0.25 : 0);
     else {
       put('spike', c - 1);
       put('spike', c);
@@ -231,10 +239,11 @@ export function holidayPlan(diff: HolidayDiff, villain: Villain, seed: number): 
   }
 
   /** Candy Cane Peaks (Glider, in a sleigh): a gate on every step, the gap swinging high and low. */
-  function chartGlider(k0: number, end: number): void {
+  function chartGlider(k0: number, end: number, chapter: number): void {
+    const hard = tough(chapter);
     const gap = hard ? 3 : 4;
     let low = true;
-    for (let k = k0 + 1; k < end; k += song.glide[diff]) {
+    for (let k = k0 + 1; k < end; k += song.glide[tier(chapter)]) {
       const x = col(beatAt(k));
       const lo = hard ? (low ? 2 : 4) : low ? 1 : 7 - gap;
       const hi = lo + gap - 1;
@@ -248,8 +257,9 @@ export function holidayPlan(diff: HolidayDiff, villain: Villain, seed: number): 
   }
 
   /** The workshop's conveyor (Roller): flip on the beat; spikes cover the surface you left. */
-  function chartRoller(k0: number, end: number): void {
-    const every = song.roll[diff];
+  function chartRoller(k0: number, end: number, chapter: number): void {
+    const hard = tough(chapter);
+    const every = song.roll[tier(chapter)];
     let onCeil = false;
     for (let k = k0 + 1; k + every <= end; k += every) {
       onCeil = !onCeil;
@@ -273,8 +283,8 @@ export function holidayPlan(diff: HolidayDiff, villain: Villain, seed: number): 
       authors: [],
       theme: 5,
       music: holidayTrack(villain),
-      speed: HOLIDAY_RULES.speed[diff],
-      hearts: HOLIDAY_RULES.hearts[diff],
+      speed: HOLIDAY_RULES.speed,
+      hearts: HOLIDAY_RULES.hearts,
       length: Math.floor(col(song.end)) + 2,
       pieces: [...pieces.values()],
     },
@@ -282,16 +292,15 @@ export function holidayPlan(diff: HolidayDiff, villain: Villain, seed: number): 
 }
 
 /** The course as a playable (not saved) level. */
-export function holidayLevel(diff: HolidayDiff, villain: Villain, seed: number): LevelData {
-  return { ...holidayPlan(diff, villain, seed).level, id: `holiday-${villain}-${diff}-${seed}`, created: 0, updated: 0, verified: true, best: 0, plays: 0, origin: 'code' };
+export function holidayLevel(villain: Villain, seed: number): LevelData {
+  return { ...holidayPlan(villain, seed).level, id: `holiday-${villain}-${seed}`, created: 0, updated: 0, verified: true, best: 0, plays: 0, origin: 'code' };
 }
 
 /**
- * Gems for a run: collected gems at the difficulty's rate, plus the big
- * bonus for beating the villain (or a smaller one for reaching the end while
- * he got away).
+ * Gems for a run: every gem collected, plus the big bonus for beating the
+ * villain (or a smaller one for reaching the end while he got away).
  */
-export function holidayPayout(diff: HolidayDiff, gems: number, finished: boolean, beaten: boolean): number {
-  const bonus = beaten ? HOLIDAY_RULES.villainBonus[diff] : finished ? HOLIDAY_RULES.escapeBonus[diff] : 0;
-  return Math.round(gems * HOLIDAY_RULES.gemRate[diff]) + bonus;
+export function holidayPayout(gems: number, finished: boolean, beaten: boolean): number {
+  const bonus = beaten ? HOLIDAY_RULES.villainBonus : finished ? HOLIDAY_RULES.escapeBonus : 0;
+  return Math.round(gems) + bonus;
 }

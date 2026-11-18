@@ -14,7 +14,7 @@ import { ui } from '../ui';
 import { audio } from '../../core/audio';
 import { haptics } from '../../core/haptics';
 import { openDailyGift } from './missions';
-import { DIFFICULTY_NAMES, endlessBestKey } from '../../state/save';
+import { endlessBestKey } from '../../state/save';
 import { activeEvent } from '../../meta/events';
 import { unlockedLevels } from '../../meta/modes';
 import { eventChip, giftClaimed, openEventModal } from '../event';
@@ -59,7 +59,7 @@ export class MenuScreen extends BaseScreen {
       label: 'PLAY',
       icon: 'play',
       cls: 'yellow xl pulse',
-      sub: kid ? 'Endless · Kid Mode' : `Endless · ${DIFFICULTY_NAMES[d.settings.difficulty]}`,
+      sub: kid ? 'Endless · Kid Mode' : (d.levels[bestKey] ?? 1) > 1 ? `Endless · reached Level ${d.levels[bestKey]}` : 'Endless · one song per level',
       onClick: () => nav.play({ mode: 'endless' }),
     });
     const unlocked = unlockedLevels(d.levels[bestKey] ?? 1);

@@ -19,7 +19,7 @@ import { ModesScreen } from './ui/screens/modes';
 import { LevelsScreen } from './ui/screens/levels';
 import { setLocalCard, setRoomGuards } from './services/net';
 import { isBanned, roomId } from './services/room-bans';
-import { AgeGateScreen, DifficultyScreen, NameScreen } from './ui/screens/onboarding';
+import { AgeGateScreen, NameScreen } from './ui/screens/onboarding';
 import { MenuScreen } from './ui/screens/menu';
 import { ShopScreen } from './ui/screens/shop';
 import { MissionsScreen } from './ui/screens/missions';
@@ -47,7 +47,6 @@ import { initWebTests, PortalScreen } from './ui/web-editor';
 function registerRoutes(): void {
   nav.register('agegate', () => new AgeGateScreen());
   nav.register('name', (p) => new NameScreen(p));
-  nav.register('difficulty', (p) => new DifficultyScreen(p));
   nav.register('profile', () => new ProfileScreen());
   nav.register('modes', () => new ModesScreen());
   nav.register('levels', () => new LevelsScreen());
@@ -202,7 +201,6 @@ async function boot(): Promise<void> {
   const p = store.data.profile;
   if (!p.ageGroup) nav.go('agegate');
   else if (!p.name) nav.go('name', { first: true });
-  else if (!store.data.tutorial.difficulty_pick && store.data.stats.runs === 0) nav.go('difficulty', { first: true });
   else nav.go('menu');
 
   // The studio card stays up for a moment (tap to skip), then fades into the game.

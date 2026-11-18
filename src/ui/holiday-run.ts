@@ -1,7 +1,7 @@
 import { CONFIG } from '../config';
 import { activeEvent } from '../meta/events';
 import { attemptsLeft, refillIn, useAttempt, type HauntedState } from '../meta/haunted';
-import { HOLIDAY_RULES, holidayLevel, holidayPlan, VILLAINS, type HolidayDiff, type Villain } from '../meta/holiday';
+import { HOLIDAY_RULES, holidayLevel, holidayPlan, VILLAINS, type Villain } from '../meta/holiday';
 import { dailySeed } from '../meta/modes';
 import { gemPriceOf } from '../meta/products';
 import { iap } from '../services/iap';
@@ -45,7 +45,7 @@ function timeLeft(ms: number): string {
 }
 
 /** Start a run on today's course (spends an attempt). */
-export function startHoliday(diff: HolidayDiff): void {
+export function startHoliday(): void {
   const hs = store.data.holiday;
   if (!holidayAvailable()) return void ui.toast('The Holiday Run is back next Christmas!', 'lock');
   if (!useAttempt(hs)) return openHolidayRun();
@@ -54,11 +54,11 @@ export function startHoliday(diff: HolidayDiff): void {
   const seed = dailySeed();
   nav.play({
     mode: 'custom',
-    level: holidayLevel(diff, villain, seed),
-    holiday: { diff, villain },
-    chapters: holidayPlan(diff, villain, seed).chapters,
+    level: holidayLevel(villain, seed),
+    holiday: { villain },
+    chapters: holidayPlan(villain, seed).chapters,
     exit: () => nav.go('modes'),
-    onRetry: () => startHoliday(diff),
+    onRetry: () => startHoliday(),
   });
 }
 
@@ -100,7 +100,7 @@ export function chooseVillain(onPicked?: () => void): void {
   });
 }
 
-/** The Holiday Run card: villain, attempts, timer, best runs, Hard / Easy and Heart Regens. */
+/** The Holiday Run card: villain, attempts, timer, best run, Play and Heart Regens. */
 export function openHolidayRun(): void {
   const body = h('div.col.holiday.modal-scroll', { style: 'gap:0.6rem;align-items:center;text-align:center' });
   let timer = 0;
@@ -111,13 +111,12 @@ export function openHolidayRun(): void {
     const left = attemptsLeft(hs);
     const wait = refillIn(hs);
     const v = VILLAINS[currentVillain()];
-    const bonus = (d: HolidayDiff) => fmt(HOLIDAY_RULES.villainBonus[d]);
     body.append(
       h('h2', null, '🎄 Holiday Run'),
       ...(left > 0 || regens > 0
         ? [
             h('p.small', null, `${v.crime} Chase ${v.name} through the Snowy Pine Forest, across the Frozen Lake, through Santa’s Workshop and over Candy Cane Peaks, all on the beat.`),
-            h('p.muted.small', null, `In ${v.lair}, grab the glowing presents to throw them at him. Beat him on Hard for the Holiday Hero skin! A new course every day.`),
+            h('p.muted.small', null, `In ${v.lair}, grab the glowing presents to throw them at him. It gets harder chapter by chapter. Beat him for the Holiday Hero skin! A new course every day.`),
           ]
         : []),
       button({ label: `Villain: ${v.name}`, icon: 'users', cls: 'ghost sm', onClick: () => chooseVillain(render) }),
@@ -130,9 +129,8 @@ export function openHolidayRun(): void {
       h(
         'div.hr-best',
         null,
-        h('span', null, `Hard best ${Math.floor(hs.best.hard * 100)}%`),
-        h('span', null, `Easy best ${Math.floor(hs.best.easy * 100)}%`),
-        hs.clears.hard + hs.clears.easy > 0 ? h('span', null, `Cleared ${hs.clears.hard} Hard · ${hs.clears.easy} Easy`) : null,
+        h('span', null, `Best ${Math.floor(Math.max(hs.best.hard, hs.best.easy) * 100)}%`),
+        hs.clears.hard + hs.clears.easy > 0 ? h('span', null, `Cleared ${hs.clears.hard + hs.clears.easy}×`) : null,
       ),
     );
     if (left > 0) {
@@ -140,8 +138,7 @@ export function openHolidayRun(): void {
         h(
           'div.actions',
           null,
-          button({ label: 'Hard', sub: `1× gems · win +${bonus('hard')}`, icon: 'bolt', cls: 'red lg', onClick: () => (m.close(), startHoliday('hard')) }),
-          button({ label: 'Easy', sub: `0.5× gems · win +${bonus('easy')}`, icon: 'play', cls: 'mint lg', onClick: () => (m.close(), startHoliday('easy')) }),
+          button({ label: 'Play', sub: `3 hearts · win +${fmt(HOLIDAY_RULES.villainBonus)} gems`, icon: 'play', cls: 'red lg', onClick: () => (m.close(), startHoliday()) }),
         ),
       );
     } else if (regens > 0) {

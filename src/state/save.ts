@@ -4,7 +4,7 @@
  */
 import { LEVEL_NOMINAL } from '../game/levels';
 import type { BossId, BossProgress } from '../meta/bosses';
-import { DIFFICULTIES, type Difficulty } from '../game/constants';
+import type { Difficulty } from '../game/constants';
 import { FREE_EMOTES } from '../meta/emotes';
 import { SKINS, TRAILS, type Unlock } from '../meta/catalog';
 import { emptyHaunted, type HauntedState } from '../meta/haunted';
@@ -48,8 +48,6 @@ export interface Settings {
   /** Parental control: allow in-app purchases. */
   purchasesAllowed: boolean;
   showFps: boolean;
-  /** Endless & CPU race difficulty (picked on first launch). */
-  difficulty: Difficulty;
   /** My Music (own files): off, mixed into the game's music, or only mine. */
   myMusic: 'off' | 'mix' | 'only';
   /** Include the classic synthesised songs alongside the recorded tracks. */
@@ -60,6 +58,8 @@ export interface Settings {
   villain: '' | 'frost' | 'krampus';
   /** Android: show the seasonal home-screen icon during events. */
   seasonalIcon: boolean;
+  /** Beat timing (ms): how far ahead the music runs of the course, set by tapping along (Settings). */
+  audioOffset: number;
 }
 
 export interface MissionState {
@@ -231,11 +231,11 @@ export const DEFAULT_SETTINGS: Settings = {
   purchasesAllowed: true,
   showFps: false,
   musicOff: [],
-  difficulty: 'medium',
   myMusic: 'mix',
   classicSongs: false,
   villain: '',
   seasonalIcon: true,
+  audioOffset: 0,
 };
 
 export function emptyStats(): Stats {
@@ -374,9 +374,10 @@ export function migrate(raw: unknown): SaveData {
   save.profile.tag = Number.isInteger(save.profile.tag) && save.profile.tag >= 0 && save.profile.tag <= 9999 ? save.profile.tag : 0;
   save.settings.music = clamp01(save.settings.music);
   save.settings.sfx = clamp01(save.settings.sfx);
-  if (!DIFFICULTIES.includes(save.settings.difficulty)) save.settings.difficulty = 'medium';
+  mergeDifficultyRecords(save);
   if (!['off', 'mix', 'only'].includes(save.settings.myMusic)) save.settings.myMusic = 'mix';
   if (!['', 'frost', 'krampus'].includes(save.settings.villain)) save.settings.villain = '';
+  save.settings.audioOffset = Number.isFinite(save.settings.audioOffset) ? Math.max(-150, Math.min(250, Math.round(save.settings.audioOffset))) : 0;
   save.settings.musicOff = save.settings.musicOff.filter((n) => Number.isInteger(n) && n >= 0 && n < 512).slice(0, 256);
   return save;
 }
@@ -387,10 +388,29 @@ function clamp01(n: number): number {
 
 export const DIFFICULTY_NAMES: Record<Difficulty, string> = { easy: 'Easy', medium: 'Normal', hard: 'Extreme' };
 
-/** Endless records are kept per difficulty (medium keeps the original key). */
-export function endlessBestKey(s: Pick<Settings, 'kidMode' | 'difficulty'>): string {
-  const base = s.difficulty === 'medium' ? 'endless' : `endless_${s.difficulty}`;
-  return s.kidMode ? `${base}_kid` : base;
+/** The Endless record (Kid Mode keeps its own). */
+export function endlessBestKey(s: Pick<Settings, 'kidMode'>): string {
+  return s.kidMode ? 'endless_kid' : 'endless';
+}
+
+/**
+ * Records and unlocked levels from when there were three difficulties
+ * (before 1.1.0) fold into the one mode's: the best of any of them counts.
+ * Mutates `save`.
+ */
+function mergeDifficultyRecords(save: SaveData): void {
+  for (const table of [save.best, save.levels]) {
+    const fold = (to: string, from: string[]) => {
+      const vals = [to, ...from].map((k) => table[k]).filter((v): v is number => typeof v === 'number');
+      for (const k of from) delete table[k];
+      if (vals.length) table[to] = Math.max(...vals);
+    };
+    fold('endless', ['endless_easy', 'endless_hard']);
+    fold('endless_kid', ['endless_easy_kid', 'endless_hard_kid', 'endless_medium_kid']);
+    fold('oneheart', ['oneheart_easy', 'oneheart_medium', 'oneheart_hard']);
+    fold('lightsout', ['lightsout_easy', 'lightsout_medium', 'lightsout_hard']);
+    fold('rhythm', ['rhythm_easy', 'rhythm_medium', 'rhythm_hard']);
+  }
 }
 
 export function ageGroupFor(birthYear: number, now = new Date()): AgeGroup {

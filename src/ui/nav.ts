@@ -6,7 +6,7 @@ import type { NetPlayer, NetRoom } from '../services/net';
 import type { LevelContent, LevelData } from '../game/level';
 import type { Scene } from '../game/scene';
 
-export type Route = 'agegate' | 'name' | 'difficulty' | 'menu' | 'profile' | 'modes' | 'levels' | 'shop' | 'missions' | 'settings' | 'race' | 'duel' | 'friends' | 'create' | 'editor' | 'pals' | 'portal';
+export type Route = 'agegate' | 'name' | 'menu' | 'profile' | 'modes' | 'levels' | 'shop' | 'missions' | 'settings' | 'race' | 'duel' | 'friends' | 'create' | 'editor' | 'pals' | 'portal';
 
 /** How a player-made level run ended (reported back to whoever started it). */
 export interface LevelRunResult {
@@ -58,7 +58,7 @@ export type PlayRequest =
       /** Haunted Run: where each story chapter starts (the last is the witch fight). */
       chapters?: number[];
       /** Holiday Run (Christmas): its difficulty and villain. `chapters` holds its five chapters. */
-      holiday?: { diff: 'hard' | 'easy'; villain: 'frost' | 'krampus' };
+      holiday?: { villain: 'frost' | 'krampus' };
       /** Boss Battles: which boss (its health bar, orbs and rewards). */
       boss?: BossId;
       /** Replaces Retry / Restart (the Haunted Run spends an attempt). */

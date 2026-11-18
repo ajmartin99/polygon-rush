@@ -1,5 +1,5 @@
 import { BIOMES } from '../../render/biomes';
-import { DIFFICULTY_NAMES, endlessBestKey } from '../../state/save';
+import { endlessBestKey } from '../../state/save';
 import { store } from '../../state/store';
 import { MAX_START_LEVEL, levelWorld, unlockedLevels } from '../../meta/modes';
 import { BaseScreen, titleBar } from '../components';
@@ -53,7 +53,7 @@ export class LevelsScreen extends BaseScreen {
       h(
         'p.muted.small.levels-intro',
         null,
-        `${d.settings.kidMode ? 'Kid Mode' : DIFFICULTY_NAMES[d.settings.difficulty]} · Best ${fmt(best)} m · Start from any level you have reached. Each level lasts one whole song.`,
+        `${d.settings.kidMode ? 'Kid Mode · ' : ''}Best ${fmt(best)} m · Start from any level you have reached. Each level lasts one whole song and gets a little harder than the last.`,
       ),
       h(
         'p.small.levels-eggs',

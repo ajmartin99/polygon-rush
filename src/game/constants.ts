@@ -45,6 +45,17 @@ export const PHYS: Record<ShapeMode, ModePhysics> = {
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export const DIFFICULTIES: Difficulty[] = ['easy', 'medium', 'hard'];
+/**
+ * Endless curves. 'run' is the game's one mode: it starts gentle and gets
+ * harder level by level (see runTier). The three fixed difficulties remain
+ * for tests and tools.
+ */
+export type Tuning = Difficulty | 'run';
+
+/** Endless levels 1-2 play like Easy, 3-5 like Normal and 6 onward like Extreme. */
+export function runTier(levelIndex: number): Difficulty {
+  return levelIndex < 2 ? 'easy' : levelIndex < 5 ? 'medium' : 'hard';
+}
 
 export interface EndlessTuning {
   /** Speed (tiles / second) at the start, at full ramp, and the distance of the ramp. */
@@ -62,8 +73,8 @@ export interface EndlessTuning {
   hearts: number;
 }
 
-/** Endless curves per difficulty (picked on first launch, changeable in Settings). */
-export const ENDLESS_TUNING: Record<Difficulty, EndlessTuning> = {
+export const ENDLESS_TUNING: Record<Tuning, EndlessTuning> = {
+  run: { speedStart: 8.0, speedMax: 14.0, speedRamp: 8500, dBase: 0, dScale: 1, dFrom: 150, dTo: 7000, runway: 1, hearts: 3 },
   easy: { speedStart: 8.0, speedMax: 11.4, speedRamp: 5000, dBase: 0, dScale: 0.75, dFrom: 200, dTo: 6000, runway: 1.18, hearts: 4 },
   medium: { speedStart: 8.6, speedMax: 12.8, speedRamp: 3600, dBase: 0, dScale: 1, dFrom: 120, dTo: 4000, runway: 1, hearts: 3 },
   hard: { speedStart: 9.6, speedMax: 14.2, speedRamp: 4000, dBase: 0.3, dScale: 0.7, dFrom: 0, dTo: 2200, runway: 0.84, hearts: 3 },
@@ -75,44 +86,46 @@ export const ENDLESS_TUNING: Record<Difficulty, EndlessTuning> = {
  * chains patterns back to back, shortens breathers and shifts shapes more
  * often. Easy (kid friendly) barely heats up; Extreme keeps climbing.
  */
-const HEAT: Record<Difficulty, { max: number; from: number; to: number; speed: number }> = {
+const HEAT: Record<Tuning, { max: number; from: number; to: number; speed: number }> = {
+  run: { max: 1, from: 4500, to: 11000, speed: 1.2 },
   easy: { max: 0.2, from: 3000, to: 9000, speed: 0 },
   medium: { max: 0.7, from: 1500, to: 7000, speed: 0.8 },
   hard: { max: 1, from: 400, to: 4500, speed: 1.2 },
 };
 
-export function endlessHeatAt(x: number, kid: boolean, diff: Difficulty = 'medium'): number {
+export function endlessHeatAt(x: number, kid: boolean, diff: Tuning = 'run'): number {
   const h = HEAT[diff];
   const v = h.max * smoothstep(h.from, h.to, x);
   return kid ? v * 0.4 : v;
 }
 
-/** Gems paid out per difficulty: Extreme pays 1.3x, Easy a bit less. */
-export const DIFFICULTY_GEM_RATE: Record<Difficulty, number> = { easy: 0.8, medium: 1, hard: 1.3 };
 
 export const ENDLESS_SPEED_START = ENDLESS_TUNING.medium.speedStart;
 export const ENDLESS_SPEED_MAX = ENDLESS_TUNING.medium.speedMax;
 export const KID_SPEED_FACTOR = 0.86;
 export const RACE_SPEED = 10.2;
-/** Race track difficulty offset per mode (CPU races; online rooms stay fair at medium). */
-export const RACE_DIFFICULTY_OFFSET: Record<Difficulty, number> = { easy: -0.12, medium: 0, hard: 0.14 };
 
 export function smoothstep(e0: number, e1: number, x: number): number {
   const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
   return t * t * (3 - 2 * t);
 }
 
-export function endlessSpeedAt(x: number, kid: boolean, diff: Difficulty = 'medium'): number {
+export function endlessSpeedAt(x: number, kid: boolean, diff: Tuning = 'run'): number {
   const k = ENDLESS_TUNING[diff];
   // Past the normal ramp, heat keeps adding speed.
   const v = k.speedStart + (k.speedMax - k.speedStart) * smoothstep(0, k.speedRamp, x) + HEAT[diff].speed * endlessHeatAt(x, false, diff);
   return kid ? v * KID_SPEED_FACTOR : v;
 }
 
-export function endlessDifficultyAt(x: number, kid: boolean, diff: Difficulty = 'medium'): number {
+export function endlessDifficultyAt(x: number, kid: boolean, diff: Tuning = 'run'): number {
   const k = ENDLESS_TUNING[diff];
   const d = Math.min(1, k.dBase + k.dScale * smoothstep(k.dFrom, k.dTo, x));
   return kid ? d * 0.7 : d;
+}
+
+/** Breathing room between patterns: the one mode starts roomy and tightens as the run goes on. */
+export function endlessRunwayAt(x: number, diff: Tuning = 'run'): number {
+  return diff === 'run' ? 1.18 - 0.34 * smoothstep(0, 7000, x) : ENDLESS_TUNING[diff].runway;
 }
 
 /** Air time of a standard square jump at normal gravity. */

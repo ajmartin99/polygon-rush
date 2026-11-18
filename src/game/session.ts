@@ -1,6 +1,6 @@
 import { Emitter } from '../core/emitter';
 import { Rng } from '../core/rng';
-import { DT, ENDLESS_TUNING, MODE_INDEX, PLAYER_HALF, RACE_SPEED, endlessSpeedAt, type Difficulty } from './constants';
+import { DT, ENDLESS_TUNING, MODE_INDEX, PLAYER_HALF, RACE_SPEED, endlessSpeedAt, type Tuning } from './constants';
 import { LevelGen, type GenOptions } from './generator';
 import { LevelTimeline, type LevelSong } from './levels';
 import { buildWorld, levelSpeed, modeAt, type LevelContent } from './level';
@@ -23,8 +23,8 @@ export interface SessionOptions {
   seed: number;
   racers: RacerSpec[];
   kid?: boolean;
-  /** Endless difficulty mode. */
-  diff?: Difficulty;
+  /** Endless curve: the one mode ('run', default) or a fixed difficulty (Daily, tests). */
+  diff?: Tuning;
   /** Endless: override the number of hearts. */
   hearts?: number;
   /** Endless: no heart pickups. */
@@ -143,7 +143,7 @@ export class GameSession extends Emitter<GameEvents> {
     opts.racers.forEach((spec, i) => {
       const r = new Racer(spec, startX, opts.seed + i * 101);
       if (opts.kind === 'endless') {
-        r.maxHearts = r.hearts = opts.stunOnly ? 0 : opts.hearts ?? (opts.kid ? 5 : ENDLESS_TUNING[opts.diff ?? 'medium'].hearts);
+        r.maxHearts = r.hearts = opts.stunOnly ? 0 : opts.hearts ?? (opts.kid ? 5 : ENDLESS_TUNING[opts.diff ?? 'run'].hearts);
       } else if (opts.kind === 'custom' && opts.level) {
         r.maxHearts = r.hearts = opts.level.hearts;
       }

@@ -3,7 +3,7 @@ import { mobAlert, sawX, sawY, World } from '../src/game/world';
 import { BotBrain } from '../src/game/bot';
 import { createBody, newEvents, stepBody } from '../src/game/physics';
 import { buildWorld, levelSpeed, type LevelContent } from '../src/game/level';
-import { holidayChapters, holidayPayout, holidayPlan, holidayTrack, HOLIDAY_RULES, type HolidayDiff, type Villain } from '../src/meta/holiday';
+import { holidayChapters, holidayPayout, holidayPlan, holidayTrack, HOLIDAY_RULES, type Villain } from '../src/meta/holiday';
 import { witchHealth } from '../src/meta/haunted';
 
 /** A perfect bot plays the course; returns where it got hit (if anywhere). */
@@ -35,33 +35,40 @@ function botRun(level: LevelContent, seed: number) {
 }
 
 const VILLAINS: Villain[] = ['frost', 'krampus'];
-const DIFFS: HolidayDiff[] = ['hard', 'easy'];
 
 describe('Holiday Run', () => {
   it('is charted to the villain’s own song, in five chapters, the same all day', () => {
     for (const v of VILLAINS) {
-      const { level, chapters } = holidayPlan('hard', v, 1);
+      const { level, chapters } = holidayPlan(v, 1);
       expect(level.music).toBe(holidayTrack(v));
       expect(chapters).toHaveLength(holidayChapters(v).length);
       for (let i = 1; i < chapters.length; i++) expect(chapters[i]).toBeGreaterThan(chapters[i - 1] + 40);
       expect(level.length).toBeGreaterThan(1400);
-      expect(JSON.stringify(holidayPlan('hard', v, 5))).toBe(JSON.stringify(holidayPlan('hard', v, 5)));
-      expect(JSON.stringify(holidayPlan('hard', v, 6))).not.toBe(JSON.stringify(holidayPlan('hard', v, 5)));
+      expect(JSON.stringify(holidayPlan(v, 5))).toBe(JSON.stringify(holidayPlan(v, 5)));
+      expect(JSON.stringify(holidayPlan(v, 6))).not.toBe(JSON.stringify(holidayPlan(v, 5)));
     }
     expect(holidayTrack('frost')).not.toBe(holidayTrack('krampus'));
   });
 
   for (const v of VILLAINS)
-    for (const diff of DIFFS)
-      it(`every day's ${v} ${diff} course can be finished`, () => {
-        for (const seed of [11, 202, 3003, 40004]) {
-          const hits = botRun(holidayPlan(diff, v, seed).level, seed);
-          expect(hits, `${v} ${diff} seed ${seed}`).toEqual([]);
-        }
-      });
+    it(`every day's ${v} course can be finished`, () => {
+      for (const seed of [11, 202, 3003, 40004]) {
+        const hits = botRun(holidayPlan(v, seed).level, seed);
+        expect(hits, `${v} seed ${seed}`).toEqual([]);
+      }
+    });
+
+  it('gets harder chapter by chapter', () => {
+    for (const v of VILLAINS) {
+      const { level, chapters } = holidayPlan(v, 9);
+      const count = (c: number) => level.pieces.filter((p) => p.t !== 'gem' && p.x >= chapters[c] && p.x < chapters[c + 1]).length / (chapters[c + 1] - chapters[c]);
+      expect(count(2), v).toBeGreaterThan(count(0));
+      expect(level.hearts).toBe(3);
+    }
+  });
 
   it('each chapter brings its own monsters, and the presents are all in the lair', () => {
-    const { level, chapters } = holidayPlan('hard', 'frost', 7);
+    const { level, chapters } = holidayPlan('frost', 7);
     const objs = buildWorld(level, new World()).objs;
     const mobsIn = (c: number) =>
       new Set(objs.filter((o): o is Extract<typeof o, { kind: 'saw' }> => o.kind === 'saw' && !!o.mob && o.x >= chapters[c] && o.x < (chapters[c + 1] ?? Infinity)).map((o) => o.mob));
@@ -77,7 +84,7 @@ describe('Holiday Run', () => {
   });
 
   it('droppers and poppers land on their spot before you get there, and stay in their bounds', () => {
-    const { level } = holidayPlan('hard', 'krampus', 3);
+    const { level } = holidayPlan('krampus', 3);
     const mobs = buildWorld(level, new World()).objs.filter((o): o is Extract<typeof o, { kind: 'saw' }> => o.kind === 'saw' && !!o.mob);
     for (const m of mobs) {
       for (const d of [2, 1, 0]) {
@@ -94,10 +101,10 @@ describe('Holiday Run', () => {
     }
   });
 
-  it('pays 500 on Hard and 150 on Easy for beating the villain', () => {
-    expect(holidayPayout('hard', 100, true, true)).toBe(100 + HOLIDAY_RULES.villainBonus.hard);
-    expect(holidayPayout('easy', 100, true, true)).toBe(50 + 150);
-    expect(holidayPayout('hard', 100, true, false)).toBe(200);
-    expect(holidayPayout('easy', 0, false, false)).toBe(0);
+  it('pays every gem plus 400 for beating the villain', () => {
+    expect(holidayPayout(100, true, true)).toBe(100 + HOLIDAY_RULES.villainBonus);
+    expect(HOLIDAY_RULES.villainBonus).toBe(400);
+    expect(holidayPayout(100, true, false)).toBe(175);
+    expect(holidayPayout(0, false, false)).toBe(0);
   });
 });

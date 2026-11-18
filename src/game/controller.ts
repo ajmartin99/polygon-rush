@@ -21,7 +21,7 @@ import { FREE_EMOTES, emoteIndex } from '../meta/emotes';
 import { decodeLevel, LEVEL_START_X, levelName, levelSpeed, type LevelContent } from './level';
 import type { Scene } from './scene';
 import { SECRET_LEVELS } from './generator';
-import { DIFFICULTY_GEM_RATE, DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED } from './constants';
+import { DT, MODE_INDEX, RACE_SPEED } from './constants';
 import { activeEvent, SPOOKY } from '../meta/events';
 import { STORY_PALETTES, type StoryView } from '../render/haunted-scenery';
 import { holidayPalette, WONDERLAND, type HolidayView } from '../render/holiday-scenery';
@@ -300,7 +300,7 @@ export class GameController {
           heatFloor: twist?.heatFloor,
           sectionScale: twist?.sectionScale,
           kid: daily ? false : d.settings.kidMode,
-          diff: daily ? 'medium' : d.settings.difficulty,
+          diff: daily ? 'medium' : 'run',
           tutorial: v === 'classic' && level === 1 && d.stats.runs < 2,
           secrets: v === 'classic',
           hearts: v === 'oneheart' ? 1 : undefined,
@@ -321,7 +321,7 @@ export class GameController {
           kind: 'race',
           seed: req.seed,
           length: RACE_LENGTH,
-          difficulty: Math.min(0.9, Math.max(0.1, 0.22 + li * 0.09 + RACE_DIFFICULTY_OFFSET[d.settings.difficulty])),
+          difficulty: Math.min(0.9, Math.max(0.1, 0.22 + li * 0.09)),
           racers: [me, ...req.rivals.map((r: Rival, i: number) => ({ id: `cpu${i}`, name: r.name, skin: r.skin, kind: 'bot' as const, skill: r.skill, tag: 'CPU' }))],
         });
         break;
@@ -883,14 +883,14 @@ export class GameController {
       }
       // Keep the song at the time the runner's position calls for (the course is built on its beat).
       const sync = music.syncSong;
-      if (sync && span && sync.level === span.index && this.phase === 'running' && ++this.syncTick % 15 === 0) audio.syncTo(sync.id, s.levels!.secondsInto(me.distance), 0.08, 1500);
+      if (sync && span && sync.level === span.index && this.phase === 'running' && ++this.syncTick % 15 === 0) audio.syncTo(sync.id, s.levels!.secondsInto(me.distance) + audio.latency, 0.08, 1500);
       audio.intensity = Math.min(1, 0.35 + me.distance / 3000);
     } else if (this.kind === 'custom') {
       audio.intensity = Math.min(1, 0.55 + me.distance / 600);
       // Haunted Run: the course is charted to Swing Along, so keep the song exactly where the runner is.
       const req = this.req;
       if (req?.mode === 'custom' && (req.haunted || req.holiday || req.boss) && this.phase === 'running' && ++this.syncTick % 10 === 0) {
-        audio.syncTo(req.haunted ? HAUNTED_TRACK : req.level.music, Math.max(0, (me.x - (LEVEL_START_X + 0.5)) / levelSpeed(req.level)), 0.06, 900);
+        audio.syncTo(req.haunted ? HAUNTED_TRACK : req.level.music, Math.max(0, (me.x - (LEVEL_START_X + 0.5)) / levelSpeed(req.level)) + audio.latency, 0.06, 900);
       }
     } else if (this.kind !== 'attract') {
       audio.intensity = 0.8;
@@ -1016,14 +1016,10 @@ export class GameController {
     if (rh) missions.unshift(`Best combo ${rh.bestCombo} · ${rh.perfects} Perfect · ${rh.greats} Great · ${rh.misses} Miss`);
     const ups = this.grantXp(xp);
     // Gem Rush is all gems, so it pays out half of them (keeps the shop fair).
-    // Extreme pays 1.3x, Easy a little less (the Daily Run is the same for everyone).
-    const diff = v === 'daily' ? 'medium' : d.settings.difficulty;
-    const rate = d.settings.kidMode ? 1 : DIFFICULTY_GEM_RATE[diff];
     const base = v === 'gemrush' ? Math.ceil(r.gems / 2) : r.gems;
     const dark = v === 'lightsout' ? LIGHTS_OUT_GEM_RATE : 1;
-    const payout = Math.round(base * rate * dark);
+    const payout = Math.round(base * dark);
     if (dark !== 1 && base > 0) missions.push(`Lights Out bonus: ${base} → ${payout} gems`);
-    else if (rate !== 1 && base > 0) missions.push(rate > 1 ? `Extreme bonus: ${base} → ${payout} gems` : `Easy pays ${Math.round(rate * 100)}% gems`);
     store.addGems(payout);
     store.commit();
     void store.flush();
@@ -1102,22 +1098,23 @@ export class GameController {
       d.stats.gemsCollected += r.gems;
     }
     if (req.holiday) {
-      const { diff, villain } = req.holiday;
+      const { villain } = req.holiday;
       const h = d.holiday;
       const name = VILLAINS[villain].name;
       const beaten = completed && !!this.boss && this.boss.hp <= 0;
-      const pay = holidayPayout(diff, r.gems, completed, beaten);
+      const pay = holidayPayout(r.gems, completed, beaten);
       if (pay > 0) store.addGems(pay);
-      h.best[diff] = Math.max(h.best[diff], progress);
-      if (completed) h.clears[diff] += 1;
+      // One Holiday Run now: its records live in the old "hard" slot.
+      h.best.hard = Math.max(h.best.hard, progress);
+      if (completed) h.clears.hard += 1;
       if (beaten) {
-        missions.push(`${name} beaten on ${diff === 'hard' ? 'Hard' : 'Easy'}! Christmas is saved. +${pay} gems`);
-        // The first win on Hard earns the Holiday Hero skin.
-        if (diff === 'hard' && grantHolidayHero(d)) missions.push('New skin: Holiday Hero! It’s yours for good.');
+        missions.push(`${name} beaten! Christmas is saved. +${pay} gems`);
+        // The first win earns the Holiday Hero skin.
+        if (grantHolidayHero(d)) missions.push('New skin: Holiday Hero! It’s yours for good.');
       } else if (completed) {
         missions.push(`You reached the end, but ${name} got away. +${pay} gems`);
         if (this.boss) missions.push(`He had ${this.boss.hp} of ${this.boss.max} health left. Grab the glowing presents in his lair!`);
-      } else if (pay > 0) missions.push(`Holiday Run: +${pay} gems${diff === 'easy' ? ' (Easy pays half)' : ''}`);
+      } else if (pay > 0) missions.push(`Holiday Run: +${pay} gems`);
       d.stats.gemsCollected += r.gems;
     }
     const boss = this.boss;

@@ -4,7 +4,8 @@ import { LevelGen } from '../src/game/generator';
 import { LevelTimeline } from '../src/game/levels';
 import { BotBrain } from '../src/game/bot';
 import { createBody, newEvents, stepBody } from '../src/game/physics';
-import { endlessSpeedAt, type Difficulty } from '../src/game/constants';
+import { endlessSpeedAt, type Tuning } from '../src/game/constants';
+import { levelStart } from '../src/meta/modes';
 import { TRACKS } from '../src/core/tracks';
 import { beatMapFor } from '../src/core/beatmaps';
 
@@ -16,26 +17,28 @@ import { beatMapFor } from '../src/core/beatmaps';
  */
 const SONGS = TRACKS.filter((t) => t.role === 'run' && !t.exclusive && !t.retired && beatMapFor(t.file));
 
-function timeline(diff: Difficulty, rotate = 0) {
+function timeline(diff: Tuning, rotate: number, first: number, offset: number) {
   return new LevelTimeline(
-    0,
-    0,
+    first,
+    offset,
     (i) => {
       const t = SONGS[(i + rotate) % SONGS.length];
       const map = beatMapFor(t.file)!;
       return { id: i, seconds: t.duration - 0.15, grid: { bpm: map.bpm, offset: map.beats[0], map } };
     },
-    (d) => endlessSpeedAt(d, false, diff),
+    (d) => endlessSpeedAt(d + 2, false, diff),
   );
 }
 
 /** Play `distance` tiles pressing only on the beats; `early` > 0 presses that many seconds early (< 0 late). */
-function beatPlayer(seed: number, diff: Difficulty, distance: number, early: number, rotate = 0) {
+function beatPlayer(seed: number, diff: Tuning, distance: number, early: number, rotate = 0, level = 1) {
   const world = new World();
-  const levels = timeline(diff, rotate);
-  const gen = new LevelGen(world, { seed, kind: 'endless', diff, levels });
+  const offset = levelStart(level);
+  const levels = timeline(diff, rotate, level - 1, offset);
+  const gen = new LevelGen(world, { seed, kind: 'endless', diff, levels, startX: 2 + offset, offset });
   const bot = new BotBrain({ skill: 1, seed, margin: 0.05 });
-  const body = createBody(2);
+  const body = createBody(2 + offset);
+  distance += offset;
   const ev = newEvents();
   const hits: { x: number; mode: string }[] = [];
   let ghost = 0;
@@ -80,16 +83,41 @@ describe('press on the beat and you clear it', () => {
     expect(SONGS.length).toBeGreaterThan(15);
   });
   // How early (+) or late (-) a press can be and still clear everything: wide for kids, rhythm-game tight on Extreme.
-  const WINDOWS: Record<Difficulty, number[]> = { easy: [0.1, 0.06, 0, -0.06, -0.09], medium: [0.06, 0, -0.06, -0.09], hard: [0.06, 0, -0.06] };
-  for (const diff of ['easy', 'medium', 'hard'] as Difficulty[]) {
-    for (const early of WINDOWS[diff]) {
-      it(`${diff}, pressing ${early === 0 ? 'right on' : early > 0 ? `${Math.round(early * 1000)} ms early` : `${Math.round(-early * 1000)} ms late`}`, () => {
+  // The one mode gets harder level by level: the first levels forgive a lot, later ones are rhythm-game tight.
+  const WINDOWS: { level: number; presses: number[] }[] = [
+    { level: 1, presses: [0.1, 0.06, 0, -0.06, -0.09] },
+    { level: 4, presses: [0.06, 0, -0.06, -0.09] },
+    { level: 7, presses: [0.05, 0, -0.05] },
+  ];
+  for (const { level, presses } of WINDOWS) {
+    for (const early of presses) {
+      it(`from Level ${level}, pressing ${early === 0 ? 'right on' : early > 0 ? `${Math.round(early * 1000)} ms early` : `${Math.round(-early * 1000)} ms late`}`, () => {
         for (const rotate of [0, 7, 14]) {
-          const r = beatPlayer(100 + rotate, diff, 3500, early, rotate);
+          const r = beatPlayer(100 + rotate, 'run', 3500, early, rotate, level);
           expect(r.taps).toBeGreaterThan(80);
           expect(r.hits, `songs from #${rotate}: ${JSON.stringify(r.hits.slice(0, 6))}`).toEqual([]);
         }
       });
     }
   }
+});
+
+describe('beat maps', () => {
+  it('every recorded song has one (run tools/beatmap/analyze.py after adding music)', () => {
+    for (const t of TRACKS) expect(beatMapFor(t.file), t.file).not.toBeNull();
+  });
+  it('beats are steady, in order and land within each song', () => {
+    for (const t of TRACKS) {
+      const m = beatMapFor(t.file)!;
+      expect(m.beats.length, t.file).toBeGreaterThan(30);
+      expect(m.ticks.length).toBe(2 * m.beats.length - 1);
+      expect(m.score.length).toBe(m.ticks.length);
+      for (let i = 1; i < m.beats.length; i++) {
+        const gap = m.beats[i] - m.beats[i - 1];
+        expect(gap, `${t.file} beat ${i}`).toBeGreaterThan(0.25);
+        expect(gap, `${t.file} beat ${i}`).toBeLessThan(0.8);
+      }
+      expect(m.beats[m.beats.length - 1]).toBeLessThan(m.duration + 0.1);
+    }
+  });
 });

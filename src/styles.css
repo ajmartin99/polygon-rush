@@ -4154,3 +4154,77 @@ html:not(.fx-blur) * {
   font-size: 2.4rem;
   line-height: 1;
 }
+
+.advent-chip {
+  border-color: #ffffff;
+  background: linear-gradient(90deg, rgba(232, 48, 74, 0.9), rgba(18, 106, 58, 0.9));
+}
+
+.advent-chip.waiting {
+  animation: ev-bob 1.6s ease-in-out infinite;
+  box-shadow: 0 0 0.8rem rgba(255, 210, 63, 0.8);
+}
+
+.advent-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.4rem;
+  width: 100%;
+}
+
+.advent-door {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 3rem;
+  border: 0.13rem solid rgba(255, 255, 255, 0.35);
+  border-radius: 0.6rem;
+  background: linear-gradient(160deg, #e8304a, #8a0a1e);
+  color: #fff;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.advent-door:nth-child(3n) {
+  background: linear-gradient(160deg, #2fbf71, #0e5a2e);
+}
+
+.advent-door:nth-child(4n) {
+  background: linear-gradient(160deg, #3e7bff, #122a6a);
+}
+
+.advent-door b {
+  font-size: 1.15rem;
+}
+
+.advent-door small {
+  font-size: 0.6rem;
+}
+
+.advent-door.big {
+  grid-column: span 2;
+  background: linear-gradient(160deg, #ffd23f, #e8304a);
+}
+
+.advent-door.today {
+  border-color: #ffd23f;
+  box-shadow: 0 0 0.7rem rgba(255, 210, 63, 0.9);
+  animation: ev-bob 1.4s ease-in-out infinite;
+}
+
+.advent-door.locked {
+  opacity: 0.4;
+  filter: saturate(0.5);
+}
+
+.advent-door.opened {
+  background: rgba(255, 255, 255, 0.12);
+  border-style: dashed;
+}
+
+.advent-peek {
+  font-size: 1.2rem;
+  line-height: 1;
+}

@@ -8,6 +8,7 @@ import { DIFFICULTIES, type Difficulty } from '../game/constants';
 import { FREE_EMOTES } from '../meta/emotes';
 import { SKINS, TRAILS, type Unlock } from '../meta/catalog';
 import { emptyHaunted, type HauntedState } from '../meta/haunted';
+import { emptyAdvent, type AdventState } from '../meta/advent';
 
 export const SAVE_VERSION = 1;
 
@@ -146,6 +147,8 @@ export interface SaveData {
   secrets: { found: number[] };
   /** Haunted Run attempts, Heart Regens and records. */
   haunted: HauntedState;
+  /** Advent Calendar (Christmas): this December's opened doors. */
+  advent: AdventState;
   /** Holiday Run (Christmas): attempts and records (Heart Regens come from `haunted.regens`, one shared pool). */
   holiday: HauntedState;
   /** Boss Battles: wins and best damage per boss. */
@@ -272,6 +275,7 @@ export function createSave(now = Date.now()): SaveData {
     roomBans: [],
     haunted: emptyHaunted(),
     holiday: emptyHaunted(),
+    advent: emptyAdvent(),
     bosses: {},
     beta: { tester: false, version: '', at: 0, days: [], today: '', todaySec: 0, claimed: [] },
     best: {},
@@ -336,6 +340,7 @@ export function migrate(raw: unknown): SaveData {
   save.haunted.regens = Math.max(0, Math.min(999, Math.floor(save.haunted.regens) || 0));
   save.holiday.used = Math.max(0, Math.floor(save.holiday.used) || 0);
   save.holiday.regens = 0;
+  save.advent.opened = [...new Set(save.advent.opened.filter((n) => Number.isInteger(n) && n >= 1 && n <= 25))];
   for (const [k, rec] of Object.entries(save.bosses)) {
     if (!isObj(rec)) delete (save.bosses as Record<string, unknown>)[k];
     else save.bosses[k as BossId] = { wins: Math.max(0, Math.floor(Number(rec.wins)) || 0), best: Math.max(0, Math.min(1, Number(rec.best) || 0)) };

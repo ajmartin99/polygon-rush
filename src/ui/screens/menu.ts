@@ -21,6 +21,7 @@ import { eventChip, giftClaimed, openEventModal } from '../event';
 import { openNoAdsOffer } from './shop';
 import { friends } from '../../services/friends';
 import { chooseVillain } from '../holiday-run';
+import { adventChip } from '../advent';
 
 let dailyPromptShown = false;
 let eventPromptShown = false;
@@ -79,6 +80,7 @@ export class MenuScreen extends BaseScreen {
         levelChip(),
         h('div.chip', { title: 'Trophies' }, ic('trophy'), h('span', null, fmt(d.trophies))),
         eventChip(),
+        adventChip(),
         betaDealChip(),
         h('div.spacer'),
         gemChip(this),

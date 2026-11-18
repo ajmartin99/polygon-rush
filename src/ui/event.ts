@@ -25,7 +25,7 @@ export function eventChip(): HTMLElement | null {
     'button.event-chip',
     { onclick: () => openEventModal(), 'aria-label': `${ev.name} event` },
     h('span.ev-pumpkin', null, ev.id === 'christmas' ? '🎄' : '🎃'),
-    h('span', null, h('b', null, ev.name), h('small', null, giftClaimed() ? eventEndLabel(ev) : 'Free gift!')),
+    h('span', null, h('b', null, ev.id === 'christmas' ? 'Christmas' : ev.name), h('small', null, giftClaimed() ? eventEndLabel(ev) : 'Free gift!')),
   );
 }
 

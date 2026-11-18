@@ -4228,3 +4228,71 @@ html:not(.fx-blur) * {
   font-size: 1.2rem;
   line-height: 1;
 }
+
+.santa-papers {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.6rem;
+}
+
+.santa-paper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem;
+  border: 0.13rem solid rgba(255, 255, 255, 0.25);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.06);
+  color: #fff;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.santa-wrap {
+  position: relative;
+  display: inline-block;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 0.4rem;
+  box-shadow: inset 0 0 0 0.2rem rgba(255, 255, 255, 0.25);
+}
+
+.santa-wrap.big {
+  width: 5rem;
+  height: 5rem;
+  margin: 0.4rem auto;
+  animation: ev-bob 1.2s ease-in-out infinite;
+}
+
+.santa-wrap.opened {
+  animation: santa-pop 0.5s ease-out forwards;
+}
+
+.santa-bow {
+  position: absolute;
+  top: -0.9rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 1.5rem;
+}
+
+.santa-wrap.big .santa-bow {
+  font-size: 2.2rem;
+  top: -1.4rem;
+}
+
+.santa-sent {
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+@keyframes santa-pop {
+  60% {
+    transform: scale(1.25) rotate(8deg);
+  }
+  100% {
+    transform: scale(0.2);
+    opacity: 0;
+  }
+}

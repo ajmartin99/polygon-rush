@@ -15,6 +15,7 @@ import { LevelService } from './levels.ts';
 import { TesterService } from './testers.ts';
 import { PromoService } from './promos.ts';
 import { CloudService } from './cloud.ts';
+import { SantaService } from './santa.ts';
 
 export const VERSION = '1.0.0';
 
@@ -30,6 +31,7 @@ export interface Server {
   testers: TesterService;
   promos: PromoService;
   cloud: CloudService;
+  santa: SantaService;
   listen(port?: number): Promise<number>;
   close(): Promise<void>;
 }
@@ -46,9 +48,10 @@ export function createServer(cfg: Config, opts: { mailer?: Mailer; log?: (msg: s
   const testers = new TesterService(db, mailer, cfg, log);
   const promos = new PromoService(db, players);
   const cloud = new CloudService(db, cfg.secret, players);
+  const santa = new SantaService(db, players);
   const rooms = new RoomDirectory(db, names);
   const hub = new ChatHub(db, accounts, names);
-  const app = createApp({ cfg, db, accounts, rooms, hub, names, players, levels, testers, promos, cloud, mailer, version: VERSION });
+  const app = createApp({ cfg, db, accounts, rooms, hub, names, players, levels, testers, promos, cloud, santa, mailer, version: VERSION });
   const server = http.createServer(app);
 
   // PeerJS signalling for online rooms, on the same port. Its WebSocket and
@@ -125,7 +128,7 @@ export function createServer(cfg: Config, opts: { mailer?: Mailer; log?: (msg: s
   const purge = () => {
     try {
       const now = Date.now();
-      const out = { ...db.purge(now, { messageDays: cfg.messageRetentionDays, reportDays: cfg.reportRetentionDays, inactiveDays: cfg.inactiveAccountDays }), ...players.purge(now, cfg.inactiveAccountDays), cloud: cloud.purge(now) };
+      const out = { ...db.purge(now, { messageDays: cfg.messageRetentionDays, reportDays: cfg.reportRetentionDays, inactiveDays: cfg.inactiveAccountDays }), ...players.purge(now, cfg.inactiveAccountDays), cloud: cloud.purge(now), presents: santa.purge(now) };
       if (Object.values(out).some((n) => n > 0)) log(`[purge] ${JSON.stringify(out)}`);
     } catch (e) {
       log(`[purge] failed: ${(e as Error).message}`);
@@ -148,6 +151,7 @@ export function createServer(cfg: Config, opts: { mailer?: Mailer; log?: (msg: s
     testers,
     promos,
     cloud,
+    santa,
     listen(port = cfg.port) {
       return new Promise((resolve) => {
         server.listen(port, () => {

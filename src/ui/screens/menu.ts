@@ -22,6 +22,7 @@ import { openNoAdsOffer } from './shop';
 import { friends } from '../../services/friends';
 import { chooseVillain } from '../holiday-run';
 import { adventChip } from '../advent';
+import { checkPresents } from '../santa';
 
 let dailyPromptShown = false;
 let eventPromptShown = false;
@@ -146,6 +147,8 @@ export class MenuScreen extends BaseScreen {
 
   override enter(): void {
     void ads.showBanner();
+    // Christmas: presents from friends wait here.
+    setTimeout(() => void checkPresents(), 1500);
     // Christmas: who stole Christmas? Asked once, before anything else.
     if (activeEvent()?.id === 'christmas' && !store.settings.villain && store.data.stats.runs > 0 && !villainAsked) {
       villainAsked = true;

@@ -809,3 +809,36 @@ describe('web editor', () => {
     assert.deepEqual(mine, ['rhinolevel']);
   });
 });
+
+describe('secret santa', () => {
+  const key = (c: string) => `santa${c}`.repeat(4);
+  const DEC = Date.UTC(2026, 11, 10, 12);
+  const NOV = Date.UTC(2026, 10, 20, 12);
+
+  test('one present a day to a friend, opened once, only at Christmas', async () => {
+    const a = (await api('POST', '/api/players/register', { key: key('a'), name: 'Jolly Otter' })).json;
+    const b = (await api('POST', '/api/players/register', { key: key('b'), name: 'Frosty Fox' })).json;
+    const c = (await api('POST', '/api/players/register', { key: key('c'), name: 'Merry Moose' })).json;
+    await api('POST', '/api/friends/add', { key: key('a'), handle: `${b.name}#${String(b.tag).padStart(4, '0')}` });
+    assert.equal((await api('POST', '/api/friends/respond', { key: key('b'), id: a.id, accept: true })).json.state, 'friends');
+    const santa = srv.santa;
+    // Not a friend, or not Christmas: no present.
+    assert.throws(() => santa.send({ key: key('a'), id: c.id }, DEC), /only send presents to friends/);
+    assert.throws(() => santa.send({ key: key('a'), id: b.id }, NOV), /next Christmas/);
+    assert.deepEqual(santa.send({ key: key('a'), id: b.id, wrap: 2 }, DEC), { ok: true });
+    assert.throws(() => santa.send({ key: key('a'), id: b.id }, DEC + 1000), /already sent/);
+    assert.equal(santa.inbox({ key: key('a') }, DEC).sentToday, b.id);
+    const box = santa.inbox({ key: key('b') }, DEC);
+    assert.equal(box.presents.length, 1);
+    assert.equal(box.presents[0].from.name, 'Jolly Otter');
+    assert.equal(box.presents[0].wrap, 2);
+    assert.deepEqual(santa.open({ key: key('b'), id: box.presents[0].id }, DEC), { id: box.presents[0].id });
+    assert.throws(() => santa.open({ key: key('b'), id: box.presents[0].id }, DEC), /already opened/);
+    assert.equal(santa.inbox({ key: key('b') }, DEC).presents.length, 0);
+    // Tomorrow another one can go.
+    assert.deepEqual(santa.send({ key: key('a'), id: b.id }, DEC + 24 * 3600 * 1000), { ok: true });
+    // A block hides presents and stops new ones.
+    await api('POST', '/api/friends/block', { key: key('b'), id: a.id });
+    assert.equal(santa.inbox({ key: key('b') }, DEC + 24 * 3600 * 1000).presents.length, 0);
+  });
+});

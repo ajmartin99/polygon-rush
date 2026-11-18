@@ -49,6 +49,10 @@ export const PRIVACY_SECTIONS: { title: string; body: string }[] = [
     body: 'If you have the Builder Pack and link a computer’s browser (Create > Web Editor), our server stores the levels you build in the app or the browser (their level codes, the same as a share code) linked to your player, so they show up on both, plus whether each was made in the app or on the web. Each linked browser gets a sign-in token that we store only as a one-way hash. Your age group (under 13, 13–17 or 18+) is sent once so the browser offers the same options as the game; your birth year never is. A level you send from the browser to test on your phone is kept for up to a day. Browsers not used for 30 days are signed out, and you can sign them all out any time in Create > Web Editor. Deleting your friends data also deletes these levels.',
   },
   {
+    title: 'Secret Santa (Christmas)',
+    body: 'At Christmas you can send a friend one wrapped present a day (Friends > the present button). Our server stores who sent it to whom, the wrapping paper chosen and whether it was opened, for 30 days. There is no message: what’s inside is picked by the game. Presents only go between friends; blocking someone stops them. Parents can turn friends off in Settings > Parental Controls, which also turns presents off.',
+  },
+  {
     title: 'Promo codes',
     body: 'When you redeem a promo code (Settings > Redeem a code), our server records that your player used it, so each code works once per player. The reward is added to your game on your device.',
   },

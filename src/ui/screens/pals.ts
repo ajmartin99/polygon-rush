@@ -3,6 +3,8 @@ import { friends, handleOf, type Friend, type Player } from '../../services/frie
 import { parseHandle } from '../../shared/handle';
 import { store } from '../../state/store';
 import { activityText } from '../friend-invites';
+import { presentButton } from '../santa';
+import { santa } from '../../services/santa';
 import { BaseScreen, button, confirm, titleBar } from '../components';
 import { clear, h } from '../dom';
 import { nav } from '../nav';
@@ -30,6 +32,8 @@ export class PalsScreen extends BaseScreen {
     );
     this.offs.push(friends.on('change', () => this.render()));
     this.render();
+    // Christmas: learn whether today's present went out (shows on the friends list).
+    if (santa.available) void santa.inbox().then(() => this.el.isConnected && this.render(), () => undefined);
     friends.setFast(true);
   }
 
@@ -193,6 +197,7 @@ export class PalsScreen extends BaseScreen {
         list.length
           ? list.map((f: Friend) =>
               this.row(f, activityText(f), f.online, [
+                presentButton(f, () => this.render()),
                 button({
                   label: 'Profile',
                   icon: 'star',
@@ -260,7 +265,7 @@ export class PalsScreen extends BaseScreen {
     return h('div.col', { style: 'gap:0.4rem' }, h('h3', null, title), h('div.col.friend-list', null, rows));
   }
 
-  private row(p: Player, sub: string, online: boolean, actions: HTMLElement[]): HTMLElement {
+  private row(p: Player, sub: string, online: boolean, actions: (HTMLElement | null)[]): HTMLElement {
     return h('div.friend-row', null, h(`span.dot${online ? '.on' : ''}`, { 'aria-hidden': 'true' }), h('div.lbl', null, h('b', null, handleOf(p)), h('span', null, sub)), ...actions);
   }
 

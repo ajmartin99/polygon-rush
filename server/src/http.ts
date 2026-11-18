@@ -14,6 +14,7 @@ import type { LevelService } from './levels.ts';
 import type { TesterService } from './testers.ts';
 import type { PromoService } from './promos.ts';
 import type { CloudService } from './cloud.ts';
+import type { SantaService } from './santa.ts';
 import { hmac, safeEqual } from './util.ts';
 
 export interface AppDeps {
@@ -28,6 +29,7 @@ export interface AppDeps {
   testers: TesterService;
   promos: PromoService;
   cloud: CloudService;
+  santa: SantaService;
   mailer: Mailer;
   version: string;
 }
@@ -56,7 +58,7 @@ export function ipKeyFor(cfg: Config, ip: string | undefined): string {
 }
 
 export function createApp(d: AppDeps): express.Express {
-  const { cfg, db, accounts, rooms, hub, names, players, levels, testers, promos, cloud } = d;
+  const { cfg, db, accounts, rooms, hub, names, players, levels, testers, promos, cloud, santa } = d;
   const app = express();
   app.disable('x-powered-by');
   app.set('trust proxy', cfg.trustProxy ? 1 : false);
@@ -192,6 +194,11 @@ export function createApp(d: AppDeps): express.Express {
       return { ok: true };
     }),
   );
+  // Secret Santa (Christmas): one wrapped present a day to a friend.
+  app.post('/api/santa/send', route((req) => santa.send(req.body ?? {})));
+  app.post('/api/santa/inbox', route((req) => santa.inbox(req.body ?? {})));
+  app.post('/api/santa/open', route((req) => santa.open(req.body ?? {})));
+
   // Promo codes (Settings → Redeem a code).
   app.post('/api/promos/redeem', route((req) => promos.redeem(req.body ?? {})));
 

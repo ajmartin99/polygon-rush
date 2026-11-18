@@ -45,6 +45,13 @@ for (const [name, k] of Object.entries(densities)) {
   await save(`${res}/mipmap-${name}/ic_launcher_background.png`, 'bg', 108 * k, 108 * k);
   await save(`${res}/mipmap-${name}/ic_launcher_monochrome.png`, 'mono', 108 * k, 108 * k);
 }
+// Christmas launcher icon (switched in by the app during the Christmas event).
+for (const [name, k] of Object.entries(densities)) {
+  await save(`${res}/mipmap-${name}/ic_launcher_xmas.png`, 'xmas-legacy', 48 * k, 48 * k);
+  await save(`${res}/mipmap-${name}/ic_launcher_xmas_round.png`, 'xmas-round', 48 * k, 48 * k);
+  await save(`${res}/mipmap-${name}/ic_launcher_xmas_foreground.png`, 'xmas-fg', 108 * k, 108 * k);
+  await save(`${res}/mipmap-${name}/ic_launcher_xmas_background.png`, 'xmas-bg', 108 * k, 108 * k);
+}
 for (const [path, [w, h]] of Object.entries(splashSizes)) await save(`${res}/${path}`, 'splash', w, h);
 await save('store/icon-512.png', 'store', 512, 512);
 await save('store/feature-graphic-1024x500.png', 'feature', 1024, 500);
@@ -53,4 +60,7 @@ await save('store/feature-graphic-1024x500.png', 'feature', 1024, 500);
 await save('store/seasonal/spooky-icon-512.png', 'spooky-store', 512, 512);
 await save('store/seasonal/spooky-feature-1024x500.png', 'spooky-feature', 1024, 500);
 await save('store/seasonal/haunted-cast.png', 'spooky-cast', 1200, 420);
+// Christmas Wonderland: Play listing icon and feature graphic to swap in by hand.
+await save('store/seasonal/christmas-icon-512.png', 'xmas-store', 512, 512);
+await save('store/seasonal/christmas-feature-1024x500.png', 'xmas-feature', 1024, 500);
 await browser.close();

@@ -4,7 +4,37 @@ All notable changes to Polygon Rush are documented here.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-11-24
+
+The full release on Google Play.
+
 ### Added
+- **Christmas Wonderland** (Dec 1 – Jan 6):
+  - Snow falls in every mode, and the home screen gets a Christmas tree whose lights twinkle to the music.
+  - Christmas classics in the soundtrack: Jingle Bells, Deck the Halls and We Three Kings.
+  - Free gift: the Snowman skin.
+- **Who stole Christmas?** On the first launch in December players pick the villain: Jack Frost, who froze Santa's sleigh, or Krampus, who snatched Santa's presents. Switch any time in Settings.
+- **Holiday Run.** Chase the villain through five chapters, each with its own scenery and monsters:
+  - **Snowy Pine Forest:** snowmen that roll back and forth, and snowballs lobbed in on the beat.
+  - **The Frozen Lake:** hop across the ice past sliding penguins and falling icicles.
+  - **Santa's Workshop:** marching toy soldiers, jack-in-the-boxes and Roller flips under the garlands.
+  - **Candy Cane Peaks:** fly Santa's sleigh through candy-cane gates.
+  - **The lair:** Jack Frost's Ice Palace or Krampus's Cavern. Grab the glowing presents to throw them at him.
+  - Jack Frost's run is charted to a techno Christmas medley, Krampus's to a sinister Carol of the Bells.
+  - Rewards: beating him pays **500 gems on Hard, 150 on Easy**, and the first Hard win earns the **Holiday Hero** skin. Two attempts a day; Heart Regens refill them.
+- **Advent Calendar:** a door a day from Dec 1 to 25 with gems, Heart Regens and Christmas items. A missed door opens later for 150 gems. Door 25 holds the Starlight skin and Northern Lights trail, which can't be got anywhere else.
+- **Secret Santa:** once a day, send a friend a wrapped present. There's no text, just a wrapping paper. Presents hold gems or a Christmas emote, and the giver gets 25 gems.
+- **Christmas shop:** Gingerbread, Reindeer, Christmas Jumper, Little Elf, Gift Box and Santa Claus skins; Snowfall, String Lights and Candy Canes trails; Christmas Tree, Snowman, Present, Reindeer and Jingle Bells emotes.
+- **Christmas app icon:** on Android the home-screen icon wears a Santa hat during the event. Settings → Seasonal app icon turns it off.
+
+### Changed
+- The beta has ended:
+  - The beta deal is over. No Ads, the Starter Pack and the Legend Pack are bought with money again; Heart Regens and the profile add-ons can still be bought with gems.
+  - Beta rewards no longer progress. Testers keep everything they earned.
+
+### Halloween (ready for next Spooky Season)
+
+#### Added
 - **Haunted Run story.** Grizelda the witch has stolen the Harvest Moon. The run is now four chapters, each with its own scenery and ground:
   - **The Pumpkin Fields** at sunset: corn rows, scarecrows, glowing jack-o'-lanterns, and Grizelda flying off ahead.
   - **Hollow Hill Graveyard:** tombstones, dead trees, an iron fence and an eerie green glow.
@@ -13,10 +43,10 @@ All notable changes to Polygon Rush are documented here.
 - **Witch fight on the rooftop.** Grizelda flies in for the finale. Every jump on the roof carries a glowing orb; grab orbs to strike her. Knock her off her broom (most of the orbs) to free the moon for **500 gems on Hard, 150 on Easy**. Reaching the end while she gets away pays 100 / 50.
 - Each chapter opens with a title card.
 
-### Changed
+#### Changed
 - **Zombies and ghosts come alive.** They wander back and forth while you're far away: zombies shamble and turn at walls, spikes and drops, like goombas; ghosts drift through anything, bobbing as they go. When they notice you, a "!" pops up and they come at you, settling into their spot just before you arrive, so you still clear them on the beat.
 
-### Fixed
+#### Fixed
 - Haunted Run music not playing on the next attempt after losing, when the app had been in the background or another app had played sound. Paused music now restarts on retry, and the game restarts music it finds paused while you play.
 
 ## [1.0.13] - 2026-10-22

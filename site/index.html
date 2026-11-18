@@ -16,6 +16,8 @@
       (function () {
         var d = new Date(), md = (d.getMonth() + 1) * 100 + d.getDate();
         if (md >= 1001 && md <= 1107) document.documentElement.classList.add('spooky');
+        if (md >= 1201 || md <= 106) document.documentElement.classList.add('xmas');
+        if (d >= new Date(2026, 11, 1)) document.documentElement.classList.add('launched');
       })();
     </script>
   </head>
@@ -46,8 +48,10 @@
           <a class="app" href="polygon-rush/">
             <img class="icon-normal" src="polygon-rush/img/icon.png" alt="" width="72" height="72" />
             <img class="icon-spooky" src="polygon-rush/img/icon-spooky.png" alt="" width="72" height="72" />
+            <img class="icon-xmas" src="polygon-rush/img/icon-xmas.png" alt="" width="72" height="72" />
             <div>
-              <span class="tag">Beta on Android</span>
+              <span class="tag beta-only">Beta on Android</span>
+              <span class="tag play-only">Out now on Android</span>
               <h3>Polygon Rush</h3>
               <p>A one-button runner where you shape-shift between four polygons, race friends online and build your own levels.</p>
             </div>

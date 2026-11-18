@@ -11,8 +11,26 @@ import { skinById } from '../src/meta/catalog';
 import type { ShapeMode } from '../src/game/shapes';
 import { SPOOKY } from '../src/meta/events';
 import { drawGhost, drawPumpkin, drawZombie } from '../src/render/spooky';
+import { drawChristmasTree, drawJackFrost, drawKrampus, drawPresentOrb, drawWonderMob } from '../src/render/wonderland';
 
-type Kind = 'fg' | 'bg' | 'mono' | 'legacy' | 'round' | 'store' | 'feature' | 'splash' | 'spooky-store' | 'spooky-feature' | 'spooky-cast';
+type Kind =
+  | 'fg'
+  | 'bg'
+  | 'mono'
+  | 'legacy'
+  | 'round'
+  | 'store'
+  | 'feature'
+  | 'splash'
+  | 'spooky-store'
+  | 'spooky-feature'
+  | 'spooky-cast'
+  | 'xmas-fg'
+  | 'xmas-bg'
+  | 'xmas-legacy'
+  | 'xmas-round'
+  | 'xmas-store'
+  | 'xmas-feature';
 
 const hash = (n: number) => {
   const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
@@ -248,6 +266,67 @@ function spookyGround(ctx: CanvasRenderingContext2D, w: number, h: number, groun
   ctx.fillRect(0, ground, w, Math.max(2, h * 0.012));
 }
 
+// ------------------------------------------------------------------ Christmas Wonderland
+/** Evergreen with drifting snowflakes (the Christmas launcher icon's background; the red Santa hat pops on it). */
+function xmasBackground(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+  const g = ctx.createRadialGradient(w * 0.35, h * 0.3, w * 0.05, w * 0.5, h * 0.55, w * 0.85);
+  g.addColorStop(0, '#3ee08a');
+  g.addColorStop(0.5, '#178a48');
+  g.addColorStop(1, '#063a1c');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 9; i++) {
+    const x = w * hash(i + 3);
+    const y = h * hash(i + 9);
+    const r = w * (0.03 + hash(i + 5) * 0.04);
+    ctx.lineWidth = r * 0.22;
+    ctx.beginPath();
+    for (let k = 0; k < 3; k++) {
+      const a = hash(i) * 3 + (k / 3) * Math.PI;
+      ctx.moveTo(x - Math.cos(a) * r, y - Math.sin(a) * r);
+      ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+    }
+    ctx.stroke();
+  }
+}
+
+/** The classic runner in a Santa hat, with speed lines. */
+function xmasHero(ctx: CanvasRenderingContext2D, cx: number, cy: number, size: number, rot = -0.12): void {
+  ctx.save();
+  ctx.lineCap = 'round';
+  for (let i = 0; i < 3; i++) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = size * 0.07;
+    const y = cy - size * 0.25 + i * size * 0.25;
+    const len = size * (0.45 - Math.abs(i - 1) * 0.12);
+    ctx.beginPath();
+    ctx.moveTo(cx - size * 0.62 - len, y);
+    ctx.lineTo(cx - size * 0.62, y);
+    ctx.stroke();
+  }
+  drawCharacter(ctx, cx, cy, size, 'square', { ...skinById('classic'), topper: 'santa' }, { rot, faceRot: rot, lookX: 0.8, lookY: -0.2, time: 0 });
+  ctx.restore();
+}
+
+/** Snowy night: deep blue to a soft glow on the horizon, stars and a moon. */
+function xmasSky(ctx: CanvasRenderingContext2D, w: number, h: number): void {
+  const sky = ctx.createLinearGradient(0, 0, 0, h);
+  sky.addColorStop(0, '#0b1a3e');
+  sky.addColorStop(1, '#5a7ac8');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = '#ffffff';
+  for (let i = 0; i < 60; i++) {
+    ctx.globalAlpha = 0.3 + hash(i + 2) * 0.6;
+    ctx.beginPath();
+    ctx.arc(w * hash(i), h * hash(i + 40) * 0.9, 1 + hash(i + 7) * h * 0.006, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+}
+
 function gemShape(ctx: CanvasRenderingContext2D, x: number, y: number, s: number): void {
   ctx.fillStyle = '#3ad7ff';
   ctx.beginPath();
@@ -362,6 +441,76 @@ function render(kind: Kind, w: number, h: number): string {
       zombieAt(ctx, w * 0.48, ground, h * 0.34, 0.5);
       ghostAt(ctx, w * 0.7, h * 0.4, h * 0.22, 1.1);
       drawPumpkin(ctx, w * 0.9, ground - h * 0.1, h * 0.1, 0.7);
+      break;
+    }
+    case 'xmas-bg':
+      xmasBackground(ctx, w, h);
+      break;
+    case 'xmas-fg':
+      xmasHero(ctx, w * 0.55, h * 0.53, m * 0.36);
+      break;
+    case 'xmas-legacy':
+    case 'xmas-round': {
+      ctx.save();
+      ctx.beginPath();
+      if (kind === 'xmas-round') ctx.arc(w / 2, h / 2, m / 2, 0, Math.PI * 2);
+      else ctx.roundRect(m * 0.04, m * 0.04, m * 0.92, m * 0.92, m * 0.2);
+      ctx.clip();
+      xmasBackground(ctx, w, h);
+      xmasHero(ctx, w * 0.55, h * 0.53, m * 0.5);
+      ctx.restore();
+      break;
+    }
+    case 'xmas-store': {
+      // The Play listing icon for Christmas (swap it in by hand for the event).
+      xmasBackground(ctx, w, h);
+      drawPresentOrb(ctx, w * 0.84, h * 0.84, m * 0.16, 0);
+      drawPresentOrb(ctx, w * 0.16, h * 0.86, m * 0.13, 1);
+      xmasHero(ctx, w * 0.55, h * 0.55, m * 0.44);
+      break;
+    }
+    case 'xmas-feature': {
+      xmasSky(ctx, w, h);
+      const ground = h * 0.8;
+      ctx.fillStyle = '#d8e6fa';
+      ctx.beginPath();
+      ctx.moveTo(0, ground);
+      for (let i = 0; i <= 14; i++) ctx.lineTo((i / 14) * w, ground - h * (0.05 + hash(i * 7) * 0.12));
+      ctx.lineTo(w, ground);
+      ctx.fill();
+      const snow = ctx.createLinearGradient(0, ground, 0, h);
+      snow.addColorStop(0, '#ffffff');
+      snow.addColorStop(1, '#bcd2f0');
+      ctx.fillStyle = snow;
+      ctx.fillRect(0, ground, w, h - ground);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, ground, w, h * 0.012);
+      drawChristmasTree(ctx, w * 0.5, ground, h * 0.55, 0.3, 0);
+      drawPresentOrb(ctx, w * 0.455, ground - h * 0.03, h * 0.07, 2);
+      drawPresentOrb(ctx, w * 0.545, ground - h * 0.03, h * 0.08, 3);
+      xmasHero(ctx, w * 0.64, ground - h * 0.32, h * 0.17, -0.3);
+      for (let i = 0; i < 4; i++) drawPresentOrb(ctx, w * (0.7 + i * 0.03), ground - h * (0.38 - i * 0.04), h * 0.08, i);
+      ctx.save();
+      ctx.translate(w * 0.84, ground);
+      drawWonderMob(ctx, 'snowman', 0, -h * 0.13, h * 0.13, 0.4, -1, 1);
+      ctx.restore();
+      ctx.save();
+      ctx.translate(w * 0.91, h * 0.3);
+      drawJackFrost(ctx, h * 0.14, 0.5, false, 0.5);
+      ctx.restore();
+      ctx.save();
+      ctx.translate(w * 0.62, h * 0.18);
+      ctx.globalAlpha = 0.9;
+      drawKrampus(ctx, h * 0.08, 0.2, false, 0.5);
+      ctx.restore();
+      title(ctx, w * 0.24, h * 0.34, h * 0.17);
+      ctx.font = `700 ${h * 0.062}px Fredoka`;
+      ctx.textAlign = 'center';
+      ctx.lineWidth = h * 0.014;
+      ctx.strokeStyle = '#1a0b45';
+      ctx.strokeText('Save Christmas!', w * 0.24, h * 0.72);
+      ctx.fillStyle = '#ffd23f';
+      ctx.fillText('Save Christmas!', w * 0.24, h * 0.72);
       break;
     }
     case 'splash': {

@@ -525,3 +525,108 @@ a.app:hover {
     left: 70%;
   }
 }
+
+/* ---------- Christmas Wonderland (html.xmas, Dec 1 – Jan 6) */
+.wonderland,
+.icon-xmas,
+.snow {
+  display: none;
+}
+
+.xmas .wonderland,
+.xmas .snow {
+  display: block;
+}
+
+.xmas .icon-xmas {
+  display: inline-block;
+}
+
+.xmas .icon-normal {
+  display: none;
+}
+
+.xmas body {
+  background:
+    radial-gradient(50rem 26rem at 85% -8%, rgba(232, 48, 74, 0.35) 0%, transparent 60%),
+    radial-gradient(40rem 30rem at 0% 100%, rgba(47, 191, 113, 0.3) 0%, transparent 65%),
+    #0b1a3e;
+}
+
+.xmas .eyebrow,
+.xmas h2 {
+  color: #ffd23f;
+}
+
+.wonderland {
+  border: 2px solid #ffffff;
+  border-radius: 24px;
+  padding: 20px 22px;
+  background: linear-gradient(135deg, rgba(232, 48, 74, 0.2), rgba(47, 191, 113, 0.22));
+}
+
+.wonderland img {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 8px;
+  border-radius: 14px;
+}
+
+/* Snowflakes drifting down behind the page. Decoration only. */
+.snow {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 0;
+}
+
+.xmas .wrap,
+.xmas footer {
+  position: relative;
+  z-index: 1;
+}
+
+.snow span {
+  position: absolute;
+  top: -40px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 22px;
+  animation: snow-fall 14s linear infinite;
+}
+
+.snow span:nth-child(1) { left: 6%; animation-delay: 0s; }
+.snow span:nth-child(2) { left: 18%; animation-delay: -4s; font-size: 16px; }
+.snow span:nth-child(3) { left: 31%; animation-delay: -9s; }
+.snow span:nth-child(4) { left: 45%; animation-delay: -2s; font-size: 14px; }
+.snow span:nth-child(5) { left: 58%; animation-delay: -11s; }
+.snow span:nth-child(6) { left: 71%; animation-delay: -6s; font-size: 18px; }
+.snow span:nth-child(7) { left: 84%; animation-delay: -13s; }
+.snow span:nth-child(8) { left: 94%; animation-delay: -7s; font-size: 15px; }
+
+@keyframes snow-fall {
+  to {
+    transform: translateY(110vh) rotate(180deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .snow span {
+    animation: none;
+    display: none;
+  }
+}
+
+/* ---------- Launch (html.launched, from Dec 1 2026): Google Play instead of the beta sign-up */
+.play-only {
+  display: none !important;
+}
+
+.launched .play-only {
+  display: inline-flex !important;
+}
+
+.launched .beta-only {
+  display: none !important;
+}

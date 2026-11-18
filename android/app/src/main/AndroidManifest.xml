@@ -22,14 +22,35 @@
             android:launchMode="singleTask"
             android:screenOrientation="sensorLandscape"
             android:resizeableActivity="true"
-            android:exported="true">
+            android:exported="true" />
 
+        <!-- The home-screen icon: exactly one of these is enabled. The game switches to the
+             seasonal one during its event (IconSwitcherPlugin), only while it's in the background. -->
+        <activity-alias
+            android:name=".IconDefault"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher"
+            android:roundIcon="@mipmap/ic_launcher_round"
+            android:enabled="true"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity-alias>
 
-        </activity>
+        <activity-alias
+            android:name=".IconChristmas"
+            android:targetActivity=".MainActivity"
+            android:icon="@mipmap/ic_launcher_xmas"
+            android:roundIcon="@mipmap/ic_launcher_xmas_round"
+            android:enabled="false"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
 
         <provider
             android:name="androidx.core.content.FileProvider"

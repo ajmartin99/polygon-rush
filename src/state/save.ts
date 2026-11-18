@@ -58,6 +58,8 @@ export interface Settings {
   musicOff: number[];
   /** Christmas Wonderland: who stole Christmas in the Holiday Run ('' = not asked yet). */
   villain: '' | 'frost' | 'krampus';
+  /** Android: show the seasonal home-screen icon during events. */
+  seasonalIcon: boolean;
 }
 
 export interface MissionState {
@@ -233,6 +235,7 @@ export const DEFAULT_SETTINGS: Settings = {
   myMusic: 'mix',
   classicSongs: false,
   villain: '',
+  seasonalIcon: true,
 };
 
 export function emptyStats(): Stats {

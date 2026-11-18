@@ -41,6 +41,7 @@ import { initFriendInvites } from './ui/friend-invites';
 import { SONGS } from './core/songs';
 import { IS_PORTAL } from './core/portal';
 import { cloud } from './services/cloud';
+import { syncAppIcon } from './services/app-icon';
 import { initWebTests, PortalScreen } from './ui/web-editor';
 
 function registerRoutes(): void {
@@ -190,6 +191,7 @@ async function boot(): Promise<void> {
     void CapApp.addListener('pause', () => {
       void store.flush();
       void levels.flush();
+      void syncAppIcon();
     });
   }
   window.addEventListener('pagehide', () => {

@@ -30,6 +30,8 @@ public class MainActivity extends BridgeActivity {
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
+        // Our own plugins register before the bridge starts.
+        registerPlugin(IconSwitcherPlugin.class);
         super.onCreate(savedInstanceState);
         // A game: keep the screen awake while the app is in the foreground.
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);

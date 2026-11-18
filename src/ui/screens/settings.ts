@@ -18,6 +18,7 @@ import { BackupError, makeBackup, restoreBackup } from '../../services/backup';
 import { friends } from '../../services/friends';
 import { openRedeem } from '../redeem';
 import { activeEvent } from '../../meta/events';
+import { seasonalIconSupported } from '../../services/app-icon';
 
 function row(iconName: IconName, title: string, sub: string, control: Child): HTMLElement {
   return h('div.setting', null, h('span', { class: 'ico', style: 'display:contents' }, ic(iconName)), h('div.lbl', null, h('b', null, title), h('span', null, sub)), control);
@@ -239,6 +240,9 @@ export class SettingsScreen extends BaseScreen {
             ),
             row('child', 'Kid Mode', 'Slower Endless with 5 hearts', toggle(s.kidMode, (v) => store.setSetting('kidMode', v), 'Kid Mode')),
             row('graphics', 'Graphics', 'Lower = smoother on older phones', gfx),
+            seasonalIconSupported()
+              ? row('sparkle', 'Seasonal app icon', 'A festive home-screen icon during events', toggle(s.seasonalIcon, (v) => store.setSetting('seasonalIcon', v), 'Seasonal app icon'))
+              : null,
             activeEvent()?.id === 'christmas' || s.villain
               ? row(
                   'gift',

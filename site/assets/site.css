@@ -526,7 +526,7 @@ a.app:hover {
   }
 }
 
-/* ---------- Christmas Wonderland (html.xmas, Dec 1 – Jan 6) */
+/* ---------- Christmas Wonderland (html.xmas, Nov 8 – Jan 6: dressed up early, live from Dec 1) */
 .wonderland,
 .icon-xmas,
 .snow {
@@ -618,7 +618,55 @@ a.app:hover {
   }
 }
 
-/* ---------- Launch (html.launched, from Dec 1 2026): Google Play instead of the beta sign-up */
+/* Coming soon (Nov 8 – 30) or live (Dec 1 – Jan 6) */
+.soon-only,
+.live-only {
+  display: none;
+}
+
+.xmas-soon .soon-only,
+.xmas-live .live-only {
+  display: inline;
+}
+
+.xmas-soon span.eyebrow.soon-only,
+.xmas-live span.eyebrow.live-only {
+  display: inline-block;
+}
+
+.wonderland .xmas-list {
+  margin: 12px 0 4px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .wonderland .xmas-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+.wonderland.banner {
+  color: inherit;
+  text-decoration: none;
+  transition: transform 0.15s ease;
+}
+
+.wonderland.banner:hover {
+  transform: translateY(-2px);
+}
+
+.wonderland.banner h2 {
+  margin: 4px 0 6px;
+}
+
+.wonderland.banner .more {
+  display: inline-block;
+  margin-top: 6px;
+  font-weight: 800;
+  color: #ffd23f;
+}
+
+/* ---------- Launch (html.launched, set by hand when the game is public): Google Play instead of the beta sign-up */
 .play-only {
   display: none !important;
 }

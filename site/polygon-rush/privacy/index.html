@@ -6,7 +6,14 @@
     <title>Polygon Rush privacy policy</title>
     <meta name="description" content="Privacy policy for the Polygon Rush mobile game by Soft-Game Brothers." />
     <link rel="canonical" href="https://softgamebros.com/polygon-rush/privacy/" />
-    <link rel="icon" href="../../assets/favicon.png" />
+    <link rel="icon" id="favicon" href="../img/icon-64.png" type="image/png" />
+    <link rel="apple-touch-icon" href="../img/icon-180.png" />
+    <script>
+      (function () {
+        var d = new Date(), md = (d.getMonth() + 1) * 100 + d.getDate(), f = document.getElementById('favicon');
+        if (md >= 1108 || md <= 106) f.href = f.href.replace('icon-64', 'icon-xmas-64');
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600&family=Nunito:wght@400;700;800&display=swap" />

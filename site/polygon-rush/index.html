@@ -6,19 +6,27 @@
     <title>Polygon Rush</title>
     <meta name="description" content="Polygon Rush: a shape-shifting endless runner for all ages from Soft-Game Brothers." />
     <link rel="canonical" href="https://softgamebros.com/polygon-rush/" />
-    <link rel="icon" href="../assets/favicon.png" />
+    <link rel="icon" id="favicon" href="img/icon-64.png" type="image/png" />
+    <link rel="apple-touch-icon" href="img/icon-180.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600&family=Nunito:wght@400;700;800&display=swap" />
     <link rel="stylesheet" href="../assets/site.css" />
     <script>
       // Seasons, same dates as the game: Spooky Season (Oct 1 – Nov 7) and Christmas Wonderland (Dec 1 – Jan 6).
-      // From launch day (Dec 1, 2026) the beta sign-up makes way for the Google Play button.
+      // The page dresses for Christmas from Nov 8 with a "coming Dec 1" note; from Dec 1 it's live.
+      // PLAY_PUBLIC: set to true once Polygon Rush is public on Google Play (swaps the beta sign-up for the Play button).
       (function () {
+        var PLAY_PUBLIC = false;
         var d = new Date(), md = (d.getMonth() + 1) * 100 + d.getDate(), c = document.documentElement.classList;
         if (md >= 1001 && md <= 1107) c.add('spooky');
-        if (md >= 1201 || md <= 106) c.add('xmas');
-        if (d >= new Date(2026, 11, 1)) c.add('launched');
+        if (md >= 1108 || md <= 106) c.add('xmas');
+        c.add(md >= 1108 && md <= 1130 ? 'xmas-soon' : 'xmas-live');
+        if (PLAY_PUBLIC) c.add('launched');
+        if (c.contains('xmas')) {
+          var f = document.getElementById('favicon');
+          if (f) f.href = f.href.replace('icon-64', 'icon-xmas-64');
+        }
       })();
     </script>
   </head>
@@ -60,8 +68,16 @@
         <img src="img/haunted-cast.webp" alt="The Polygon Rush runner in a witch hat, a zombie, a ghost and two jack-o'-lanterns" width="1200" height="420" loading="lazy" />
       </section>
       <section class="section wonderland" aria-labelledby="xmas-h">
-        <h2 id="xmas-h">🎄 Christmas Wonderland is here!</h2>
-        <p class="lede">Someone stole Christmas! Pick your villain, Jack Frost or Krampus, and chase him through the <b>Holiday Run</b>: a snowy forest, a frozen lake, Santa's workshop and Candy Cane Peaks, all on the beat of the Christmas classics. Then throw presents at him in his lair. Plus an <b>Advent Calendar</b> with a gift every day until Christmas, Secret Santa presents for your friends, and Christmas skins, trails and emotes. Until January 6.</p>
+        <span class="eyebrow soon-only">The Winter Wonderland update · December 1</span>
+        <span class="eyebrow live-only">The Winter Wonderland update · until January 6</span>
+        <h2 id="xmas-h"><span class="soon-only">🎄 Christmas Wonderland arrives December 1</span><span class="live-only">🎄 Christmas Wonderland is here!</span></h2>
+        <p class="lede">Someone stole Christmas! Pick your villain, Jack Frost or Krampus, and chase him through the <b>Holiday Run</b>: a snowy forest, a frozen lake, Santa's workshop and Candy Cane Peaks, all on the beat of the Christmas classics. It gets harder chapter by chapter, and in his lair you throw presents at him.</p>
+        <ul class="features xmas-list">
+          <li><b>Advent Calendar</b>A door a day from December 1 to 25, with a skin and trail behind door 25 you can't get anywhere else.</li>
+          <li><b>Secret Santa</b>Send a friend a wrapped present once a day. No messages, just wrapping paper.</li>
+          <li><b>Christmas shop</b>Gingerbread, Reindeer, Little Elf and Santa skins, plus snowy trails and festive emotes.</li>
+          <li><b>Jump on the beat</b>Every song is now mapped from its real drum hits, and one mode gets harder level by level.</li>
+        </ul>
         <img src="img/christmas-wonderland.webp" alt="The Polygon Rush runner in a Santa hat, a Christmas tree, presents, a snowman, Jack Frost and Krampus" width="1024" height="500" loading="lazy" />
       </section>
       <section class="section beta beta-only" aria-labelledby="beta-h">
@@ -84,7 +100,7 @@
         <h2 id="feat-h">What's inside</h2>
         <ul class="features">
           <li><b>Four shapes, one button</b>Jumper, Glider, Roller and Hopper each play differently.</li>
-          <li><b>Endless levels</b>Six worlds that speed up as you go. Every level has its own song, and the course is built to its beat.</li>
+          <li><b>Endless levels</b>One mode that gets harder level by level, across six worlds. Every level is a whole song, and every jump lands on its beat.</li>
           <li><b>Race and duel</b>CPU rivals, two players on one phone, or online rooms with a code.</li>
           <li><b>Friends</b>Add friends by Name#number, see who's online and invite them to race.</li>
           <li><b>Create</b>Build levels, share a code, or build together with up to 4 friends.</li>

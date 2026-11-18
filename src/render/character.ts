@@ -352,6 +352,61 @@ function fillPattern(ctx: CanvasRenderingContext2D, skin: SkinDef, s: number, t:
       ctx.fill();
       break;
     }
+    case 'gingerbread': {
+      // White icing squiggles at the edges, gumdrop buttons.
+      ctx.strokeStyle = acc;
+      ctx.lineWidth = Math.max(1, s * 0.06);
+      ctx.lineCap = 'round';
+      for (const y of [-0.5, 0.5]) {
+        ctx.beginPath();
+        for (let i = 0; i <= 8; i++) ctx.lineTo(-h + (i / 8) * h * 2, y * s + (i % 2 ? s * 0.06 : -s * 0.06));
+        ctx.stroke();
+      }
+      const drops = ['#e8304a', '#2fbf71'];
+      for (const [i, y] of [0.2, 0.36].entries()) {
+        ctx.fillStyle = drops[i];
+        ctx.beginPath();
+        ctx.arc(0, y * s, s * 0.06, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      break;
+    }
+    case 'sweater': {
+      // Knitted zigzag bands and a row of little white "snowflakes".
+      ctx.fillStyle = acc;
+      for (const y of [-0.45, 0.42]) {
+        ctx.beginPath();
+        ctx.moveTo(-h, y * s);
+        for (let i = 0; i <= 10; i++) ctx.lineTo(-h + (i / 10) * h * 2, y * s + (i % 2 ? s * 0.09 : -s * 0.05));
+        ctx.lineTo(h, y * s + s * 0.12);
+        ctx.lineTo(-h, y * s + s * 0.12);
+        ctx.closePath();
+        ctx.fill();
+      }
+      for (let i = -2; i <= 2; i++) {
+        const x = i * s * 0.22;
+        ctx.fillRect(x - s * 0.03, s * 0.22, s * 0.06, s * 0.06);
+      }
+      break;
+    }
+    case 'wrapped': {
+      // A ribbon crossing the box.
+      ctx.fillStyle = acc;
+      ctx.fillRect(-s * 0.09, -h, s * 0.18, h * 2);
+      ctx.fillRect(-h, s * 0.15, h * 2, s * 0.16);
+      break;
+    }
+    case 'santa': {
+      // Black belt with a gold buckle, white fur trim at the bottom.
+      ctx.fillStyle = '#1b1140';
+      ctx.fillRect(-h, s * 0.22, h * 2, s * 0.14);
+      ctx.strokeStyle = '#ffd23f';
+      ctx.lineWidth = Math.max(1, s * 0.04);
+      ctx.strokeRect(-s * 0.1, s * 0.21, s * 0.2, s * 0.16);
+      ctx.fillStyle = acc;
+      ctx.fillRect(-h, s * 0.5, h * 2, h);
+      break;
+    }
     case 'bones': {
       ctx.strokeStyle = acc;
       ctx.lineCap = 'round';
@@ -744,6 +799,79 @@ function drawExtras(ctx: CanvasRenderingContext2D, skin: SkinDef, s: number, sha
       ctx.closePath();
       ctx.fill();
     }
+  } else if (skin.topper === 'santa' && !behind) {
+    // Floppy red Santa hat with a white bobble.
+    ctx.fillStyle = '#e8304a';
+    ctx.strokeStyle = '#5a0a1a';
+    ctx.lineWidth = Math.max(1.2, s * 0.05);
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.36, top + s * 0.02);
+    ctx.quadraticCurveTo(-s * 0.1, top - s * 0.55, s * 0.38, top - s * 0.38);
+    ctx.lineTo(s * 0.18, top - s * 0.18);
+    ctx.lineTo(s * 0.36, top + s * 0.02);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.roundRect(-s * 0.42, top - s * 0.06, s * 0.84, s * 0.15, s * 0.07);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.arc(s * 0.4, top - s * 0.38, s * 0.09, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (skin.topper === 'tophat' && !behind) {
+    // Snowman's top hat with a red band.
+    ctx.fillStyle = '#1b1140';
+    ctx.fillRect(-s * 0.36, top - s * 0.02, s * 0.72, s * 0.08);
+    ctx.fillRect(-s * 0.22, top - s * 0.42, s * 0.44, s * 0.42);
+    ctx.fillStyle = '#e8304a';
+    ctx.fillRect(-s * 0.22, top - s * 0.12, s * 0.44, s * 0.07);
+  } else if (skin.topper === 'antlers' && behind) {
+    ctx.strokeStyle = '#6b4220';
+    ctx.lineWidth = Math.max(1.5, s * 0.08);
+    ctx.lineCap = 'round';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(side * s * 0.2, top + s * 0.04);
+      ctx.lineTo(side * s * 0.32, top - s * 0.32);
+      ctx.moveTo(side * s * 0.26, top - s * 0.14);
+      ctx.lineTo(side * s * 0.45, top - s * 0.22);
+      ctx.moveTo(side * s * 0.3, top - s * 0.26);
+      ctx.lineTo(side * s * 0.18, top - s * 0.42);
+      ctx.stroke();
+    }
+  } else if (skin.topper === 'elf' && !behind) {
+    // Pointy green elf hat with a red band and a bell.
+    ctx.fillStyle = '#1f9a55';
+    ctx.strokeStyle = '#0e4a26';
+    ctx.lineWidth = Math.max(1.2, s * 0.05);
+    ctx.beginPath();
+    ctx.moveTo(-s * 0.34, top + s * 0.02);
+    ctx.lineTo(s * 0.34, top + s * 0.02);
+    ctx.quadraticCurveTo(s * 0.1, top - s * 0.3, -s * 0.38, top - s * 0.55);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#e8304a';
+    ctx.fillRect(-s * 0.34, top - s * 0.05, s * 0.68, s * 0.08);
+    ctx.fillStyle = '#ffd23f';
+    ctx.beginPath();
+    ctx.arc(-s * 0.38, top - s * 0.55, s * 0.07, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (skin.topper === 'bow' && !behind) {
+    // A big gift bow on top.
+    ctx.fillStyle = skin.accent;
+    ctx.strokeStyle = darken(skin.accent, 0.4);
+    ctx.lineWidth = Math.max(1, s * 0.04);
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(side * s * 0.17, top - s * 0.08, s * 0.18, s * 0.11, side * 0.5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.arc(0, top - s * 0.06, s * 0.07, 0, Math.PI * 2);
+    ctx.fill();
   } else if (skin.face === 'robot' && behind) {
     ctx.strokeStyle = skin.outline;
     ctx.lineWidth = Math.max(1.2, s * 0.05);
@@ -941,6 +1069,61 @@ export function drawParticleShape(ctx: CanvasRenderingContext2D, style: string, 
       g.addColorStop(1, rgba(color.startsWith('#') ? color : '#ffffff', 0));
       ctx.fillStyle = g;
       ctx.fillRect(x - r * 1.6, y - r * 1.6, r * 3.2, r * 3.2);
+      break;
+    }
+    case 'snow': {
+      // A little six-armed snowflake.
+      ctx.lineWidth = Math.max(1, r * 0.3);
+      ctx.beginPath();
+      for (let k = 0; k < 3; k++) {
+        const a = rot * 0.5 + (k / 3) * Math.PI;
+        ctx.moveTo(x - Math.cos(a) * r, y - Math.sin(a) * r);
+        ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r);
+      }
+      ctx.stroke();
+      break;
+    }
+    case 'lights': {
+      // A Christmas bulb with a glow.
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2);
+      g.addColorStop(0, rgba(color, 0.5));
+      g.addColorStop(1, rgba(color, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(x - r * 2, y - r * 2, r * 4, r * 4);
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.ellipse(x, y + r * 0.2, r * 0.6, r * 0.85, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#c0c0c8';
+      ctx.fillRect(x - r * 0.3, y - r * 0.9, r * 0.6, r * 0.4);
+      break;
+    }
+    case 'canes': {
+      // A tumbling candy cane.
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rot);
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(1.5, r * 0.5);
+      ctx.strokeStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.moveTo(0, r * 1.2);
+      ctx.lineTo(0, -r * 0.4);
+      ctx.arc(r * 0.45, -r * 0.4, r * 0.45, Math.PI, 0);
+      ctx.stroke();
+      ctx.strokeStyle = '#e8304a';
+      ctx.setLineDash([r * 0.35, r * 0.35]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+      break;
+    }
+    case 'aurora': {
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r * 2.2);
+      g.addColorStop(0, rgba(color, 0.6));
+      g.addColorStop(1, rgba(color, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(x - r * 2.2, y - r * 2.2, r * 4.4, r * 4.4);
       break;
     }
     case 'rainbow':

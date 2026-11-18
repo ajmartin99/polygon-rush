@@ -20,6 +20,7 @@ export interface EmoteDef {
 
 const gems = (price: number): Unlock => ({ kind: 'gems', price });
 const spooky = (price: number): Unlock => ({ kind: 'event', event: 'halloween', price });
+const xmas = (price: number): Unlock => ({ kind: 'event', event: 'christmas', price });
 
 /** Order is the wire format: only ever append. */
 export const EMOTES: EmoteDef[] = [
@@ -42,6 +43,12 @@ export const EMOTES: EmoteDef[] = [
   { id: 'candy', name: 'Trick or Treat', glyph: '🍬', anim: 'spin', rarity: 'epic', unlock: spooky(500) },
   // Beta testers only (1.0.x)
   { id: 'tester', name: 'Beta Tester', glyph: '🧪', anim: 'bounce', rarity: 'legendary', unlock: { kind: 'beta' } },
+  // Christmas Wonderland
+  { id: 'xtree', name: 'Christmas Tree', glyph: '🎄', anim: 'pop', rarity: 'rare', unlock: xmas(300) },
+  { id: 'xsnowman', name: 'Snowman', glyph: '⛄', anim: 'bounce', rarity: 'rare', unlock: xmas(300) },
+  { id: 'xgift', name: 'Present!', glyph: '🎁', anim: 'shake', rarity: 'epic', unlock: xmas(500) },
+  { id: 'xdeer', name: 'Reindeer', glyph: '🦌', anim: 'wave', rarity: 'epic', unlock: xmas(500) },
+  { id: 'xbells', name: 'Jingle Bells', glyph: '🔔', anim: 'spin', rarity: 'epic', unlock: xmas(600) },
 ];
 
 export function emoteIndex(id: string): number {

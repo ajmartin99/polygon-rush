@@ -3150,6 +3150,11 @@ button.player-slot {
   color: #fff;
 }
 
+.equipped-tag.xmas {
+  background: linear-gradient(90deg, #e8304a, #2fbf71);
+  color: #fff;
+}
+
 .event-chip {
   display: flex;
   align-items: center;

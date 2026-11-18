@@ -1,3 +1,4 @@
+import type { EventId } from './events';
 /**
  * Cosmetic catalog. Skins decorate the player polygon in every shape mode;
  * trails are particle effects left behind while rushing.
@@ -24,10 +25,14 @@ export type Pattern =
   | 'cape'
   | 'bones'
   | 'rip'
-  | 'cornstripe';
+  | 'cornstripe'
+  | 'gingerbread'
+  | 'sweater'
+  | 'wrapped'
+  | 'santa';
 export type Face = 'cute' | 'happy' | 'cool' | 'cat' | 'robot' | 'star' | 'sleepy' | 'wink' | 'dino' | 'jack' | 'ghost' | 'mummy' | 'vampire' | 'skull';
 /** Something worn on top (drawn behind the body outline). */
-export type Topper = 'stem' | 'witch' | 'bat';
+export type Topper = 'stem' | 'witch' | 'bat' | 'santa' | 'tophat' | 'antlers' | 'elf' | 'bow';
 /** A different body outline (cosmetic only: the hitbox never changes). */
 export type Silhouette = 'ghost' | 'pumpkin' | 'tombstone' | 'skull' | 'candycorn';
 
@@ -41,7 +46,11 @@ export type Unlock =
   /** Given to beta testers (1.0.x) only; never sold. */
   | { kind: 'beta' }
   /** Seasonal: buyable (or the free gift) only while the event is on; owned forever. */
-  | { kind: 'event'; event: 'halloween'; price: number };
+  | { kind: 'event'; event: EventId; price: number }
+  /** Christmas: beat the Holiday Run on Hard. */
+  | { kind: 'hero' }
+  /** Christmas: behind a door of the Advent Calendar. */
+  | { kind: 'advent' };
 
 export interface SkinDef {
   id: string;
@@ -66,7 +75,7 @@ export interface TrailDef {
   rarity: Rarity;
   unlock: Unlock;
   colors: string[];
-  style: 'none' | 'lines' | 'sparkle' | 'bubbles' | 'hearts' | 'stars' | 'notes' | 'pixels' | 'rainbow' | 'comet' | 'confetti' | 'bats' | 'candycorn' | 'mist';
+  style: 'none' | 'lines' | 'sparkle' | 'bubbles' | 'hearts' | 'stars' | 'notes' | 'pixels' | 'rainbow' | 'comet' | 'confetti' | 'bats' | 'candycorn' | 'mist' | 'snow' | 'lights' | 'canes' | 'aurora';
 }
 
 export const RARITY_COLORS: Record<Rarity, string> = {
@@ -85,6 +94,7 @@ export const RARITY_LABEL: Record<Rarity, string> = {
 
 const gems = (price: number): Unlock => ({ kind: 'gems', price });
 const spooky = (price: number): Unlock => ({ kind: 'event', event: 'halloween', price });
+const xmas = (price: number): Unlock => ({ kind: 'event', event: 'christmas', price });
 
 export const SKINS: SkinDef[] = [
   { id: 'classic', name: 'Classic', rarity: 'common', unlock: { kind: 'free' }, body: '#ffd23f', accent: '#ff9f1c', outline: '#3b2a00', pattern: 'solid', face: 'cute' },
@@ -125,6 +135,16 @@ export const SKINS: SkinDef[] = [
   { id: 'skullhead', name: 'Bone Head', rarity: 'legendary', unlock: spooky(2400), body: '#f2f0e6', accent: '#c9c4b0', outline: '#1c1a26', pattern: 'solid', face: 'skull', silhouette: 'skull' },
   { id: 'cornkid', name: 'Candy Corn Kid', rarity: 'rare', unlock: spooky(1200), body: '#ffffff', accent: '#ff8a1f', outline: '#5a2a00', pattern: 'cornstripe', face: 'happy', silhouette: 'candycorn' },
   { id: 'bones', name: 'Rattle Bones', rarity: 'legendary', unlock: spooky(2500), body: '#1c1a26', accent: '#f2f0e6', outline: '#000000', pattern: 'bones', face: 'skull' },
+  // Christmas Wonderland
+  { id: 'snowman', name: 'Snowman', rarity: 'epic', unlock: xmas(0), body: '#f4f9ff', accent: '#e8304a', outline: '#3a5a8a', pattern: 'solid', face: 'happy', topper: 'tophat' },
+  { id: 'gingerbread', name: 'Gingerbread', rarity: 'rare', unlock: xmas(800), body: '#b8733a', accent: '#ffffff', outline: '#4a2610', pattern: 'gingerbread', face: 'cute' },
+  { id: 'reindeer', name: 'Reindeer', rarity: 'rare', unlock: xmas(900), body: '#9a6a42', accent: '#e8d2b0', outline: '#3a2410', pattern: 'split', face: 'happy', topper: 'antlers' },
+  { id: 'sweater', name: 'Christmas Jumper', rarity: 'rare', unlock: xmas(900), body: '#d61f3a', accent: '#ffffff', outline: '#5a0a1a', pattern: 'sweater', face: 'wink' },
+  { id: 'elf', name: 'Little Elf', rarity: 'epic', unlock: xmas(1200), body: '#2fbf71', accent: '#e8304a', outline: '#0e4a26', pattern: 'stripes', face: 'wink', topper: 'elf' },
+  { id: 'giftbox', name: 'Gift Box', rarity: 'epic', unlock: xmas(1400), body: '#3e7bff', accent: '#ffd23f', outline: '#122a6a', pattern: 'wrapped', face: 'cute', topper: 'bow' },
+  { id: 'santa', name: 'Santa Claus', rarity: 'epic', unlock: xmas(1800), body: '#e8304a', accent: '#ffffff', outline: '#5a0a1a', pattern: 'santa', face: 'happy', topper: 'santa' },
+  { id: 'hero', name: 'Holiday Hero', rarity: 'legendary', unlock: { kind: 'hero' }, body: '#ffd84a', accent: '#e8304a', outline: '#5a3b00', pattern: 'gold', face: 'star', topper: 'santa' },
+  { id: 'starlight', name: 'Starlight', rarity: 'legendary', unlock: { kind: 'advent' }, body: '#1a2a6a', accent: '#ffd23f', outline: '#ffd23f', pattern: 'galaxy', face: 'star' },
 ];
 
 export const TRAILS: TrailDef[] = [
@@ -144,6 +164,11 @@ export const TRAILS: TrailDef[] = [
   { id: 'debug', name: 'Debug Pixels', rarity: 'legendary', unlock: { kind: 'beta' }, colors: ['#3ee6b0', '#7b5cff', '#ffffff'], style: 'pixels' },
   { id: 'bats', name: 'Bat Swarm', rarity: 'epic', unlock: spooky(1000), colors: ['#1c1030', '#3a1f5a'], style: 'bats' },
   { id: 'mist', name: 'Ghostly Mist', rarity: 'epic', unlock: spooky(1000), colors: ['#c9ffd9', '#b9a8ff', '#ffffff'], style: 'mist' },
+  // Christmas Wonderland
+  { id: 'snowfall', name: 'Snowfall', rarity: 'rare', unlock: xmas(500), colors: ['#ffffff', '#dff2ff'], style: 'snow' },
+  { id: 'lights', name: 'String Lights', rarity: 'epic', unlock: xmas(1000), colors: ['#ff4f5e', '#ffd23f', '#3ad7ff', '#3ee6b0'], style: 'lights' },
+  { id: 'canes', name: 'Candy Canes', rarity: 'epic', unlock: xmas(1000), colors: ['#e8304a', '#ffffff'], style: 'canes' },
+  { id: 'aurora', name: 'Northern Lights', rarity: 'legendary', unlock: { kind: 'advent' }, colors: ['#5affb0', '#5ac8ff', '#c27bff'], style: 'aurora' },
 ];
 
 export const skinById = (id: string): SkinDef => SKINS.find((s) => s.id === id) ?? SKINS[0];
@@ -165,8 +190,14 @@ export function unlockLabel(u: Unlock): string {
       return 'Legend Pack';
     case 'beta':
       return 'Beta testers';
-    case 'event':
-      return u.price ? `🎃 ${u.price}` : '🎃 Free gift';
+    case 'event': {
+      const icon = u.event === 'christmas' ? '🎄' : '🎃';
+      return u.price ? `${icon} ${u.price}` : `${icon} Free gift`;
+    }
+    case 'hero':
+      return 'Beat the Holiday Run';
+    case 'advent':
+      return 'Advent Calendar';
   }
 }
 

@@ -2,7 +2,7 @@ import type { SaveData } from '../state/save';
 import type { IconName } from '../ui/icons';
 import { SKINS, TRAILS } from './catalog';
 
-const HALLOWEEN_IDS = new Set([...SKINS, ...TRAILS].filter((i) => i.unlock.kind === 'event').map((i) => i.id));
+const HALLOWEEN_IDS = new Set([...SKINS, ...TRAILS].filter((i) => i.unlock.kind === 'event' && i.unlock.event === 'halloween').map((i) => i.id));
 
 /**
  * Player profiles are made only of game facts: badges earned from stats, a

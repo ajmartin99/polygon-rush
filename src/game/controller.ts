@@ -24,6 +24,9 @@ import { SECRET_LEVELS } from './generator';
 import { DIFFICULTY_GEM_RATE, DT, MODE_INDEX, RACE_DIFFICULTY_OFFSET, RACE_SPEED } from './constants';
 import { activeEvent, SPOOKY } from '../meta/events';
 import { STORY_PALETTES, type StoryView } from '../render/haunted-scenery';
+import { holidayPalette, type HolidayView } from '../render/holiday-scenery';
+import { holidayChapters, holidayPayout, VILLAINS } from '../meta/holiday';
+import { grantHolidayHero } from '../meta/wonderland';
 import { MAX_START_LEVEL, clampStartLevel, levelStart, levelWorld } from '../meta/modes';
 import { endlessBestKey } from '../state/save';
 import { DAILY_REWARD, DAILY_TARGET, GEM_RUSH_SECONDS, LIGHTS_OUT_GEM_RATE, VARIANT_INFO, dailyRewardKey, dailySeed, dailyTwist, pruneDaily, variantBestKey, type EndlessVariant } from '../meta/modes';
@@ -266,6 +269,13 @@ export class GameController {
           const { hp } = witchHealth(req.level, fromX);
           this.boss = { name: WITCH_NAME, shape: 'witch', color: '#7cff4f', fromX, hp, max: hp, hit: 0, shot: 0, down: 0 };
         }
+        // The Holiday Run ends in the villain's lair: throw the glowing presents at him.
+        if (req.holiday && req.chapters && req.chapters.length === 5) {
+          const fromX = req.chapters[4];
+          const { hp } = witchHealth(req.level, fromX);
+          const v = VILLAINS[req.holiday.villain];
+          this.boss = { name: v.name, shape: v.id, color: v.color, fromX, hp, max: hp, hit: 0, shot: 0, down: 0 };
+        }
         this.storyChapter = -1;
         break;
       }
@@ -380,9 +390,9 @@ export class GameController {
       if (d.stats.runs === 0) hud.showHint('Tap or hold anywhere to play!', 'Avoid spikes, grab gems', 3200, '22%');
       else if (this.variant === 'lightsout') hud.showHint('Lights Out!', 'Your candle flickers with the beat. Feel the rhythm!', 2600, '24%');
     } else if (this.kind === 'custom' && req.mode === 'custom') {
-      music.level(req.level.music, req.level.theme, !!req.haunted);
+      music.level(req.level.music, req.level.theme, !!req.haunted || !!req.holiday);
       const track = trackOf(req.level.music);
-      if (track && !req.haunted && !req.boss) ui.toast(`♪ ${track.title} by ${track.artist} (${track.license})`, 'music', 3000);
+      if (track && !req.haunted && !req.holiday && !req.boss) ui.toast(`♪ ${track.title} by ${track.artist} (${track.license})`, 'music', 3000);
       audio.intensity = 0.7;
       this.go();
       hud.showHint(levelName(req.level), req.level.authors.length ? `by ${req.level.authors.join(', ')}` : 'Tap or hold to play!', 1800, '40%');
@@ -558,7 +568,7 @@ export class GameController {
     b.down = 1;
     r.invuln = 10;
     this.renderer.fx.addShake(0.6);
-    this.hud?.showHint(`${b.name} defeated!`, b.shape === 'witch' ? 'The Harvest Moon is free!' : 'You win!', 1800, '30%');
+    this.hud?.showHint(`${b.name} defeated!`, b.shape === 'witch' ? 'The Harvest Moon is free!' : b.shape === 'frost' || b.shape === 'krampus' ? 'Christmas is saved!' : 'You win!', 1800, '30%');
     setTimeout(() => audio.play('newBest'), 250);
     if (this.phase === 'running') {
       this.phase = 'finishing';
@@ -739,6 +749,7 @@ export class GameController {
       secretsFound: store.data.secrets.found,
       boss: this.kind === 'custom' && this.phase !== 'results' ? this.boss : null,
       story: this.storyView(),
+      holiday: this.holidayView(),
       lightsOut: this.kind === 'endless' && this.variant === 'lightsout' ? candleAt(audio.beatPhase(), performance.now() / 1000, store.settings.reducedMotion) : undefined,
     });
     if (this.kind === 'attract' || this.phase === 'results') return;
@@ -766,6 +777,9 @@ export class GameController {
     const s = this.session;
     // Spooky Season: the menu backdrop and the Haunted Run are haunted.
     if (this.kind === 'attract' && activeEvent()?.id === 'halloween') return SPOOKY;
+    if (this.kind === 'custom' && this.req?.mode === 'custom' && this.req.holiday && this.req.chapters) {
+      return holidayPalette(chapterAt(this.req.chapters, x), this.req.holiday.villain === 'krampus');
+    }
     if (this.kind === 'custom' && this.req?.mode === 'custom' && this.req.haunted) {
       const ch = this.req.chapters;
       return ch ? STORY_PALETTES[chapterAt(ch, x)] : SPOOKY;
@@ -785,13 +799,25 @@ export class GameController {
   /** Haunted Run: which chapter's scenery to draw, fading into the next over its last 10 tiles. */
   private storyView(): StoryView | undefined {
     const req = this.req;
-    if (this.kind !== 'custom' || req?.mode !== 'custom' || !req.chapters) return undefined;
+    if (this.kind !== 'custom' || req?.mode !== 'custom' || !req.chapters || !req.haunted) return undefined;
     const ch = req.chapters;
     const x = this.session?.racers[0]?.x ?? 0;
     const c = chapterAt(ch, x);
     const next = ch[c + 1];
     const fade = next === undefined ? 0 : Math.min(1, Math.max(0, (x - (next - 10)) / 10));
     return { chapter: c, fade, moonFree: !!this.boss && this.boss.hp <= 0 };
+  }
+
+  /** Holiday Run: which chapter's scenery to draw, fading into the next over its last 10 tiles. */
+  private holidayView(): HolidayView | undefined {
+    const req = this.req;
+    if (this.kind !== 'custom' || req?.mode !== 'custom' || !req.chapters || !req.holiday) return undefined;
+    const ch = req.chapters;
+    const x = this.session?.racers[0]?.x ?? 0;
+    const c = chapterAt(ch, x);
+    const next = ch[c + 1];
+    const fade = next === undefined ? 0 : Math.min(1, Math.max(0, (x - (next - 10)) / 10));
+    return { chapter: c, fade, krampus: req.holiday.villain === 'krampus', saved: !!this.boss && this.boss.hp <= 0 };
   }
 
   /** Haunted Run: a title card as you reach each chapter of the story. */
@@ -801,9 +827,9 @@ export class GameController {
     const c = chapterAt(req.chapters, this.session!.racers[0].x);
     if (c === this.storyChapter) return;
     this.storyChapter = c;
-    const ch = HAUNTED_CHAPTERS[c];
+    const ch = req.holiday ? holidayChapters(req.holiday.villain)[c] : HAUNTED_CHAPTERS[c];
     if (ch) this.hud?.showHint(ch.name, ch.line, 2600, '26%');
-    if (ch?.id === 'roof') audio.play('portal');
+    if (ch?.id === 'roof' || ch?.id === 'lair') audio.play('portal');
   }
 
   private progressEvents(): void {
@@ -861,7 +887,7 @@ export class GameController {
       audio.intensity = Math.min(1, 0.55 + me.distance / 600);
       // Haunted Run: the course is charted to Swing Along, so keep the song exactly where the runner is.
       const req = this.req;
-      if (req?.mode === 'custom' && (req.haunted || req.boss) && this.phase === 'running' && ++this.syncTick % 10 === 0) {
+      if (req?.mode === 'custom' && (req.haunted || req.holiday || req.boss) && this.phase === 'running' && ++this.syncTick % 10 === 0) {
         audio.syncTo(req.haunted ? HAUNTED_TRACK : req.level.music, Math.max(0, (me.x - (LEVEL_START_X + 0.5)) / levelSpeed(req.level)), 0.06, 900);
       }
     } else if (this.kind !== 'attract') {
@@ -1052,7 +1078,7 @@ export class GameController {
     const report = (e: MissionEvent) => {
       for (const m of reportMission(d, e, 1)) missions.push(describe(m));
     };
-    if (completed && fromStart && !req.haunted && !req.boss) {
+    if (completed && fromStart && !req.haunted && !req.holiday && !req.boss) {
       if (req.test && verifiedNow) report('level_verify');
       else if (!req.test && level.origin !== 'mine' && level.length >= 60) report('custom_clear');
     }
@@ -1071,6 +1097,25 @@ export class GameController {
         missions.push(`You reached the end, but ${WITCH_NAME} got away. +${pay} gems`);
         if (this.boss) missions.push(`She had ${this.boss.hp} of ${this.boss.max} health left. Grab the glowing orbs on the rooftop!`);
       } else if (pay > 0) missions.push(`Haunted Run: +${pay} gems${diff === 'easy' ? ' (Easy pays half)' : ''}`);
+      d.stats.gemsCollected += r.gems;
+    }
+    if (req.holiday) {
+      const { diff, villain } = req.holiday;
+      const h = d.holiday;
+      const name = VILLAINS[villain].name;
+      const beaten = completed && !!this.boss && this.boss.hp <= 0;
+      const pay = holidayPayout(diff, r.gems, completed, beaten);
+      if (pay > 0) store.addGems(pay);
+      h.best[diff] = Math.max(h.best[diff], progress);
+      if (completed) h.clears[diff] += 1;
+      if (beaten) {
+        missions.push(`${name} beaten on ${diff === 'hard' ? 'Hard' : 'Easy'}! Christmas is saved. +${pay} gems`);
+        // The first win on Hard earns the Holiday Hero skin.
+        if (diff === 'hard' && grantHolidayHero(d)) missions.push('New skin: Holiday Hero! It’s yours for good.');
+      } else if (completed) {
+        missions.push(`You reached the end, but ${name} got away. +${pay} gems`);
+        if (this.boss) missions.push(`He had ${this.boss.hp} of ${this.boss.max} health left. Grab the glowing presents in his lair!`);
+      } else if (pay > 0) missions.push(`Holiday Run: +${pay} gems${diff === 'easy' ? ' (Easy pays half)' : ''}`);
       d.stats.gemsCollected += r.gems;
     }
     const boss = this.boss;
@@ -1111,8 +1156,10 @@ export class GameController {
             ? { big: 'VICTORY!', sub: `You beat ${this.boss.name}!` }
             : req.haunted && completed && this.boss && this.boss.hp <= 0
               ? { big: 'VICTORY!', sub: `${WITCH_NAME} tumbles off her broom. The Harvest Moon is free!` }
-              : undefined,
-        notesTitle: req.boss ? (completed ? 'Boss defeated!' : r.dead ? 'Knocked out!' : 'It got away!') : req.haunted ? 'Haunted Run' : undefined,
+              : req.holiday && completed && this.boss && this.boss.hp <= 0
+                ? { big: 'MERRY CHRISTMAS!', sub: `You beat ${this.boss.name} and saved Christmas!` }
+                : undefined,
+        notesTitle: req.boss ? (completed ? 'Boss defeated!' : r.dead ? 'Knocked out!' : 'It got away!') : req.haunted ? 'Haunted Run' : req.holiday ? 'Holiday Run' : undefined,
         rate: req.rate,
       },
       {
@@ -1181,8 +1228,10 @@ export class GameController {
         this.phase = 'finishing';
         // A boss still standing when the song ends gets away.
         const escaped = !!this.boss && this.boss.hp > 0;
-        const witch = this.boss?.shape === 'witch';
-        if (escaped) this.hud?.showHint(witch ? `${this.boss!.name} got away with the moon!` : `${this.boss!.name} got away!`, witch ? 'You made it to the end, though!' : '', 1600, '30%');
+        const shape = this.boss?.shape;
+        const witch = shape === 'witch' || shape === 'frost' || shape === 'krampus';
+        const loot = shape === 'witch' ? ' with the moon' : witch ? ' with the presents' : '';
+        if (escaped) this.hud?.showHint(`${this.boss!.name} got away${loot}!`, witch ? 'You made it to the end, though!' : '', 1600, '30%');
         // The Haunted Run counts reaching the end as a clear even if the witch escapes.
         this.finishTimer = window.setTimeout(() => this.endLevel(r, !escaped || witch), 1400);
       }

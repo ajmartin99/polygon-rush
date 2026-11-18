@@ -268,6 +268,20 @@ export class Effects {
           case 'mist':
             this.spawn({ x: behind, y: b.y + jitter * 0.6, vy: 0.6, size: 0.2, grow: 1.6, max: 0.9, color: c, style: 'mist', back: true });
             break;
+          case 'snow':
+            // Flakes drift down and sway behind you.
+            this.spawn({ x: behind, y: b.y + 0.3 + jitter, vx: -0.4, vy: -0.6, size: 0.12, grow: 0.6, max: 1.2, color: c, style: 'snow', vr: 2, back: true });
+            break;
+          case 'lights':
+            // A string of bulbs left hanging in the air.
+            this.spawn({ x: behind, y: b.y + Math.sin(performance.now() / 120) * 0.12, size: 0.12, grow: 0.1, max: 0.8, color: trail.colors[Math.floor(performance.now() / 90) % trail.colors.length], style: 'lights', back: true });
+            break;
+          case 'canes':
+            this.spawn({ x: behind, y: b.y + jitter, vx: -1, vy: 1.8, g: -6, size: 0.14, grow: 1, max: 0.9, color: c, style: 'canes', vr: 6, back: true });
+            break;
+          case 'aurora':
+            this.spawn({ x: behind, y: b.y + jitter * 0.5 + 0.2, vy: 0.4, size: 0.24, grow: 1.4, max: 1.1, color: trail.colors[Math.floor(performance.now() / 300) % trail.colors.length], style: 'aurora', back: true });
+            break;
           default:
             this.spawn({ x: behind, y: b.y + jitter, vy: (Math.random() - 0.5) * 0.6, size: trail.style === 'lines' ? 0.08 : 0.13, grow: 0.2, max: 0.6, color: c, style: trail.style, vr: 3, back: true });
         }

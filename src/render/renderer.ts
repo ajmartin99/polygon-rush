@@ -1,6 +1,7 @@
 import { drawGhost, drawPumpkin, drawWitch, drawZombie } from './spooky';
 import { drawStoryScenery, type StoryView } from './haunted-scenery';
-import { drawWonderMob } from './wonderland';
+import { drawJackFrost, drawKrampus, drawPresentOrb, drawWonderMob } from './wonderland';
+import { drawHolidayScenery, drawSleigh, type HolidayView } from './holiday-scenery';
 import type { MobKind } from '../game/world';
 import { CEIL, VIEW_BOTTOM, VIEW_H, VIEW_TOP } from '../game/constants';
 import type { GameSession } from '../game/session';
@@ -63,12 +64,14 @@ export interface RenderOptions {
   boss?: BossView | null;
   /** Haunted Run: the story chapter's own scenery instead of the world background. */
   story?: StoryView;
+  /** Holiday Run: its chapter's scenery (snowy, festive), the sleigh in Candy Cane Peaks. */
+  holiday?: HolidayView;
 }
 
 /** What the renderer needs to draw a boss fight. */
 export interface BossView {
   name: string;
-  shape: 'square' | 'triangle' | 'hexagon' | 'witch';
+  shape: 'square' | 'triangle' | 'hexagon' | 'witch' | 'frost' | 'krampus';
   /** The fight starts here (the Haunted Run's witch flies in at the rooftop); 0 = from the start. */
   fromX: number;
   color: string;
@@ -195,6 +198,8 @@ export class Renderer {
   private bossFight = false;
   /** Big gems from here on are the boss's charge orbs. */
   private bossFrom = 0;
+  /** Holiday Run: the charge orbs are glowing presents. */
+  private presents = false;
   private beatPhase = 0;
   private secretsFound: readonly number[] = [];
 
@@ -205,6 +210,7 @@ export class Renderer {
     this.haunted = !!opts.haunted || !!opts.story;
     this.bossFight = !!opts.boss;
     this.bossFrom = opts.boss?.fromX ?? 0;
+    this.presents = opts.boss?.shape === 'frost' || opts.boss?.shape === 'krampus';
     this.beatPhase = opts.beat;
     this.secretsFound = opts.secretsFound ?? [];
     const r = view.rect;
@@ -227,6 +233,7 @@ export class Renderer {
     const x1 = cam.x + r.w / s + 3;
 
     if (opts.story) drawStoryScenery(ctx, r, cam, opts.story, time, opts.beat, this.detail, this.fx.reducedMotion);
+    else if (opts.holiday) drawHolidayScenery(ctx, r, cam, opts.holiday, time, opts.beat, this.detail, this.fx.reducedMotion);
     else this.drawBackground(r, cam, pal, time, opts.beat);
     if (this.highContrast) {
       ctx.fillStyle = 'rgba(6,3,18,0.5)';
@@ -248,6 +255,8 @@ export class Renderer {
       const near = Math.abs(other.x - me.x) < 1.4 && Math.abs(other.body.y - me.body.y) < 1.6;
       this.drawRacer(other, sx, sy, s, time, 0.6, pal, !near);
     }
+    // Candy Cane Peaks: the Glider rides Santa's sleigh.
+    if (opts.holiday?.chapter === 3 && !me.dead && !opts.noRacers && me.body.mode === 'triangle') drawSleigh(ctx, sx(me.x), sy(me.body.y) + s * 0.45, s * 0.8, time);
     if (!me.dead && !opts.noRacers) this.drawRacer(me, sx, sy, s, time, 1, pal);
     this.fx.draw(ctx, sx, sy, s, false, x0, x1);
     // A boss that joins later (the witch) flies in as you get close.
@@ -300,7 +309,8 @@ export class Renderer {
           break;
         case 'gem':
           if (collected?.has(o.id)) break;
-          if (this.bossFight && o.big && o.x >= this.bossFrom) this.drawChargeOrb(sx(o.x), sy(o.y), s, time + o.x);
+          if (this.bossFight && o.big && o.x >= this.bossFrom && this.presents) drawPresentOrb(this.ctx, sx(o.x), sy(o.y), s, time + o.x);
+          else if (this.bossFight && o.big && o.x >= this.bossFrom) this.drawChargeOrb(sx(o.x), sy(o.y), s, time + o.x);
           else this.drawGem(sx(o.x), sy(o.y) + Math.sin(time * 4 + o.x) * s * 0.06, s, o.big, time + o.x);
           break;
         case 'pickup':
@@ -979,6 +989,22 @@ export class Renderer {
         ctx.translate(0, (1 - b.down) * s * 4);
       }
       drawWitch(ctx, s * 1.25, time, b.hit > 0, this.beatPhase);
+      ctx.restore();
+      if (enter >= 1) this.drawBossBar(b, r);
+      return;
+    }
+    if (b.shape === 'frost' || b.shape === 'krampus') {
+      this.drawShot(b, me, bx, by, sx, sy, s);
+      ctx.save();
+      ctx.translate(bx, by);
+      if (b.down > 0) {
+        // Beaten: he spins away into the night.
+        ctx.rotate((1 - b.down) * 5);
+        ctx.globalAlpha = b.down;
+        ctx.translate((1 - b.down) * s * 4, -(1 - b.down) * s * 3);
+      }
+      if (b.shape === 'frost') drawJackFrost(ctx, s * 1.25, time, b.hit > 0, this.beatPhase);
+      else drawKrampus(ctx, s * 1.25, time, b.hit > 0, this.beatPhase);
       ctx.restore();
       if (enter >= 1) this.drawBossBar(b, r);
       return;

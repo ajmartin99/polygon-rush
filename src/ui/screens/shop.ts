@@ -19,7 +19,7 @@ import { h, ic, fmt, clear } from '../dom';
 import { nav } from '../nav';
 import { previewCanvas, updatePreview } from '../preview';
 import { ui } from '../ui';
-import { activeEvent, eventEndLabel } from '../../meta/events';
+import { activeEvent, eventEndLabel, type EventId } from '../../meta/events';
 import { EMOTES } from '../../meta/emotes';
 import { packLines, PHRASE_PACKS } from '../../meta/quickchat';
 
@@ -176,10 +176,13 @@ export class ShopScreen extends BaseScreen {
     const isSkin = kind === 'skins';
     const ev = activeEvent();
     const all: (SkinDef | TrailDef)[] = isSkin ? SKINS : TRAILS;
-    const isEvent = (i: SkinDef | TrailDef) => i.unlock.kind === 'event';
+    const seasonal = (i: SkinDef | TrailDef) => i.unlock.kind === 'event' || i.unlock.kind === 'hero' || i.unlock.kind === 'advent';
+    // This season's items: its shop items, and at Christmas the Holiday Run and Advent Calendar rewards.
+    const isEvent = (i: SkinDef | TrailDef) => (i.unlock.kind === 'event' && i.unlock.event === ev?.id) || (ev?.id === 'christmas' && (i.unlock.kind === 'hero' || i.unlock.kind === 'advent'));
     const ownsItem = (i: SkinDef | TrailDef) => (isSkin ? store.ownsSkin(i.id) : store.ownsTrail(i.id));
-    // Seasonal items lead the list while their event is on; afterwards only owned ones show.
-    const items = ev ? [...all.filter(isEvent), ...all.filter((i) => !isEvent(i))] : all.filter((i) => !isEvent(i) || ownsItem(i));
+    // Seasonal items lead the list while their event is on; other seasons' items only show once owned.
+    const others = all.filter((i) => !isEvent(i) && (!seasonal(i) || ownsItem(i)));
+    const items = ev ? [...all.filter(isEvent), ...others] : others;
     let selected = isSkin ? store.data.skins.equipped : store.data.trails.equipped;
 
     const preview = previewCanvas(
@@ -216,7 +219,7 @@ export class ShopScreen extends BaseScreen {
         const card = h(
           'div.item',
           { 'data-id': item.id, style: `--rc:${RARITY_COLORS[item.rarity]}` },
-          equipped ? h('span.equipped-tag', null, 'EQUIPPED') : isEvent(item) && ev && !owned ? h('span.equipped-tag.spooky', null, 'HALLOWEEN') : item.unlock.kind === 'beta' ? h('span.equipped-tag.beta', null, 'BETA') : null,
+          equipped ? h('span.equipped-tag', null, 'EQUIPPED') : isEvent(item) && ev && !owned ? eventTag(ev.id) : item.unlock.kind === 'beta' ? h('span.equipped-tag.beta', null, 'BETA') : null,
           isSkin
             ? previewCanvas({ skin: item.id, scale: 0.62 })
             : previewCanvas({ skin: store.data.skins.equipped, scale: 0.5, trail: item.id, animate: true }),
@@ -326,11 +329,20 @@ export class ShopScreen extends BaseScreen {
         info.textContent = 'Part of the Legend Pack.';
         wrap.appendChild(button({ label: 'See Legend Pack', icon: 'crown', cls: 'yellow', onClick: () => this.goGems() }));
         break;
+      case 'hero':
+        info.textContent = 'Beat the Holiday Run on Hard to earn it. It can’t be bought.';
+        wrap.appendChild(button({ label: 'Holiday Run', icon: 'crown', cls: 'ghost', disabled: true }));
+        break;
+      case 'advent':
+        info.textContent = 'Behind a door of the Advent Calendar (December). It can’t be bought.';
+        wrap.appendChild(button({ label: 'Advent Calendar', icon: 'gift', cls: 'ghost', disabled: true }));
+        break;
       case 'event': {
         const ev = activeEvent();
-        if (!ev) {
-          info.textContent = 'A Spooky Season item. It comes back next Halloween!';
-          wrap.appendChild(button({ label: 'Halloween only', icon: 'lock', cls: 'ghost', disabled: true }));
+        if (!ev || ev.id !== u.event) {
+          const xmas = u.event === 'christmas';
+          info.textContent = xmas ? 'A Christmas Wonderland item. It comes back next December!' : 'A Spooky Season item. It comes back next Halloween!';
+          wrap.appendChild(button({ label: xmas ? 'Christmas only' : 'Halloween only', icon: 'lock', cls: 'ghost', disabled: true }));
           break;
         }
         const grant = () => {
@@ -380,7 +392,7 @@ export class ShopScreen extends BaseScreen {
     const ev = activeEvent();
     const owned = new Set(store.data.emotes.owned);
     // Seasonal emotes show while their event is on (and always once owned).
-    const list = EMOTES.filter((e) => e.unlock.kind !== 'event' || ev || owned.has(e.id));
+    const list = EMOTES.filter((e) => e.unlock.kind !== 'event' || e.unlock.event === ev?.id || owned.has(e.id));
     const grid = h('div.emote-grid');
     for (const e of list) {
       const has = owned.has(e.id);
@@ -388,6 +400,7 @@ export class ShopScreen extends BaseScreen {
       const price = u.kind === 'gems' || u.kind === 'event' ? u.price : 0;
       const buy = () => {
         if (has) return;
+        if (u.kind === 'event' && u.event !== ev?.id) return void ui.toast(u.event === 'christmas' ? 'Back next Christmas!' : 'Back next Halloween!', 'lock');
         if (u.kind === 'beta') return void ui.toast('Beta testers earn it by playing 5 minutes a day on 7 days. Gone after the beta.', 'lock', 3500);
         if (price > 0 && !store.spendGems(price)) {
           ui.sfx('error');
@@ -404,7 +417,7 @@ export class ShopScreen extends BaseScreen {
         h(
           `button.emote-card${has ? '.owned' : ''}`,
           { style: `--rc:${RARITY_COLORS[e.rarity]}`, onclick: buy, 'aria-label': has ? `${e.name}, owned` : `Buy ${e.name}` },
-          u.kind === 'event' && !has ? h('span.equipped-tag.spooky', null, 'HALLOWEEN') : u.kind === 'beta' ? h('span.equipped-tag.beta', null, 'BETA') : null,
+          u.kind === 'event' && !has ? eventTag(u.event) : u.kind === 'beta' ? h('span.equipped-tag.beta', null, 'BETA') : null,
           h(`span.emote-glyph.e-${e.anim}`, null, e.glyph),
           h('b', null, e.name),
           has ? h('span.state', null, 'Owned') : u.kind === 'beta' ? h('span.price', null, ic('lock'), 'Beta only') : h('span.price', null, ic('gem'), price ? fmt(price) : 'Free'),
@@ -583,4 +596,9 @@ export class ShopScreen extends BaseScreen {
         : null,
     );
   }
+}
+
+/** The corner tag on a seasonal item. */
+function eventTag(id: EventId): HTMLElement {
+  return id === 'christmas' ? h('span.equipped-tag.xmas', null, 'CHRISTMAS') : h('span.equipped-tag.spooky', null, 'HALLOWEEN');
 }

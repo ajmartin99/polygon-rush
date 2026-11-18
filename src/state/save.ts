@@ -146,6 +146,8 @@ export interface SaveData {
   secrets: { found: number[] };
   /** Haunted Run attempts, Heart Regens and records. */
   haunted: HauntedState;
+  /** Holiday Run (Christmas): attempts and records (Heart Regens come from `haunted.regens`, one shared pool). */
+  holiday: HauntedState;
   /** Boss Battles: wins and best damage per boss. */
   bosses: BossProgress;
   /** Players you banned from rooms you host (anonymous room id + their name then). */
@@ -269,6 +271,7 @@ export function createSave(now = Date.now()): SaveData {
     secrets: { found: [] },
     roomBans: [],
     haunted: emptyHaunted(),
+    holiday: emptyHaunted(),
     bosses: {},
     beta: { tester: false, version: '', at: 0, days: [], today: '', todaySec: 0, claimed: [] },
     best: {},
@@ -331,6 +334,8 @@ export function migrate(raw: unknown): SaveData {
   save.beta.todaySec = Math.max(0, Math.min(24 * 3600, Math.floor(save.beta.todaySec) || 0));
   save.haunted.used = Math.max(0, Math.floor(save.haunted.used) || 0);
   save.haunted.regens = Math.max(0, Math.min(999, Math.floor(save.haunted.regens) || 0));
+  save.holiday.used = Math.max(0, Math.floor(save.holiday.used) || 0);
+  save.holiday.regens = 0;
   for (const [k, rec] of Object.entries(save.bosses)) {
     if (!isObj(rec)) delete (save.bosses as Record<string, unknown>)[k];
     else save.bosses[k as BossId] = { wins: Math.max(0, Math.floor(Number(rec.wins)) || 0), best: Math.max(0, Math.min(1, Number(rec.best) || 0)) };
